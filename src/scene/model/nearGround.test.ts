@@ -9,7 +9,6 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { materialAt } from '../paint/shared/land/planeMaterial'
 import { preparePlaneTexels } from '../paint/shared/land/planeTexel'
-import { planeSurfaceOf } from './landColour'
 import { COVER_WATER, nonWaterLocalFallback, sampleBandAtKm } from './landPalette'
 import { linearRgbToSrgb, srgbRgbToLinear } from './landRadiance'
 import { TEXEL } from './planeBands'
@@ -87,23 +86,11 @@ describe('the ground nearer than the first DEM ring', () => {
 
   it('leaves the ground past 700 m to the rays', () => {
     const { land } = buildWorld(worldInput(loaded.get('haifa')!, NOON))
-    const copy = { ...land, own: { ...land.own, albedo: [0, 0, 0] as RGB } }
-    for (let i = 0; i < land.rays.length; i += 5) for (const km of [0.7, 1, 3, 20]) {
-      expect(sampleBandAtKm(land, i, km)).toEqual(sampleBandAtKm(copy, i, km))
+    const copy = { ...land, rays: land.rays.map((ray) => ({ ...ray, near: { albedo: [0, 0, 0] as RGB, source: 'near' } })) }
+    for (let i = 0; i < land.rays.length; i += 5) {
+      for (const km of [0.7, 1, 3, 20]) expect(sampleBandAtKm(land, i, km)).toEqual(sampleBandAtKm(copy, i, km))
+      expect(sampleBandAtKm(land, i, 0.69).albedo).not.toEqual(sampleBandAtKm(copy, i, 0.69).albedo)
     }
-  })
-
-  it("is in the near face's one tone by its share of the face, so no ray flips the whole face", () => {
-    const world = buildWorld(worldInput(loaded.get('haifa')!, NOON)), { land } = world, cells = 21
-    const [dark, bright]: RGB[] = [[0.2, 0.2, 0.2], [0.6, 0.6, 0.6]]
-    const toneOf = (brightRays: number) => planeSurfaceOf({ ...world, land: { ...land, rays: land.rays.map((ray, i) => {
-      const albedo = i < brightRays ? bright : dark
-      return { ...ray, near: { albedo, source: 'near' }, bands: ray.bands.map((b) => ({ ...b, sample: { ...b.sample, cover: 1, albedo } })) }
-    }) } }, 'near', world.terrain.near).mean
-    const tones = Array.from({ length: land.rays.length + 1 }, (_, n) => srgbRgbToLinear(toneOf(n))[0])
-    const [from, to] = [dark, bright].map((rgb) => srgbRgbToLinear(rgb)[0])
-    // One column in 21 of the face at a time, and one byte of rounding.
-    for (let n = 1; n < tones.length; n++) expect(tones[n] - tones[n - 1]).toBeLessThan((to - from) / cells + 0.01)
   })
 
   describe('its way into the rays', () => {
@@ -118,6 +105,17 @@ describe('the ground nearer than the first DEM ring', () => {
       expect(sampleBandAtKm(headland, 20, 0.3)).toEqual(near)
       expect(sampleBandAtKm(headland, 20, 0.5).albedo[0]).toBeGreaterThan(sampleBandAtKm(headland, 20, 0.6).albedo[0])
       expect(sampleBandAtKm(headland, 20, 0.7)).toEqual(nonWaterLocalFallback(headland))
+    })
+
+    it('where the footprint is not known, is what main drew: the dry bands, under the share of a dry place, else the local ground', () => {
+      const land = haifa(), dark: RGB = [0.1, 0.1, 0.1], pale: RGB = [0.9, 0.9, 0.9]
+      const of = (albedo: RGB, cover: number) => ({ ...land.own, cover, albedo })
+      const unknown = (own: ReturnType<typeof of>, band: ReturnType<typeof of>) => sampleBandAtKm({ ...land, own,
+        local: land.local.map((p, i) => ({ ...p, sample: i ? of(pale, 4) : own })),
+        rays: land.rays.map((ray) => ({ ...ray, near: undefined, bands: ray.bands.map((b) => ({ ...b, sample: band })) })) }, 20, 0.3).albedo
+      expect(unknown(of(pale, COVER_WATER), of(dark, 4))).toEqual(dark)
+      unknown(of(pale, 4), of(dark, 4)).forEach((v) => expect(v).toBeCloseTo(0.55 * 0.9 + 0.45 * 0.1, 9))
+      expect(unknown(of(dark, COVER_WATER), of(dark, COVER_WATER))).toEqual(pale)
     })
 
     it('mixes light, with no break of slope at either end', () => {

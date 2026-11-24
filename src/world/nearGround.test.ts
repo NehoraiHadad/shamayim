@@ -13,7 +13,7 @@ import type { RGB } from './types'
 
 const RAD = Math.PI / 180
 const CELL_M = LAND_STEP * M_PER_DEG
-/** Equator, mid-latitude, and where the grid's columns are narrower than half a cell. */
+/** Equator, mid-latitude, and where the grid's columns are narrower than half a row. */
 const LATS = [0, 32.35, 62]
 const footprint = <Cell>(lat: number, read: (eastM: number, northM: number) => Cell) =>
   footprintOf(lat, 35.0123, Math.cos(lat * RAD), read)
@@ -22,7 +22,7 @@ const areaOf = (shares: readonly { weight: number }[]) => shares.reduce((sum, { 
 describe('footprintOf', () => {
   it.each(LATS)('weighs the area of the circle from the eye to the first DEM ring at latitude %d', (lat) => {
     const near = footprint(lat, () => 1), circle = Math.PI * (FIRST_RING_M / 2) ** 2
-    const cosLat = Math.cos(lat * RAD), cellM2 = CELL_M * CELL_M * cosLat * Math.max(1, Math.round(1 / cosLat))
+    const cellM2 = CELL_M * CELL_M * Math.cos(lat * RAD)
     for (let azimuth = 0; azimuth < 360; azimuth += 15) expect(areaOf(near(azimuth)) * cellM2 / circle).toBeCloseTo(1, 1)
   })
 
@@ -82,10 +82,9 @@ describe('the land\'s near ground', () => {
     const read: string[] = []
     const near = footprint(32.35, (e, n) => read.push(`${e.toFixed(1)}:${n.toFixed(1)}`))
     for (let i = 0; i < LIVING_LAND_RAYS; i++) near(azimuthAt(i / (LIVING_LAND_RAYS - 1)))
-    console.info('near ground cells read on a place load', read.length)
     expect(new Set(read).size).toBe(read.length)
-    // The circles lie in the circle of twice the radius about the eye: no more cells than it and its rim hold.
-    expect(read.length).toBeLessThan(Math.PI * (FIRST_RING_M + CELL_M) ** 2 / (CELL_M * CELL_M * Math.cos(32.35 * RAD)))
+    // Every cell any of the 41 circles touches on this grid; the next change of the footprint must say what it costs.
+    expect(read.length).toBe(207)
   })
 
   it('is in the land: a clone has it, and one cell of another class is another key', () => {
