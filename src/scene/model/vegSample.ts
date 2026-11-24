@@ -6,7 +6,7 @@ import { labOf, mixRgb, rgbOfLab } from './tone'
 
 /**
  * Living-land vegetation cell sampling and raw BOA sRGB vegetation palette (Stages 4 & 7 round 2).
- * Stores raw physical BOA sRGB albedos anchored to the plane's BOA `medianLand`; `planeLight` lights all 18 entries
+ * Stores raw physical BOA sRGB albedos anchored to the plane's BOA `meanLand`; `planeLight` lights all 18 entries
  * through the exact shared `landRadiance` pipeline so canopies, fields and strata agree with the lit ground.
  */
 
@@ -80,10 +80,10 @@ export interface VegPaletteOpts {
 
 /**
  * Builds the 18-colour light-free reflectance-form vegetation palette anchored to the plane's reflectance-form
- * `medianLand`. Each entry starts from a physical BOA sRGB albedo on the Sentinel-2 L2A scale, converted via
+ * `meanLand`. Each entry starts from a physical BOA sRGB albedo on the Sentinel-2 L2A scale, converted via
  * `albedoToFormTone` so canopies, fields and strata keep realistic contrast against lit ground at every hour.
  */
-export function buildVegPalette(medianLand: RGB, dryness: number, opts?: VegPaletteOpts): RGB[] {
+export function buildVegPalette(meanLand: RGB, dryness: number, opts?: VegPaletteOpts): RGB[] {
   const d = clamp(dryness, 0, 1)
   const gDry = clamp(opts?.grassDryness ?? d, 0, 1)
   const minDry = clamp(opts?.minClimateDry ?? 0.14, 0, 1)
@@ -94,8 +94,8 @@ export function buildVegPalette(medianLand: RGB, dryness: number, opts?: VegPale
   const grassDry = opts?.grassNdvi !== undefined && Number.isFinite(opts.grassNdvi)
     ? clamp(0.55 * clamp((0.36 - opts.grassNdvi) / 0.18, 0, 1) + 0.45 * dryFactor, 0, 1)
     : dryFactor
-  const veg = (albedo: RGB, share = 0.14) => roundRgb(mixRgb(albedo, medianLand, share))
-  const lab = labOf(medianLand)
+  const veg = (albedo: RGB, share = 0.14) => roundRgb(mixRgb(albedo, meanLand, share))
+  const lab = labOf(meanLand)
   const strataLight = roundRgb(rgbOfLab({ l: clamp(lab.l + 0.055, 0.20, 0.85), a: lab.a * 1.05, b: lab.b * 1.15 }))
   const strataDark = roundRgb(rgbOfLab({ l: clamp(lab.l - 0.055, 0.12, 0.75), a: lab.a * 1.10, b: lab.b * 1.05 }))
   return [

@@ -54,7 +54,7 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
   const hidden = name === 'near' ? undefined : Math.min(box.landHeight, Math.ceil(Math.max(...world.terrain.near.points.map(([, y]) => y))) + 2)
   const ground = name === 'back' ? { gullies: [], terraces: [] } : groundForm(world, box, name, clear)
   const surface = planeSurfaceOf(world, name, plane, box.landHeight)
-  const vegetation = name === 'back' ? EMPTY_VEGETATION : planeVegetationOf(world, box, name, plane, surface.median, clear)
+  const vegetation = name === 'back' ? EMPTY_VEGETATION : planeVegetationOf(world, box, name, plane, surface.mean, clear)
   const key = layerKey('plane', name, FORM, world.keys.terrain, geom.geomKey, world.keys.place, world.keys.land, landBoxKey(box),
     name === 'back' ? '' : groundClearKey(clear), name === 'back' ? '' : cropEvidenceKey(world))
   const light = planeLight(world, box, name, plane)
@@ -63,7 +63,7 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
     kind: 'plane', plane: name, id: `plane.${name}`, surface: 'land', z: Z[name],
     bounds: { x: 0, y: top, w: box.width, h: Math.max(1, (hidden ?? box.landHeight) - top) },
     key,
-    outline, fill: surface.median, surfaceTone: surface.palette, ...ground, vegetation, canopyId,
+    outline, fill: surface.mean, surfaceTone: surface.palette, ...ground, vegetation, canopyId,
     grain: { amount: name === 'near' ? 1 : 0, seed: hashId(`${world.place.id}:${name}:grain`) },
     light: { ...light, key: layerKey(light.key, key) },
   }

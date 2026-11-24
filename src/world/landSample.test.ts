@@ -93,7 +93,7 @@ describe('livingLandOf s2-mean fallback, mixed-date withholding, snow isolation 
       data: { cover: { coverAt: coverSpy }, near: nearOnly, far: { date: '2026-11-15', source: 'gibs:2026-11-15', rgbDate: '2026-11-08', rgbSource: 'gibs:2026-11-08', fetchedAt: 0, lat: SHADMOT.lat, lon: SHADMOT.lon, reachKm: 60, stepKm: 6, size: 20, ndvi: new Float32Array(400).fill(0.3), rgb: new Uint8Array(1200).fill(120) }, weather: null },
     })
     expect(s.own.albedoSource).toBe('s2:2026-11-15')
-    // Only 9 local + 41*10 ray samples = 419 direct cover lookups (no 400-cell coverMean scan!)
-    expect(coverSpy).toHaveBeenCalledTimes(419)
+    // Only 9 local + 41*10 ray samples = 419 direct cover lookups + the 204 cells of the near ground (no 400-cell coverMean scan!)
+    expect(coverSpy).toHaveBeenCalledTimes(419 + 204)
   })
 })
