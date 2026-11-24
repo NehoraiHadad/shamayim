@@ -34,9 +34,10 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
   return standing
 }
 
+const siteW = new WeakMap<OutsideBox, number>()
 /** Whether `body` covers `other`: within one row, and so near its middle that only a strip of `other` would show. */
 const covers = (body: OutsideBox, other: OutsideBox, pitch: number) =>
-  Math.abs(body.x - other.x) < body.w * N('f') && Math.abs(body.foot - other.foot) < pitch * N('pitch')
+  other.top > body.top - N('rise') && Math.abs(body.x - other.x) < (N('ss') ? N('ss') * siteW.get(body)! : body.w * N('f')) && Math.abs(body.foot - other.foot) < pitch * N('pitch')
 
 /**
  * The standing sites' bodies, where a block drawn wider than its site takes the ground it covers: a widened block that a
@@ -45,6 +46,7 @@ const covers = (body: OutsideBox, other: OutsideBox, pitch: number) =>
  */
 export function composeBodies(sites: readonly FabricSite[], pitch: number, houseTopM: number): OutsideBox[] {
   const columns = new Map<number, OutsideBox[]>()
+  for (const { box, body } of sites) siteW.set(body, box.w)
   const span = (box: OutsideBox) => [Math.floor((box.x - box.w / 2) / pitch), Math.floor((box.x + box.w / 2) / pitch)]
   const lay = (box: OutsideBox) => {
     const [from, to] = span(box)
