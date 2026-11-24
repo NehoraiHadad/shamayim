@@ -1,17 +1,17 @@
 //# allFunctionsCalledOnLoad
 import { azimuthAt, xOf } from '../../domain/camera'
-import { coinOf } from '../../world/air'
-import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
-import { cityDomes, cityOnSky } from './cityLight'
+import { cityOnSky } from './cityLight'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './landVeil'
+import { skyGlows } from './skyGlows'
 import { mixRgb, rgbOf } from './tone'
-import type { Arch, Band, Glow, LayerOf, RGB, SceneBox } from './types'
+import type { Arch, Band, LayerOf, RGB, SceneBox } from './types'
+
+export { skyGlows, veilOf } from './skyGlows'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
-const WHITE: RGB = [1, 1, 1]
 
 /**
  * Where things stand in the sky surface (sky px). Across, a direction goes through the world's camera, scaled from the
@@ -135,53 +135,6 @@ export function horizonBand(world: WorldState, box: SceneBox): Band | null {
 /** The covers of the three layers (low, mid, high). */
 export const coversOf = (world: WorldState) => ({ low: world.clouds[0]?.cover ?? 0, mid: world.clouds[1]?.cover ?? 0,
   high: world.clouds[2]?.cover ?? 0 })
-
-/** How much the cloud in front veils a body (0 clear … 1 hidden): the share of its direct light the cloud takes. */
-export const veilOf = (world: WorldState) => 1 - world.light.clear
-
-/** The painted solar aureole, cloud brightening and ridge glow, in bottom-to-top order. */
-export function solarSkyGlows(world: WorldState, top: number, left: number, scale: number): Glow[] {
-  const out: Glow[] = []
-  const { sun } = world.bodies
-  const veil = veilOf(world)
-  const coin = coinOf(world.air)
-  const aerosol = world.air
-  if (sun.altitude > -1.5) {
-    const rgb = mixRgb(sunLight(Math.max(0, sun.altitude), aerosol).rgb, WHITE, 0.2)
-    const up = smoothstep(-1.5, 1, sun.altitude)
-    const low = 1 - 0.32 * smoothstep(8, 40, sun.altitude)
-    // A hot day's bloom (the air's heat): the glow spreads wider.
-    const bloom = 1 + 0.25 * clamp01(world.air.heat)
-    const g = up * low * (1 - 0.85 * veil) * (1 - coin)
-    const x = left + sun.x * scale, y = top + sun.y
-    if (g > 0.01) {
-      for (const [r, a] of [[200, 0.26], [86, 0.36], [32, 0.5]] as const) out.push({ x, y, r: r * bloom * Math.max(0.8, scale), rgb, alpha: a * g })
-    }
-    // Under a deck the sun is a brighter patch in the cloud, wide and soft.
-    if (veil > 0.6 && up > 0) out.push({ x, y, r: 120 * scale, rgb: mixRgb(rgb, WHITE, 0.5), alpha: 0.22 * up * smoothstep(0.6, 0.95, veil) * (1 - coin) })
-  }
-  const glow = world.light.glow
-  if (glow && glow.opacity > 0.01) {
-    const after = world.light.afterglow?.rgb ?? sunLight(0.5, aerosol).rgb
-    const clear = 1 - 0.7 * smoothstep(0.4, 0.95, 1 - world.light.clear)
-    out.push({ x: left + glow.x * scale, y: top + glow.y, r: 170 * scale, ry: 90, rgb: after,
-      alpha: 0.45 * glow.opacity * clear })
-  }
-  return out
-}
-
-/** City domes, solar glows and the moon's cool halo, in bottom-to-top order. */
-export function skyGlows(world: WorldState, box: SceneBox, geom = skyGeom(world, box)): Glow[] {
-  const out = [...cityDomes(world, geom), ...solarSkyGlows(world, box.landTop, geom.left, geom.s)]
-  const { moon } = world.bodies
-  const veil = veilOf(world)
-  if (moon.up && world.night.dark > 0.05) {
-    const strength = moon.illumination * world.night.dark * (1 - 0.85 * veil)
-    if (strength > 0.02) out.push({ x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: 64 * geom.s, rgb: [0.78, 0.82, 1],
-      alpha: 0.22 * strength })
-  }
-  return out
-}
 
 /**
  * Earth's shadow and the belt of Venus: from just before sunset to ~6° after (and the mirror at dawn), opposite the sun,

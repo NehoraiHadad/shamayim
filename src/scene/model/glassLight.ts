@@ -3,9 +3,10 @@ import { aerosolDepth } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import type { Surroundings } from './buildingGround'
 import { facadeTwilight } from './buildingExposure'
-import { linearLuminance } from './landRadiance'
-import { skyReflection } from './landSkyIrradiance'
+import { linearLuminance, srgbRgbToLinear } from './landRadiance'
+import { afterglowWeight, skyReflection } from './landSkyIrradiance'
 import type { TwilightScreen } from './styleLight'
+import { mixRgb, rgbOf } from './tone'
 
 // Four incoherent air/glass interfaces in series. Each adds R/(1−R)
 // to the reflectance odds once the internal returns are summed.
@@ -20,9 +21,11 @@ function paneAndBand(pane: RGB): Returns {
 /** Directional sky in rough window glass, with Fresnel reflectance and diffuse light
  * from the interior. The mullions see the same sky but return less of it. */
 export function glassIncidence(world: WorldState, { irr }: Surroundings, screenOf?: TwilightScreen) {
-  // Use the broad directional sky. The gilding's concentrated forward
-  // accent would paint the warm horizon across whole panes.
-  const sky = skyReflection(world.light, irr.sunAlt, .099 + aerosolDepth(world.air)[1], irr.eSkyVec, 0, true)
+  // Glass keeps its existing aerosol tint as a wide, rough sky average.
+  const { afterglow, palette } = world.light
+  const horizon = srgbRgbToLinear(rgbOf(palette.horizon))
+  const lobe = afterglow ? mixRgb(horizon, srgbRgbToLinear(afterglow.rgb), afterglowWeight(irr.sunAlt)) : horizon
+  const sky = skyReflection(world.light, irr.sunAlt, .099 + aerosolDepth(world.air)[1], irr.eSkyVec, lobe)
   // Keep the passive pane within its facade's tonal range at twilight.
   // Fade the bound into daylight and as the scene reaches full night.
   const twilight = screenOf ? 0 : facadeTwilight(irr.sunAlt)

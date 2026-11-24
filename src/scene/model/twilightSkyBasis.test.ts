@@ -1,12 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { receiverScene } from '../../test/receiverScene'
-import type { RGB } from '../../world/types'
+import type { RGB, WorldState } from '../../world/types'
 import { diffuseSky, skyReflection } from './landSkyIrradiance'
 import type { RadianceLight } from './landIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { rgbOf } from './tone'
-import { domeSectors, GOLD_F0 } from './metalLight'
-import { solarSkyGlows } from './sky'
+import { buildingSurroundings } from './buildingLight'
+import { glassIncidence } from './glassLight'
+import { domeSectors, metalLight, silverLight } from './metalLight'
+import { AFTERGLOW, afterglowColour } from '../../world/afterglow'
+import { NORMALS } from '../../world/livingLight'
+import { skyGlows, type SkyGeom } from './sky'
+import type { SceneBox } from './types'
+
+const referenceGlows = (world: Parameters<typeof skyGlows>[0]) =>
+  skyGlows({ ...world, night: { ...world.night, litShare: 0 } },
+    { landTop: 0 } as SceneBox, { left: 0, s: 1 } as SkyGeom)
 
 const light = {
   ambient: [.36, .29, .63],
@@ -31,27 +40,8 @@ function hue([r, g, b]: RGB) {
   return Math.atan2(200 * (y - z), 500 * (x - y)) * 180 / Math.PI
 }
 
-describe('clear twilight sky', () => {
-  it.each([1.4, -5])('uses the same reflected and diffuse chromaticity at %s°', (altitude) => {
-    const tau = .099
-    const diffuse = diffuseSky(light, altitude, tau).rgb
-    const sample = skyReflection(light, altitude, tau, diffuse)
-    const integral = [0, 0, 0]
-    for (let i = 0; i < 24; i++) {
-      const up = (i + .5) / 24
-      for (let j = 0; j < 36; j++) {
-        const toward = Math.sqrt(1 - up ** 2) * Math.cos((j + .5) * Math.PI / 18)
-        sample(up, toward).forEach((channel, k) => { integral[k] += up * channel })
-      }
-    }
-    const [dx, dy] = xy(diffuse), [rx, ry] = xy(integral)
-    const dxy = Math.hypot(dx - rx, dy - ry)
-    expect(dxy).toBeLessThan(.03)
-  })
-})
-
 describe('sunward reflected sky lobe', () => {
-  it('puts the painted sunward hue on the brightest sector of the conductor', () => {
+  it('keeps the aerosol tint in glazing and puts the painted sunward hue on gold', () => {
     // At the solar aura cutoff, only the ridge glow overlays this uniform sky.
     const altitude = -1.5
     const scene = receiverScene(252, altitude, 0)
@@ -68,15 +58,62 @@ describe('sunward reflected sky lobe', () => {
         afterglow: { x, altitude, rgb: [1, .45, .25] as RGB },
       },
     }
-    const [glow] = solarSkyGlows(fixture, 0, 0, 1)
+    const surroundings = buildingSurroundings(fixture)
+    const noAfterglow = { ...fixture, light: { ...fixture.light, afterglow: null } }
+    const pane = (world: WorldState) =>
+      glassIncidence(world, surroundings)(NORMALS.front, [1, 1, 1], [1, 1, 1])
+    expect(pane(fixture)).not.toEqual(pane(noAfterglow))
+
+    const [glow] = referenceGlows(fixture)
     // At the center the gradient has its full painted alpha over the horizon.
     const rgb: RGB = [0, 1, 2].map(i => (1 - glow.alpha) * horizon[i] + glow.alpha * glow.rgb[i]) as [number, number, number]
     const sectors = domeSectors(fixture, 0).flat().map(srgbRgbToLinear)
     const unlit = { ...fixture, light: { ...fixture.light, glow: null } }
+    expect(pane(fixture)).toEqual(pane(unlit))
     expect(sectors).not.toEqual(domeSectors(unlit, 0).flat().map(srgbRgbToLinear))
     const peak = sectors.reduce((a, b) => linearLuminance(a) > linearLuminance(b) ? a : b)
     const [r, g, b] = srgbRgbToLinear(rgb)
-    const delta = hue(peak) - hue([GOLD_F0[0] * r, GOLD_F0[1] * g, GOLD_F0[2] * b])
+    // Measured gold reflectance at normal incidence (Epic Games' metal table).
+    const gold: RGB = [1, .766, .336]
+    const delta = hue(peak) - hue([gold[0] * r, gold[1] * g, gold[2] * b])
+    const normal = [.7, -.71, .05] as const
+    expect(metalLight(fixture, 0, gold)(normal)).toEqual(metalLight(fixture, 0)(normal))
+    expect(silverLight(fixture, 0)(normal)).not.toEqual(silverLight(unlit, 0)(normal))
     expect(Math.abs((delta + 540) % 360 - 180)).toBeLessThan(8)
   })
+})
+
+describe('clear twilight sky', () => {
+  it.each([1.4, -5])('uses the same reflected and diffuse chromaticity at %s°', (altitude) => {
+    const tau = .099
+    const diffuse = diffuseSky(light, altitude, tau).rgb
+    const sample = skyReflection(light, altitude, tau, diffuse, srgbRgbToLinear(rgbOf(light.palette.horizon)))
+    const integral = [0, 0, 0]
+    for (let i = 0; i < 24; i++) {
+      const up = (i + .5) / 24
+      for (let j = 0; j < 36; j++) {
+        const toward = Math.sqrt(1 - up ** 2) * Math.cos((j + .5) * Math.PI / 18)
+        sample(up, toward).forEach((channel, k) => { integral[k] += up * channel })
+      }
+    }
+    const [dx, dy] = xy(diffuse), [rx, ry] = xy(integral)
+    const dxy = Math.hypot(dx - rx, dy - ry)
+    expect(dxy).toBeLessThan(.03)
+  })
+})
+
+it.each([AFTERGLOW.from, AFTERGLOW.to])('keeps painted ridge glow continuous at %s°', cutoff => {
+  const ridgeColour = (altitude: number) => {
+    const world = receiverScene(252, altitude)
+    const x = 295, y = 390
+    world.bodies.sun = { ...world.bodies.sun, x, y }
+    world.air = { ...world.air, heat: 0, farFade: 0 }
+    world.light.clear = 1
+    world.light.glow = { side: 'west', opacity: .34, x, y }
+    world.light.afterglow = altitude > AFTERGLOW.to && altitude < AFTERGLOW.from
+      ? { x, altitude, rgb: afterglowColour(altitude, world.air) } : null
+    return referenceGlows(world).at(-1)!.rgb
+  }
+  const before = ridgeColour(cutoff - .001), after = ridgeColour(cutoff + .001)
+  before.forEach((channel, i) => expect(Math.abs(channel - after[i])).toBeLessThan(1 / 255))
 })
