@@ -23,8 +23,8 @@ const CELLS = 3600, SHEET_PX = 1_600_000, EDGE = 0.36
 const ACROSS = 0.75, UP = 1.05, PUFF = 0.12, BASE = 0.3, DARK = 0.9, SIDE = 0.75
 /** What a light behind the tower gives its rim, and how near the edge that is. */
 const SILVER = 0.45, RIM = 3
-/** How heavy a raining tower is at least; the chroma its inks take. */
-const RAINS = 0.6, GAIN = 1.35
+/** How heavy a raining tower is at least; the chroma its inks take (the body is half the sky's). */
+const RAINS = 0.6, GAIN = 1.2
 /** The width (px) of a tower that takes its key line whole; a print has no half-there block: the opacity it is whole from. */
 const WHOLE_AT = 90, FIRM = 0.25
 /** Room for the key line (px) and at the sides for the caps, against the width. */

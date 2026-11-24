@@ -3,7 +3,7 @@ import type { LayerOf, RGB, Streak } from '../../model/types'
 import { css, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { loopAt, paintDatum, running, twinkling } from '../shared/land/water'
 import { carve, type P } from './kit/carve'
-import { pigment } from './kit/palette'
+import { pigment, skied } from './kit/palette'
 import { layWater } from './waterInk'
 
 /*
@@ -27,12 +27,12 @@ export function paintDrawnWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEn
     if (far.length < 2) continue
     ctx.beginPath()
     far.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + hair / 2) : ctx.moveTo(x, y + hair / 2)))
-    ctx.strokeStyle = css(pigment(rim.rgb, 0.3), rim.alpha * smoothstep(0, 0.04, rim.alpha))
+    ctx.strokeStyle = css(skied(rim.rgb, 0.3), rim.alpha * smoothstep(0, 0.04, rim.alpha))
     ctx.lineWidth = hair * 1.5
     ctx.stroke()
   }
-  dashes(ctx, running(ruffle.shade, t, ruffle.drift, 0), pigment(ruffle.dark, -0.5), 1.1 * hair)
-  dashes(ctx, running(ruffle.lit, t, ruffle.drift, 0.5), pigment(ruffle.light, 0.2), 1.3 * hair)
+  dashes(ctx, running(ruffle.shade, t, ruffle.drift, 0), skied(ruffle.dark, -0.5), 1.1 * hair)
+  dashes(ctx, running(ruffle.lit, t, ruffle.drift, 0.5), skied(ruffle.light, 0.2), 1.3 * hair)
   for (const glint of desc.glints) {
     path(ctx, glint, 1 + BREATHE * Math.sin(2 * Math.PI * t))
     dashes(ctx, twinkling(glint.sparks, t), pigment(glint.rgb, 0.4), 1.5 * hair, 1)

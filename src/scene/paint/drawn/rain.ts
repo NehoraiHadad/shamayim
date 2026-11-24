@@ -4,7 +4,7 @@ import { css, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { paintShafts, type Fibres } from '../shared/weather/curtain'
 import { paintEdge } from '../shared/weather/edge'
 import { carve, type P } from './kit/carve'
-import { papered, pigment, valued } from './kit/palette'
+import { papered, skied, valued } from './kit/palette'
 
 /*
  * A curtain as a print: a few long planes of heavier and lighter ink, and through them many fine lines cut side by side along
@@ -20,7 +20,7 @@ const DOWN = [[0, 0], [0.22, 1], [0.62, 0.6], [1, 0.2]] as const, STRONG = 1.2, 
 /** A paper cut's step over the fall, by day: it fades with the light. */
 const LIFT = 0.14, BRIGHT = 1.3
 
-const inked = <T extends { rgb: ShaftDesc['rgb'] }>(of: T): T => ({ ...of, rgb: pigment(of.rgb, -0.25, 1.2) })
+const inked = <T extends { rgb: ShaftDesc['rgb'] }>(of: T): T => ({ ...of, rgb: skied(of.rgb, -0.25) })
 
 export function paintDrawnShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, env: PaintEnv): void {
   paintShafts(ctx, { ...desc, shafts: desc.shafts.map(inked) }, env, PLANES, (s) => cuts(ctx, s, desc.precip === 'snow', env))
@@ -28,7 +28,7 @@ export function paintDrawnShafts(ctx: Ctx2D, desc: LayerOf<'shafts'>, env: Paint
 
 /** The edge mark in the block's inks. */
 export function paintDrawnEdge(ctx: Ctx2D, desc: LayerOf<'edge'>, env: PaintEnv): void {
-  paintEdge(ctx, { ...desc, body: pigment(desc.body), shade: pigment(desc.shade, -0.5), curtain: pigment(desc.curtain, -0.25, 1.2) }, env, PLANES)
+  paintEdge(ctx, { ...desc, body: skied(desc.body), shade: skied(desc.shade, -0.5), curtain: skied(desc.curtain, -0.25) }, env, PLANES)
 }
 
 function cuts(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean, env: PaintEnv) {
@@ -37,7 +37,7 @@ function cuts(ctx: Ctx2D, s: Omit<ShaftDesc, 'id'>, snow: boolean, env: PaintEnv
   const at = (u: number, t: number): P => [s.x + u * s.w * REACH * (1 + 0.24 * t) + s.lean * t, s.top + t * h]
   const many = Math.min(CUTS.most, Math.round(s.w * (snow ? CUTS.snow : CUTS.rain))), hair = Math.max(WIDE, 1 / env.scale)
   const lift = LIFT * Math.min(1, Math.max(...s.rgb) * BRIGHT)
-  for (const [pass, share, ink] of [[0, 1 - CUTS.paper, pigment(valued(s.rgb, -0.13), -0.8)], [1, CUTS.paper, papered(valued(s.rgb, lift), 0.3)]] as const) {
+  for (const [pass, share, ink] of [[0, 1 - CUTS.paper, skied(valued(s.rgb, -0.13), -0.8)], [1, CUTS.paper, papered(valued(s.rgb, lift), 0.3)]] as const) {
     const r = rng(s.seed + pass)
     ctx.beginPath()
     for (let n = 0; n < many * share; n++) {

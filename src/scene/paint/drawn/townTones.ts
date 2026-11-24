@@ -1,6 +1,6 @@
 import type { IllustratedTones } from '../../model/illustratedTones'
 import type { OutsideLandDesc, SeaDesc, Tones } from '../../model/types'
-import { calm, papered, pigment, valued } from './kit/palette'
+import { calm, papered, pigment, skied, valued } from './kit/palette'
 
 /* A town's tones as the block's inks: lit planes warm and a step up, shades cool and a step down; its lamps and air as they are. */
 
@@ -28,7 +28,7 @@ export const inkedLand = (land: OutsideLandDesc): OutsideLandDesc =>
   ({ ...land, tone: pigment(land.tone, 0.2), rim: pigment(land.rim, 0.5), stops: land.stops.map(([at, rgb]) => [at, pigment(rgb, 0.2)]) })
 
 export const inkedSea = (sea: SeaDesc): SeaDesc => ({
-  ...sea, stops: sea.stops.map(([at, rgb]) => [at, pigment(rgb)]), light: pigment(sea.light, 0.2), dark: pigment(sea.dark, -0.4),
-  shore: pigment(sea.shore, 0.5), horizon: { ...sea.horizon, rgb: pigment(sea.horizon.rgb) },
+  ...sea, stops: sea.stops.map(([at, rgb]) => [at, skied(rgb)]), light: skied(sea.light, 0.2), dark: skied(sea.dark, -0.4),
+  shore: pigment(sea.shore, 0.5), horizon: { ...sea.horizon, rgb: skied(sea.horizon.rgb) },
   glint: sea.glint && { ...sea.glint, rgb: pigment(sea.glint.rgb, 0.4) },
 })

@@ -6,7 +6,7 @@ import type { RGB } from '../../../model/types'
 import { samplePlaneTexel, type PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { traceOver } from '../kit/contour'
 import { ease } from '../kit/ease'
-import { pigment } from '../kit/palette'
+import { skied } from '../kit/palette'
 import { columnAt, frameOf, type Ground } from './pots'
 
 /*
@@ -110,7 +110,7 @@ function meansOf({ pots }: Ground, cut: Cut, labs: Labs) {
 /** The inks, parted about the bands' means under the whole sun: where no sun comes in, a cloud's shadow leaves them as they are. */
 function inksOf(labs: Labs, cut: Cut, means: readonly (number | null)[]): RGB[][][] {
   return labs.map((byPot, v) => byPot.map((byBand) => byBand.map((lab, b) => {
-    const mean = means[b] ?? lab.l, turn = Math.round(LEVELS[v].turn * (1 - cut[v]![b].haze) * 20) / 20
-    return pigment(rgbOfLab({ ...lab, l: Math.min(1, Math.max(0, mean + PART * (lab.l - mean))) }), turn)
+    const mean = means[b] ?? lab.l, air = Math.round(cut[v]![b].haze * 20) / 20, turn = LEVELS[v].turn * (1 - air)
+    return skied(rgbOfLab({ ...lab, l: Math.min(1, Math.max(0, mean + PART * (lab.l - mean))) }), turn, air)
   })))
 }

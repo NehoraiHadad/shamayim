@@ -2,7 +2,7 @@ import type { LayerOf, RGB } from '../../model/types'
 import { rng } from '../shared/base/core'
 import { css, mix, outline, type Ctx2D } from '../shared/base/hand'
 import { carve, type P } from './kit/carve'
-import { pigment, valued } from './kit/palette'
+import { skied, valued } from './kit/palette'
 
 /** How much deeper the ink is at the near edge, and how far a wave cut's value goes from it. */
 const WIPED = 0.06, WAVE = 0.055
@@ -15,7 +15,7 @@ const ALONG = [0, 0.14, 0.28, 0.43, 0.57, 0.71, 0.86, 1]
 export function layWater(ctx: Ctx2D, { points, stops, top, bottom }: LayerOf<'water'>['bands'][number], seed: number): void {
   const xs = points.map(([x]) => x), x0 = Math.min(...xs), x1 = Math.max(...xs)
   const wipe = ctx.createLinearGradient(0, top, 0, Math.max(top + 0.5, bottom))
-  for (const [u, rgb] of stops) wipe.addColorStop(u, css(pigment(valued(rgb, -WIPED * u * u))))
+  for (const [u, rgb] of stops) wipe.addColorStop(u, css(skied(valued(rgb, -WIPED * u * u))))
   ctx.save()
   outline(ctx, points)
   ctx.fillStyle = wipe
@@ -30,7 +30,7 @@ export function layWater(ctx: Ctx2D, { points, stops, top, bottom }: LayerOf<'wa
         if (r() < share) carve(ctx, ALONG.map((k): P => [x + k * long, y + (by > 0 ? gap / 2 : 0) + (0.2 + 0.5 * u) * Math.sin(k * long * 0.5 + n)]), 0.4 + 0.5 * u, n, 0.9)
         x += long * (1.1 + r())
       }
-      ctx.fillStyle = css(pigment(valued(ink, by), by < 0 ? -0.5 : 0.2), STRONG)
+      ctx.fillStyle = css(skied(valued(ink, by), by < 0 ? -0.5 : 0.2), STRONG)
       ctx.fill()
     }
   }

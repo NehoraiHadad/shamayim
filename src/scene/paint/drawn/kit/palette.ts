@@ -32,6 +32,12 @@ export function pigment(rgb: RGB, turn = 0, gain = GAIN): RGB {
   })
 }
 
+/** The gain of a colour that is the sky's or the air's: the sky is in the hand's pigment already (`DRAWN_GRADE`). */
+const SKIED = 1.1
+
+/** A model colour with the sky or its air in it, as the hand paints it: `air` the share of it. */
+export const skied = (rgb: RGB, turn = 0, air = 1): RGB => pigment(rgb, turn, GAIN + (SKIED - GAIN) * air)
+
 /** The cool (Oklab -b) over which a colour is cool already. */
 const COOLED = 0.03
 
