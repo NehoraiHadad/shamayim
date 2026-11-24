@@ -15,23 +15,7 @@ jobs:
       - run: npm ci
       - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
       - run: npx vite build
-      - name: Entry chunk against main
-        if: always()
-        run: |
-          git worktree add ../main origin/main
-          ln -s "$PWD/node_modules" ../main/node_modules
-          (cd ../main && npx vite build) | grep -E "assets/.*js" > ../main.txt
-          grep -o 'src="[^"]*js"' ../main/dist/index.html dist/index.html
-          echo main; cat ../main.txt; echo vote; ls -l dist/assets/*.js
-      - run: node e2e/styleVote.stills.mjs vote-out/after . after
-      - if: always()
-        run: node e2e/styleSwitch.stills.mjs vote-out/switch
-      - name: Scenes in both styles
-        if: always()
-        run: |
-          set -f
-          for m in jerusalem@12:00 jerusalem@12:00@broken tel-aviv@16:30 haifa@09:00@broken haifa@21:00 rosh-pina@10:00 ein-gedi@06:20 tiberias@12:00@rain jerusalem@16:30@showers shadmot-mehola@16:30; do list="$list $m $m#drawn"; done
-          node e2e/scene.stills.mjs vote-out/scene $list
+      - run: node e2e/styleSwitch.stills.mjs vote-out/switch
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: vote-stills, path: vote-out/, retention-days: 14 }
