@@ -101,20 +101,17 @@ describe('the land\'s near ground', () => {
   })
 
   it('gives a class one colour where the climate changes under the footprint, whichever bearing is asked first', () => {
-    const dry = (lon: number) => climatologyAt(31.2, lon, -175, 11, 3).rgb.join()
-    let [west, east] = [34, 36]
-    expect(dry(west)).not.toBe(dry(east))
-    for (let i = 0; i < 40; i++) {
-      const mid = (west + east) / 2
-      if (dry(mid) === dry(west)) west = mid
-      else east = mid
-    }
+    // The climate's cells meet at half degrees: a line between two of them 1 m from the eye, on either side of it.
+    const dry = (lat: number, lon: number) => climatologyAt(lat, lon, -175, 11, 3).rgb.join()
+    const lines = [30.25, 30.75, 31.25, 31.75, 32.25].flatMap((lat) => [34.5, 35, 35.5, 36, 36.5].map((lon) => ({ lat, lon })))
+    const { lat, lon: line } = lines.find((l) => dry(l.lat, l.lon - 1e-5) !== dry(l.lat, l.lon + 1e-5))!
     const grass = only(coverOf(() => 3))
-    for (const lon of [west, east]) {
-      const eastFirst = at(grass, 31.2, lon), westFirst = at(grass, 31.2, lon, STORED_CAMERA)
+    for (const lon of [line - 1e-5, line + 1e-5]) {
+      const eastFirst = at(grass, lat, lon), westFirst = at(grass, lat, lon, STORED_CAMERA)
       expect(eastFirst.rays[0].azimuth).toBeCloseTo(westFirst.rays.at(-1)!.azimuth, 6)
-      expect(nearOf(eastFirst)).toEqual(nearOf(westFirst).reverse())
-      expect(new Set(nearOf(eastFirst).map((near) => JSON.stringify(near))).size).toBe(1)
+      const colours = (land: LivingLand) => nearOf(land).map((near) => (near as { albedo: RGB }).albedo.map((v) => v.toFixed(9)).join())
+      expect(colours(eastFirst)).toEqual(colours(westFirst).reverse())
+      expect(new Set(colours(eastFirst)).size).toBe(1)
     }
   })
 

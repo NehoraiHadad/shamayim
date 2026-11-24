@@ -4,11 +4,13 @@ export async function buildingColorChecks() {
   const { wallAir } = await import('/src/scene/model/wallDistance.ts')
   const { buildingFaces } = await import('/src/scene/model/buildingLight.ts')
   const { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } = await import('/src/scene/paint/shared/land/planeTexel.ts')
-  const { srgbRgbToLinear, linearLuminance } = await import('/src/scene/model/landRadiance.ts')
+  const { albedoLinear, srgbRgbToLinear, linearLuminance } = await import('/src/scene/model/landRadiance.ts')
   const { landIrradiance } = await import('/src/scene/model/landIrradiance.ts')
   const { sunlitGround } = await import('/src/scene/model/buildingGround.ts')
   const { receiverMaterial } = await import('/src/scene/model/buildingMaterial.ts')
   const { hazeAt, hazeOf } = await import('/src/scene/model/landVeil.ts')
+  const { nearGroundAlbedo } = await import('/src/scene/model/landColour.ts')
+  const { outsideGroundAlbedo } = await import('/src/scene/model/outsideGround.ts')
   const { lambert } = await import('/src/world/livingLight.ts')
   const { TEXEL } = await import('/src/scene/model/planeBands.ts')
   const world = window.__world, box = { width: innerWidth, landHeight: 128, landTop: 300, skyHeight: 428, dpr: 1 }
@@ -35,12 +37,14 @@ export async function buildingColorChecks() {
     if (glass || lambert(facing.normals[0], irr.sunDir) > 0) return []
     return hue(lightOf(outside.receivers[i.tier][i.receiver].front.wall, stone, hazeAt(world, air(shape.wallKms[i.tier])), airLin))
   })
-  // A wall turned from the sun sees half the sky's dome and half the ground's: streets, part of them in the beam.
-  const rho = [0, 1, 2].map(k => median(rhos.map(c => c[k]))), sunlit = sunlitGround(irr.sunDir) * Math.max(0, irr.sunDir.up)
-  const mixed = rho.map((c, k) => irr.eSkyVec[k] + c * (irr.eSkyVec[k] + sunlit * irr.eSunVec[k]))
-  const light = { wall: median(walls), ground: median(shaded), expected: hue(mixed) / hue(irr.eSkyVec) }
-  // What the gate must refuse: a wall the blue sky alone lights, as on no ground.
-  Object.assign(light, { ratio: light.wall / light.ground / light.expected, skyOnly: 1 / light.expected, walls: walls.length })
+  // A wall turned from the sun sees half the sky's dome and half the place's own ground: streets, part of them in the beam.
+  const view = world.place3, sunlit = sunlitGround(irr.sunDir) * Math.max(0, irr.sunDir.up)
+  const expectedOn = rho => hue(rho.map((c, k) => irr.eSkyVec[k] + c * (irr.eSkyVec[k] + sunlit * irr.eSunVec[k]))) / hue(irr.eSkyVec)
+  const expected = expectedOn(albedoLinear(view.land ? outsideGroundAlbedo(world, view.land, view.frame) : nearGroundAlbedo(world)))
+  const painted = expectedOn([0, 1, 2].map(k => median(rhos.map(c => c[k]))))
+  const wall = median(walls), ground = median(shaded)
+  // `skyOnly`: what the gate must refuse, a wall the blue sky alone lights, as on no ground.
+  const light = { wall, ground, expected, ratio: wall / ground / expected, painted: wall / ground / painted, skyOnly: 1 / expected, walls: walls.length }
   const glass = outside.items.filter(i => i.kind === 'tower' && i.receiver >= 0 && i.receiver % 2).map(i => {
     const pane = outside.receivers[i.tier][i.receiver].front.wall
     const sameStone = buildingFaces(world, air(shape.wallKms[i.tier]), i.receiver ^ 1)
