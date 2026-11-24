@@ -27,9 +27,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
-      - run: pip install overturemaps pyarrow shapely scipy numpy pillow
+      - run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -q overturemaps pyarrow shapely scipy numpy pillow
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
       - id: data
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/overture
           key: overture-buildings-1
@@ -39,6 +42,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/overture"
           overturemaps download --bbox=34.2,29.4,35.95,33.45 -f geoparquet --type=building -o "$RUNNER_TEMP/overture/building.parquet"
           ls -la "$RUNNER_TEMP/overture"
+      - if: steps.data.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/overture
+          key: overture-buildings-1
       - run: python -I scripts/v2b/places.py "$RUNNER_TEMP/overture/building.parquet" public/v2b
       - run: node scripts/v2b/stills.mjs v2b-out/stills karmei-tzur nahalal
       - run: python -I scripts/v2b/compose.py v2b-out/stills v2b-out/sheets karmei-tzur nahalal
@@ -47,9 +55,9 @@ jobs:
         if: ${{ !cancelled() }}
         continue-on-error: true
         run: |
-          python -I scripts/v2b/allPlaces.py "$RUNNER_TEMP/overture/building.parquet" public/data/city/bounds.json v2b-out/all | tee v2b-out/all.txt
-          node scripts/v2b/decode.mjs v2b-out/all public/v2b | tee v2b-out/decode.txt
-      - run: cp -r public/v2b v2b-out/footprints
+          python -I scripts/v2b/allPlaces.py "$RUNNER_TEMP/overture/building.parquet" public/data/city/bounds.json v2b-out/all > v2b-out/all.txt
+          node scripts/v2b/decode.mjs v2b-out/all public/v2b > v2b-out/decode.txt
+      - run: mkdir -p v2b-out && cp -r public/v2b v2b-out/footprints
         if: ${{ !cancelled() }}
       - uses: actions/upload-artifact@v4
         if: always()
