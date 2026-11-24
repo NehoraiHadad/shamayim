@@ -13,8 +13,7 @@ import { mixRgb } from './tone'
  */
 
 const RAD = Math.PI / 180
-/** Clear-sky diffuse proxy in klx. The square-root fit in docs/briefs/found/sky-colour.diagnosis.md
- * has 0.8 klx at the horizon and 16.3 klx at zenith, a span of 15.5 klx. */
+/** IES Lighting Handbook clear-sky diffuse horizontal illuminance (klx): A + B sin(h)^C, A=.8, B=15.5, C=.5. */
 const clearDiffuse = (altitude: number) => 0.8 + 15.5 * Math.sqrt(Math.sin(altitude * RAD))
 /** The eye is adapted to a clean high sun, whose light on a cloud is white. */
 const WHITE_BEAM = solarBeam(90).transmission

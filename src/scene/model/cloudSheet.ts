@@ -104,7 +104,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       const depth = cellular ? local : local + f * (expected[index] - local)
       const thinned = corrected(index)
       const localOpacity = sheetOpacity(local, multiplier)
-      // Design choice: recover up to half the squared texture deficit in opaque, sunlit cells.
+      // Raise mean texel depth above −3°, including decks lit by afterglow or city light during the −6° to −3° taper.
       const texel = recovery && thinned < 1
         ? thinned + 0.5 * recovery * localOpacity * (1 - thinned) ** 2 : thinned
       // The far density is already the log of the ensemble transmission for
@@ -132,7 +132,7 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
-  const through = sheetThrough(world.air, layer.baseKm, altitudes, daylit)
+  const through = sheetThrough(world.air, layer.baseKm, altitudes, world.bodies.sun.altitude)
   // A 1/64 step keeps the maximum change in drawn low-light weight below 2% and fits the key's hundredths.
   const paintDaylight = Math.round(daylit * 64) / 64
   const sheet: LayerOf<'cloudSheet'> = {

@@ -1,5 +1,5 @@
 import { THRESHOLDS } from '../config/thresholds'
-import { ratio } from './contrast'
+import { luminance, skyContrastCeiling } from './contrast'
 import { hexToOklab, mixOklab, oklabToHex } from './oklab'
 import type { Aerosol } from '../world/sceneLight'
 import { skyAir } from './skyAir'
@@ -66,7 +66,8 @@ function semantic(altitude: number, rising: boolean, field: keyof SkyLight): str
 
 function guard(background: string, inks: string[]): string {
   let lab = hexToOklab(background)
-  while (inks.some((ink) => ratio(ink, oklabToHex(lab)) < 4.6) && lab.l > 0) lab = { ...lab, l: lab.l - 0.005 }
+  const ceiling = Math.min(...inks.map(skyContrastCeiling))
+  while (luminance(oklabToHex(lab)) > ceiling && lab.l > 0) lab = { ...lab, l: lab.l - 0.005 }
   return oklabToHex(lab)
 }
 

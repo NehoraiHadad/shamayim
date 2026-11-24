@@ -1,5 +1,6 @@
 import type { AirInput } from '../atmo/airTypes'
 import type { Weather } from '../atmo/weatherMix'
+import { dustVeilPotential } from '../theme/skyLight'
 import { dustShare, haze, heat, rainRate, visibilityKm } from './airParts'
 import { blockingCloudCover, isFogCode, mistOf, NO_MIST } from './mist'
 import type { Air, Body, RGB, WorldSources } from './types'
@@ -95,6 +96,8 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
       visibilityKm: v,
       humidity: shown.humidity,
       dustWeight,
+      // The display palette adds its PM10 tint only when optical PM10 is available.
+      dustVeilPotential: dustVeilPotential(shown.opticalPm10 ?? null) * dustWeight,
       haze: tint,
       fade: (distanceKm: number) => 1 - Math.exp(-KOSCHMIEDER * Math.max(0, distanceKm) / v),
       farFade: h.farFade,

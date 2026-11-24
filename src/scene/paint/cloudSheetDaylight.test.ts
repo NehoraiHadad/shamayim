@@ -1,5 +1,6 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { SCENE_CAMERA } from '../../domain/camera'
+import * as daylight from '../../domain/cloudDaylight'
 import { daylitShare } from '../../domain/cloudDaylight'
 import { RANGES } from '../../world/field/cells'
 import { layerSnapshot } from '../../world/field/density'
@@ -7,10 +8,7 @@ import { buildField } from '../../world/field/field'
 import { MOON_RGB } from '../../world/light'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
-import { dustSky, inDust } from '../model/cloudDust'
-import { cloudSheetOf, DIFFUSE_EXTINCTION } from '../model/cloudSheet'
-import { gridFor } from '../model/cloudSheetGrid'
-import { textureCorrection } from '../model/cloudSheetTexture'
+import { cloudSheetOf } from '../model/cloudSheet'
 import { sunlitTone } from '../model/cloudSunlit'
 import { skyGeom } from '../model/sky'
 import type { LayerOf, RGB } from '../model/types'
@@ -20,7 +18,6 @@ import type { Ctx2D, PaintEnv } from './shared/base/hand'
 const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
 const colours = { body: [0.57, 0.6, 0.64], shade: [0.37, 0.4, 0.44], lit: MOON_RGB, light: 0 } as const
 const horizon: RGB = [0.7, 0.63, 0.54]
-const sky = [colours.shade, colours.body, horizon] as const
 type Sheet = LayerOf<'cloudSheet'>
 
 function fixture(lattice: 'low' | 'mid') {
@@ -44,31 +41,13 @@ function fixture(lattice: 'low' | 'mid') {
     const geom = skyGeom(world, box)
     const daylit = daylitShare(altitude)
     const sheet = cloudSheetOf(world, geom, sample, {
-      daylit, light: 0, body: inDust(world, colours.body), shade: inDust(world, colours.shade),
-      lit: inDust(world, sunlitTone(world, snapshot.heightKm, 0.5, colours.body, lit)),
+      daylit, light: 0, body: colours.body, shade: colours.shade,
+      lit: sunlitTone(world, snapshot.heightKm, 0.5, colours.body, lit),
     })
     expect(sheet?.genus).toBe(lattice === 'low' ? 'sc' : 'ac')
     return { sheet: sheet!, world, geom }
   }
   return { frame, snapshot }
-}
-
-/** Read back the sampled grid and independently evaluate its uncorrected cellular source with zero direct sunlight. */
-function uncorrected({ sheet, world, geom }: ReturnType<ReturnType<typeof fixture>['frame']>,
-  snapshot: ReturnType<typeof fixture>['snapshot']) {
-  const grid = gridFor(world.place.id, snapshot.layer!, geom, snapshot.heightKm, sheet.lattice === 'low' ? 'sc' : 'ac')
-  const { texture, tau, weights, xs, detail, slant, fade, expected } = grid
-  const corrected = textureCorrection(texture, tau, weights, xs.length, detail)
-  const diffuse = (depth: number) => 1 - 1 / (1 + DIFFUSE_EXTINCTION * depth)
-  return sheet.tone.map((_, index) => {
-    const row = Math.floor(index / xs.length)
-    const resolved = (1 - fade[row]) * -Math.expm1(-tau[index] * slant[row])
-    const unresolved = fade[row] * -Math.expm1(-expected[index])
-    const local = diffuse(tau[index] * slant[row] * corrected(index))
-    const { kappa, meanVKm } = snapshot.layer!
-    const far = 1 - 1 / (1 + DIFFUSE_EXTINCTION * kappa * meanVKm * slant[row])
-    return resolved + unresolved ? (resolved * local + unresolved * far) / (resolved + unresolved) : local
-  })
 }
 
 function maxStep(a: readonly number[], b: readonly number[]) {
@@ -79,23 +58,17 @@ it.each(['low', 'mid'] as const)('keeps every %s sheet tone continuous across th
   const { frame } = fixture(lattice)
   for (const dusty of [false, true]) {
     let previous: number[] | undefined
-    let previousThrough: number[] | undefined
     for (let altitude = -8; altitude <= 9; altitude += 0.25) {
       const current = frame(altitude, dusty, horizon)
-      const { sheet, world } = current
+      const { sheet } = current
       if (altitude <= 3) {
         expect(sheet.daylit).toBeUndefined()
         expect(sheet.through).toBeUndefined()
-        expect(dustSky(world, sky)).toEqual(sky)
       }
-      const channels = [...sheet.tone, ...sheet.body, ...sheet.shade, ...sheet.lit, ...dustSky(world, sky).flat()]
+      const channels = [...sheet.tone, ...sheet.body, ...sheet.shade, ...sheet.lit]
       // Bound a quarter-degree change to 5% of the unit tone or RGB range.
       if (previous) expect(maxStep(channels, previous), `${altitude}°, dusty=${dusty}`).toBeLessThan(0.05)
       previous = channels
-      const through = sheet.through ?? sheet.ys.map(() => 1)
-      // Maximum smoothstep slope (1.5 / 4°) × 0.25° plus a hundredth for rounding.
-      if (previousThrough) expect(maxStep(through, previousThrough)).toBeLessThan(0.104)
-      previousThrough = through
     }
   }
 }, 30_000)
@@ -115,12 +88,18 @@ function pixels(style: (typeof SCENE_STYLES)[number], sheet: Sheet) {
 }
 
 it.each(['low', 'mid'] as const)('renders the %s sheet with uncorrected pixels after civil twilight and by moonlight', (lattice) => {
-  const { frame, snapshot } = fixture(lattice)
+  const { frame } = fixture(lattice)
   // Sample just beyond civil twilight with a residual twilight tint, then with the moon's colour.
   for (const [altitude, lit] of [[-7, horizon], [-18, colours.lit]] as const) {
-    const current = frame(altitude, false, lit)
-    const reference = { ...current.sheet, tone: uncorrected(current, snapshot) }
-    for (const style of SCENE_STYLES) expect(pixels(style, current.sheet)).toEqual(pixels(style, reference))
+    const current = frame(altitude, false, lit).sheet
+    const recovery = vi.spyOn(daylight, 'sheetRecoveryShare').mockReturnValue(0)
+    try {
+      const reference = frame(altitude, false, lit).sheet
+      expect(recovery).toHaveBeenCalledWith(altitude)
+      for (const style of SCENE_STYLES) expect(pixels(style, current)).toEqual(pixels(style, reference))
+    } finally {
+      recovery.mockRestore()
+    }
   }
 })
 

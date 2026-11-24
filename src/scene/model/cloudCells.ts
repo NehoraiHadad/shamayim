@@ -5,6 +5,7 @@ import type { CloudSprite, SpriteGenus } from './cloudSprite'
 import { smoothstep } from '../../world/ridgeLighting'
 import { HAZE_KM } from '../../world/sceneLight'
 import { acrossSpeed, pxPerRadAt } from './advect'
+import { cloudHazeFade, cloudTransmission } from './cloudDust'
 import { litOf, tonesAt, type CloudLight } from './cloudLight'
 import { sunlitTone } from './cloudSunlit'
 import { sheetZ } from './cloudSheet'
@@ -52,7 +53,7 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   const pxPerDeg = world.camera.pxPerDeg * geom.s
   const perRad = pxPerRadAt(geom.azimuthAt, geom.width / 2)
   const stretch = sceneStretch(geom, pxPerDeg) ** STAND
-  const placed: (Placed & Standing & { top: number })[] = []
+  const placed: (Placed & Standing & { top: number; through: number })[] = []
   for (const cell of cells) {
     const p = projectCell(cell)
     const seen = p.widthDeg * pxPerDeg
@@ -78,7 +79,8 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     sprite.bowl = bowl
     const speed = acrossSpeed(layer.vel, look, p.rangeKm, perRad)
     sprite.lean = leanOf(speed, (Math.hypot(...layer.vel) / p.rangeKm / 60) * Math.abs(perRad))
-    placed.push({ sprite, x, y, at: [cell.x, cell.y], r: cell.r, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed })
+    const through = cloudTransmission(world.air, cell.baseKm, world.bodies.sun.altitude)(p.aSide)
+    placed.push({ sprite, x, y, at: [cell.x, cell.y], r: cell.r, km: p.rangeKm, top: cell.baseKm + cell.vKm, speed, through })
   }
   if (!placed.length) return null
   oneStormEach(placed)
@@ -91,12 +93,16 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   placed.sort((a, b) => b.km - a.km)
   const top = Math.max(0, Math.floor(Math.min(...placed.map((c) => c.y - c.sprite.tall)) - 12))
   const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(...placed.map((c) => c.y + c.sprite.under)) + 8))
-  const drawn = placed.map(({ sprite, x, y, speed }) => ({ sprite, x, y, speed }))
+  const drawn = placed.map(({ sprite, x, y, speed, through }) => {
+    // Occlusion was resolved with undimmed cloud cover. Dust attenuates the remaining sprite.
+    if (through < 1) sprite.share *= through
+    return { sprite, x, y, speed }
+  })
   return {
     kind: 'cloudCells', id: 'cloudCells.tower', lattice: 'tower', surface: 'sky', z: sheetZ.tower, soft: true, cells: drawn,
     bounds: { x: 0, y: top, w: geom.width, h: Math.max(1, bottom - top) },
     key: layerKey('cloudCells', skyBoxKey(box, true), drawn.map(({ sprite: s, x, y }) => [s.seed, q(x), q(y), q(s.w), q(s.under), q(s.bowl ?? 0),
-      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 0.05), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)])),
+      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05), q(s.share, 1 / 255), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)])),
   }
 }
 
@@ -124,12 +130,11 @@ function spriteOf(world: WorldState, box: SceneBox, stops: [number, RGB][], beyo
   const genus = GENUS[cell.genus] ?? 'cg'
   // A tower stands in its own gap of the sky (union 0): its body is lit as a fair-weather cloud's.
   const range = Math.hypot(cell.x, cell.y)
-  // Dust shortens air.fade's visibility and colours the sky stops it fades toward.
   const tones = beforeSheet(tonesAt(world, box, stops, 'low', y - tall / 2, 0, 0, hazePath(range, cell.baseKm + cell.vKm / 2)), beyond, x, y - tall / 2)
   const lit = litOf(light, x, y - tall / 2, w, tall + under, 1, cell.seed)
   const day = smoothstep(-8, 3, world.bodies.sun.altitude)
   const base = mixRgb(mixRgb(BASE[genus], RAIN_BASE, rains ? cell.rainWeight : 0), tones.behind,
-    0.85 * world.air.fade(hazePath(range, cell.baseKm)))
+    0.85 * cloudHazeFade(world, hazePath(range, cell.baseKm)))
   const shade = mixRgb(tones.shade, base, day)
   const twilight = light ? mixRgb(light.rgb, tones.behind, tones.fade) : tones.body
   const beam = light?.sun ? sunlitTone(world, cell.baseKm + cell.vKm / 2, 1 - tones.fade, tones.body, twilight) : twilight

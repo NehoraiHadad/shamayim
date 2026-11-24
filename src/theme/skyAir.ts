@@ -2,7 +2,7 @@ import { aerosolDepth, sunLight, type Aerosol } from '../world/sceneLight'
 import { smoothstep } from '../domain/smoothstep'
 import { mixOklab } from './oklab'
 
-/** The pale buff of sunlit desert dust. */
+/** A pale buff chosen for a pleasant rendering of sunlit desert dust. */
 export const DUST_VEIL = '#D9CDB4'
 
 const hex = (rgb: readonly number[]) => `#${rgb.map((v) => Math.round(Math.min(1, v) * 255).toString(16).padStart(2, '0')).join('')}`

@@ -56,18 +56,18 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
     const closed = smoothstep(0.6, 0.95, fieldLayer.cover)
     const base = mixRgb(mixRgb(DECK_GREY, WHITE, 0.5), RAIN_GREY, rain)
     const grey = mixRgb(DECK_GREY, RAIN_GREY, rain)
-    const body = mixRgb(tones.body, base, day)
+    const body = inDust(world, mixRgb(tones.body, base, day), fieldLayer.baseKm)
     // Moonlight lifts the lit endpoint in proportion to the beam reaching the sheet; at moonset it merges into the body.
     const lit = light ? mixRgb(tones.body, mixRgb(light.rgb, tones.behind, tones.fade),
       light.sun || light.under > 0 ? 1 : light.strength * light.above) : tones.body
     // An open deck shows the sun the sides of its cells, a closed one its flat top.
     const facing = 1 - closed * (1 - Math.sin(Math.max(0, altitude) * Math.PI / 180))
     const colours = {
-      body: inDust(world, body),
+      body,
       // The Eddington boundary source at μ=0 has 2/5 of its zenith value.
-      shade: inDust(world, mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day)),
-      lit: inDust(world, light?.sun ? sunlitTone(world, fieldLayer.baseKm + fieldLayer.meanVKm / 2,
-        light.above * facing * (1 - tones.fade), body, lit) : lit),
+      shade: inDust(world, mixRgb(tones.shade, mixRgb(grey, scaleLight(base, OVERCAST_HORIZON), closed), day), fieldLayer.baseKm),
+      lit: light?.sun ? sunlitTone(world, fieldLayer.baseKm + fieldLayer.meanVKm / 2,
+        light.above * facing * (1 - tones.fade), body, lit) : lit,
       closed: closed * day,
       daylit: daylitShare(altitude),
       light: light?.sun ? light.strength * light.above : 0,

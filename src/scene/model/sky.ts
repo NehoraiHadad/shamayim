@@ -4,11 +4,11 @@ import { coinOf } from '../../world/air'
 import { sunLight } from '../../world/sceneLight'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
-import { cityDomes, cityOnSky } from './cityLight'
-import { dustSky } from './cloudDust'
+import { cityDomes } from './cityLight'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { hazeOf } from './landVeil'
-import { mixRgb, rgbOf } from './tone'
+import { skyColours } from './skyColour'
+import { mixLight, mixRgb } from './tone'
 import type { Arch, Band, Glow, LayerOf, RGB, SceneBox } from './types'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
@@ -90,13 +90,11 @@ export function skyGeom(world: WorldState, box: SceneBox): SkyGeom {
  * half way down to the horizon, the horizon colour at eye level (the land's own horizon, offset by `box.landTop`) and
  * below it.
  */
-export function skyStops(world: WorldState, box: SceneBox): [number, RGB][] {
-  const { palette } = world.light
+export function skyStops(world: WorldState, box: SceneBox, colours = skyColours(world)): [number, RGB][] {
   const horizon = clamp01((box.landTop + world.relief.horizonY) / box.skyHeight)
   // By night inside a town its lit air is over every side, less and less up to the zenith (the mid stop stands ~30° up).
-  const [top, mid, low] = dustSky(world, [rgbOf(palette.top), rgbOf(palette.mid), rgbOf(palette.horizon)])
-  const ground = cityOnSky(world, low, 0)
-  return [[0, cityOnSky(world, top, 90)], [horizon * 0.55, cityOnSky(world, mid, 30)], [horizon, ground], [1, ground]]
+  const { top, mid, horizon: ground } = colours
+  return [[0, top], [horizon * 0.55, mid], [horizon, ground], [1, ground]]
 }
 
 /** The gradient's colour at a fraction of the sky's height. */
@@ -124,12 +122,13 @@ const BAND_H = 44
  * The haze band at the horizon (`air.horizonBand`): the air seen through its whole depth, lighter and paler just over
  * the far land, stronger as the visibility falls; by night it keeps only the sky's own horizon tone, faint.
  */
-export function horizonBand(world: WorldState, box: SceneBox): Band | null {
+export function horizonBand(world: WorldState, box: SceneBox, colours = skyColours(world)): Band | null {
   const { horizonBand: given } = world.air
   const dark = world.night.dark
   const alpha = given.alpha * (1 - 0.6 * dark)
   if (alpha < 0.02) return null
-  const rgb = mixRgb(hazeOf(world), [1, 1, 1], 0.12 * (1 - dark))
+  const rgb = colours.veiled ? mixLight(colours.horizon, WHITE, 0.12 * (1 - dark))
+    : mixRgb(hazeOf(world), WHITE, 0.12 * (1 - dark))
   return { y: box.landTop + world.relief.horizonY, h: BAND_H, rgb, alpha }
 }
 
@@ -204,8 +203,9 @@ export function skyArch(world: WorldState, box: SceneBox, geom = skyGeom(world, 
 export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | null {
   if (box.skyHeight <= 0 || box.width <= 0) return null
   const geom = skyGeom(world, box)
-  const stops = skyStops(world, box)
-  const band = horizonBand(world, box)
+  const colours = skyColours(world)
+  const stops = skyStops(world, box, colours)
+  const band = horizonBand(world, box, colours)
   const glow = skyGlows(world, box, geom)
   const arch = skyArch(world, box, geom)
   const r1 = (v: number) => Math.round(v * 2) / 2
