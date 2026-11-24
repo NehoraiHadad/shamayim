@@ -17,8 +17,7 @@ describe('airInput at a moved minute', () => {
   it('interpolates the hourly fields between the hour and the next', () => {
     const at = airInput(forecast, `${TODAY}T09:00`, SITE, `${TODAY}T14:30`)
     expect(at.preview).toBe(true)
-    // The hour's sum is centred 30 minutes before its stamp.
-    expect(at.precipitation).toBeCloseTo(6)
+    expect(at.precipitation).toBeCloseTo(3)
     expect(at.cloudCover).toBeCloseTo(52.5)
     expect(at.windSpeed).toBeCloseTo(24)
     expect(at.localHour).toBeCloseTo(14.5)
@@ -73,12 +72,12 @@ describe('airInput at a moved minute', () => {
     const sample = (minute: string) => airInput(dryStormSnow, TODAY + 'T08:00', SITE, TODAY + 'T' + minute)
     expect(sample('14:29')).toMatchObject({ weatherCode: 95 })
     expect(sample('14:31')).toMatchObject({ weatherCode: 73 })
-    expect(sample('14:00')).toMatchObject({ thunderWeight: 0.5, fallingSnow: 0.275, rainMmH: 0.1, snowCloudRate: 0.05 })
-    expect(sample('14:00').fieldWeather).toMatchObject({ convectiveStorm: 0.5, steadyRain: 0.5, fallMs: 1.25 })
-    expect(sample('14:30')).toMatchObject({ fallingSnow: 0.55, rainMmH: 0, snowCloudRate: 0.1 })
-    expect(sample('15:00')).toMatchObject({ fallingSnow: 0.275, rainMmH: 0.5, showerWeight: 0.5 })
-    expect(sample('15:00').fieldWeather).toMatchObject({ convectiveShower: 0.5, steadyRain: 0.5, fallMs: 2.5 })
-    expect(sample('15:30')).toMatchObject({ fallingSnow: 0, rainMmH: 1, showerWeight: 1 })
+    expect(sample('14:30')).toMatchObject({ thunderWeight: 0.5, fallingSnow: 0.275, rainMmH: 0.1, snowCloudRate: 0.05 })
+    expect(sample('14:30').fieldWeather).toMatchObject({ convectiveStorm: 0.5, steadyRain: 0.5, fallMs: 1.25 })
+    expect(sample('15:00')).toMatchObject({ fallingSnow: 0.55, rainMmH: 0, snowCloudRate: 0.1 })
+    expect(sample('15:30')).toMatchObject({ fallingSnow: 0.275, rainMmH: 0.5, showerWeight: 0.5 })
+    expect(sample('15:30').fieldWeather).toMatchObject({ convectiveShower: 0.5, steadyRain: 0.5, fallMs: 2.5 })
+    expect(sample('16:00')).toMatchObject({ fallingSnow: 0, rainMmH: 1, showerWeight: 1 })
   })
 
   it('uses the available humidity and PM10 from either side of an interpolation', () => {

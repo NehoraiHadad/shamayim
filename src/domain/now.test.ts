@@ -31,7 +31,7 @@ describe('rollForward', () => {
     const rolled = rollForward(base, '2026-11-17T12:25')
     expect(rolled.current).toMatchObject({
       time: '2026-11-17T12:25', isDay: true, temperature: 24, weatherCode: 0,
-      humidity: 42, visibility: 30000, windDirection: 290, cloudLow: 0, cloudMid: 5, cloudHigh: 5, thickCloud: 5,
+      humidity: 42, visibility: 30000, windDirection: 290, cloudLow: 0, cloudMid: 5, thickCloud: 5,
     })
   })
 

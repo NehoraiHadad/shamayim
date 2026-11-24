@@ -1,4 +1,3 @@
-import { SHOWERS } from '../astro/showers'
 import { hashId, seeded } from '../data/landmarks/hash'
 import { wrap180, xOf, type Camera } from '../domain/camera'
 import type { LocalTime } from '../domain/types'
@@ -85,8 +84,6 @@ export const TRAIL_STEP_S = 20
 export const METEOR_WINDOW_S = 900
 /** The share of the sky a meteor seen over the scene falls in (the dome over the land). */
 const SKY_SHARE = 0.3
-// Weather and radiant can only lower the catalogue's clear-sky peak.
-const METEOR_TOP = Math.max(...SHOWERS.map(shower => shower.zhr)) * SKY_SHARE
 
 /** A flock's laid 3D track over the terrain, its closest distance (3D), clamped ground speed and track offset. */
 export interface LaidFlock {
@@ -220,15 +217,12 @@ function readAt(values: ArrayLike<number>, t: number): number {
  * Arrival times (s of the day) of a process whose rate is `maxPerHour × accept(t)` (thinning: candidates at the top rate,
  * each kept with its share). Seeded: the same place and day give the same times.
  */
-function arrivals(seed: number, maxPerHour: number, accept: (t: number) => number) {
-  const out: { t: number; ordinal: number }[] = []
+function arrivals(seed: number, maxPerHour: number, accept: (t: number) => number): number[] {
+  const out: number[] = []
   if (!(maxPerHour > 0)) return out
   const r = seeded(seed)
   const mean = 3600 / maxPerHour
-  let ordinal = 0
-  for (let t = -Math.log(1 - r()) * mean; t < DAY_S; t += -Math.log(1 - r()) * mean, ordinal++) {
-    if (r() < accept(t)) out.push({ t, ordinal })
-  }
+  for (let t = -Math.log(1 - r()) * mean; t < DAY_S; t += -Math.log(1 - r()) * mean) if (r() < accept(t)) out.push(t)
   return out
 }
 
@@ -267,7 +261,7 @@ export function lifeSchedule(ctx: ScheduleContext, inputAt: (at: LocalTime) => L
     flocks: flockEvents(ctx, inputs, sampleAt, seedOf),
     high: highEvents(ctx, inputs, sampleAt, seedOf, camera),
     low: lowEvents(ctx, inputs, sampleAt, seedOf),
-    meteors: meteorEvents(inputs, seedOf, METEOR_TOP),
+    meteors: meteorEvents(inputs, seedOf),
   }
 }
 
@@ -277,7 +271,7 @@ function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: nu
   const camera = { ...ctx.camera }
   const terrain = flight?.terrain ?? flatTerrain(inputs[0]?.groundM ?? 0)
   // Every kind's candidate sessions, in time order; each is laid on its track only once the sky has room for it.
-  const candidates: { kind: BirdKind; ordinal: number; t0: number; score: number }[] = []
+  const candidates: { kind: BirdKind; i: number; t0: number; score: number }[] = []
   for (const kind of Object.keys(PREVALENCE) as BirdKind[]) {
     const s = SHAPES[kind], g = GROUP[kind]
     const series = Float64Array.from(scores, (sc) => (sc[kind] > 0.05 ? sc[kind] : 0))
@@ -286,16 +280,16 @@ function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: nu
     const nearMean = (s.distanceM[0] + s.distanceM[1]) / 2
     const sessionS = (2 * nearMean * Math.sqrt(g.reach ** 2 - 1)) / g.speedMs
     const maxPerHour = (PREVALENCE[kind] * 3600) / sessionS
-    arrivals(seedOf(`flock:${kind}`), maxPerHour, (t) => readAt(series, t)).forEach(({ t: t0, ordinal }) => candidates.push({ kind, ordinal, t0, score: readAt(series, t0) }))
+    arrivals(seedOf(`flock:${kind}`), maxPerHour, (t) => readAt(series, t)).forEach((t0, i) => candidates.push({ kind, i, t0, score: readAt(series, t0) }))
   }
   candidates.sort((a, b) => a.t0 - b.t0 || (a.kind < b.kind ? -1 : 1))
   const kept: FlockEvent[] = []
-  for (const { kind, ordinal, t0, score } of candidates) {
+  for (const { kind, i, t0, score } of candidates) {
     // At most a few flocks at once: a newcomer waits out a full sky.
     if (kept.filter((k) => k.t1 > t0).length >= MAX_FLOCKS) continue
     const s = SHAPES[kind], g = GROUP[kind], fl = FLIGHT[kind]
     const input = sampleAt(t0)
-    const seed = seedOf(`flock:${kind}:${ordinal}`)
+    const seed = seedOf(`flock:${kind}:${i}`)
     const q = seeded(seed)
     const count = Math.max(1, Math.round(s.count[0] + (s.count[1] - s.count[0]) * q() * (0.5 + 0.5 * score)))
     const nearM = s.distanceM[0] + (s.distanceM[1] - s.distanceM[0]) * q()
@@ -335,7 +329,7 @@ function flockEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: nu
       return cached
     }
     const laid = () => cached !== null
-    kept.push({ id: `${ctx.date}:${kind}:${ordinal}`, kind, t0, t1, count, score, eyeM: terrain.eyeM, cE, cN, home, aglQ, headingDeg, speedMs,
+    kept.push({ id: `${ctx.date}:${kind}:${i}`, kind, t0, t1, count, score, eyeM: terrain.eyeM, cE, cN, home, aglQ, headingDeg, speedMs,
       nearM, endM, seed, lay, laid })
   }
   return kept
@@ -412,10 +406,10 @@ function highEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: num
     const sa = cruiseOf(input)
     return sa.forms ? ((1.2 + 2 * smoothstep(1, 8, sa.margin)) * cruiseSeen(input)) / CRUISE_RATE : 0
   })
-  const events = arrivals(seedOf('high'), CRUISE_RATE, (t) => readAt(rate, t)).map(({ t: t0, ordinal }): HighEvent => {
+  const events = arrivals(seedOf('high'), CRUISE_RATE, (t) => readAt(rate, t)).map((t0, i): HighEvent => {
     const input = sampleAt(t0)
     const sa = cruiseOf(input)
-    const seed = seedOf(`high:${ordinal}`)
+    const seed = seedOf(`high:${i}`)
     const r = seeded(seed)
     // Its closest approach (km over the ground), ahead in the view's half; its way square to that.
     const side = 15 + 45 * r()
@@ -429,7 +423,7 @@ function highEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: num
     // The upper wind: the shown hour's at cruise level (300 hPa where the forecast has it), else the surface's turned.
     const wind = input.highWind ?? { towardDeg: input.wind.towardDeg, ms: input.wind.ms * 3 }
     return {
-      id: `${ctx.date}:high:${ordinal}`, t0, t1: t0 + (2 * L * 1000) / speedMs, lifeS, cE: side * Math.sin(azC * RAD), cN: side * Math.cos(azC * RAD),
+      id: `${ctx.date}:high:${i}`, t0, t1: t0 + (2 * L * 1000) / speedMs, lifeS, cE: side * Math.sin(azC * RAD), cN: side * Math.cos(azC * RAD),
       headingDeg, speedMs, upM: CRUISE_M - 300 * r() - input.groundM, persists, shortKm, spreadM: persists ? 1400 + 2200 * r() : 60,
       driftE: (wind.ms / 1000) * Math.sin(wind.towardDeg * RAD), driftN: (wind.ms / 1000) * Math.cos(wind.towardDeg * RAD), seed,
     }
@@ -467,9 +461,9 @@ function lowEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: numb
     let routes = ROUTES.get(terrain)
     if (!routes) ROUTES.set(terrain, routes = new Map())
     for (const kind of ['arrive', 'depart'] as const) {
-      arrivals(seedOf(`${airport.icao}:${kind}`), top, (t) => readAt(rate, t)).forEach(({ t: t0, ordinal }) => {
+      arrivals(seedOf(`${airport.icao}:${kind}`), top, (t) => readAt(rate, t)).forEach((t0, i) => {
         const input = sampleAt(t0)
-        const seed = seedOf(`${airport.icao}:${kind}:${ordinal}`)
+        const seed = seedOf(`${airport.icao}:${kind}:${i}`)
         // On the runway the wind picks at its start, down (or up) its path.
         const heading = runwayInUse(airport, input.wind.fromDeg, input.wind.ms)
         const way = kind === 'depart' ? Math.floor(seeded(seed)() * 6) * 60 : 0
@@ -482,7 +476,7 @@ function lowEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: numb
         const path = routes!.get(key)
         if (!path) return
         const lengthKm = (path.length - 1) * PATH_STEP_KM
-        out.push({ id: `${input.at.slice(0, 10)}:${airport.icao}:${kind}:${ordinal}`, airport: airport.icao, kind, light: airport.light, t0,
+        out.push({ id: `${input.at.slice(0, 10)}:${airport.icao}:${kind}:${i}`, airport: airport.icao, kind, light: airport.light, t0,
           t1: t0 + (lengthKm * 1000) / speeds[kind], path, speedMs: speeds[kind], seed })
       })
     }
@@ -490,12 +484,13 @@ function lowEvents(ctx: ScheduleContext, inputs: LifeInput[], sampleAt: (t: numb
   return out.sort((a, b) => a.t0 - b.t0)
 }
 
-function meteorEvents(inputs: LifeInput[], seedOf: (p: string) => number, top: number): MeteorEvent[] {
+function meteorEvents(inputs: LifeInput[], seedOf: (p: string) => number): MeteorEvent[] {
   const rate = Float64Array.from(inputs, (input) => (meteorsOf(input)?.perHour ?? 0) * SKY_SHARE)
-  if (!rate.some(value => value > 0)) return []
+  const top = Math.max(0, ...rate)
+  if (top <= 0) return []
   const date = inputs[0].at.slice(0, 10)
-  return arrivals(seedOf('meteors'), top, (t) => readAt(rate, t) / top).map(({ t, ordinal }) => ({
-    id: `${date}:meteor:${ordinal}`, t, seed: seedOf(`meteor:${ordinal}`),
+  return arrivals(seedOf('meteors'), top, (t) => readAt(rate, t) / top).map((t, i) => ({
+    id: `${date}:meteor:${i}`, t, seed: seedOf(`meteor:${i}`),
     ...meteorLook({ ...inputs[0], at: timeOfDay(date, Math.floor(t / 60)) }, t % 60),
   }))
 }

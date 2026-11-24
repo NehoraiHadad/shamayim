@@ -27,8 +27,8 @@ describe('cloud by layer', () => {
   })
 
   it('reads the layers of "now" when they are there, and does without them (an older cached answer)', () => {
-    expect(mapCurrent(current({ cloud_cover_low: 10, cloud_cover_mid: 20, cloud_cover_high: 70 }))).toMatchObject({ thickCloud: 28, cloudHigh: 70 })
-    expect(mapCurrent(current())).toMatchObject({ thickCloud: null, cloudHigh: null })
+    expect(mapCurrent(current({ cloud_cover_low: 10, cloud_cover_mid: 20, cloud_cover_high: 70 })).thickCloud).toBe(28)
+    expect(mapCurrent(current()).thickCloud).toBeNull()
   })
 
   it('lets the moon shine through thin high cloud, but not through low and mid cloud', () => {

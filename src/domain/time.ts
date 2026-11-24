@@ -1,4 +1,3 @@
-import { addMinutes as shiftMinutes } from './minutes'
 import type { LocalDate, LocalTime } from './types'
 
 /**
@@ -37,10 +36,9 @@ export function daylightFraction(now: LocalTime, sunrise: LocalTime, sunset: Loc
 
 /** A local timestamp moved by whole minutes (rounded), kept on the same date (clamped to 00:00–23:59). */
 export function addMinutes(t: LocalTime, minutes: number): LocalTime {
-  const shifted = shiftMinutes(t, minutes)
-  const day = datePart(t)
-  if (datePart(shifted) === day) return shifted
-  return shifted < t ? `${day}T00:00` : `${day}T23:59`
+  const total = Math.min(24 * 60 - 1, Math.max(0, Math.round(minutesOfDay(t) + minutes)))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${datePart(t)}T${pad(Math.floor(total / 60))}:${pad(total % 60)}`
 }
 
 /** Minutes between two local timestamps on the same date; positive when b is later. */

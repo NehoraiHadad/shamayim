@@ -49,7 +49,7 @@ export function liveLightSatelliteCases(context: () => { loaded: LoadedPlace; bo
     expect(frame(addMinutes(selected, 1), selected)).toEqual(before)
 
     const live = frame(selected, null)
-    expect(live).toMatchObject({ preview: false, seenClouds, cloudsSeen: 1, thunderWeight: 0.5 })
+    expect(live).toMatchObject({ preview: false, seenClouds, cloudsSeen: 1, thunderWeight: 1 })
     expect(live.banks).toHaveLength(1)
   })
 

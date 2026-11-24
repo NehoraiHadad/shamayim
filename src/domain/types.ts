@@ -13,10 +13,9 @@ export interface CurrentWeather {
   cloudCover: number
   /** Low and mid cloud together, 0–100 (what hides the moon; thin high cloud does not). Null when not known. */
   thickCloud?: number | null
-  /** Raw low, mid and high cloud cover, 0–100 each; null or absent when not known. */
+  /** Raw low and mid cloud cover, 0–100 each; null or absent when not known. */
   cloudLow?: number | null
   cloudMid?: number | null
-  cloudHigh?: number | null
   windSpeed: number
   windGusts: number
   /** Degrees the wind comes FROM (meteorological), 0 = north. */
@@ -123,6 +122,8 @@ export interface Forecast {
   current: CurrentWeather
   /** The original reading when `current` has been rolled forward for display. */
   observation?: CurrentWeather
+  /** Receipt in the scene clock, independent of the provider's fetch time. Never persisted. */
+  receivedAt?: number
   hours: HourPoint[]
   /** Includes yesterday at index 0 (past_days=1). */
   days: DayPoint[]
@@ -130,7 +131,7 @@ export interface Forecast {
   nowcast: NowcastPoint[] | null
   normals: Record<LocalDate, DayNormal> | null
   fetchedAt: number
-  /** The data a refresh replaced and its receipt in the scene clock, to ease from. In memory only, never persisted. */
+  /** In-memory source data for easing a refresh from its arrival time. */
   previous?: { forecast: Forecast; receivedAt: number }
   source: string
   models: string[]

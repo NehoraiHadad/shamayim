@@ -13,7 +13,7 @@ export function planeGeometryKey(terrain: TerrainPlanes, name: PlaneName, plane:
   }
   const path = (points: readonly (readonly [number, number])[]) => {
     number(points.length)
-    for (const point of points) { number(point[0]); number(point[1]) }
+    for (const [x, y] of points) { number(x); number(y) }
   }
   path(plane.points)
   path(terrain.near.points)
@@ -21,7 +21,7 @@ export function planeGeometryKey(terrain: TerrainPlanes, name: PlaneName, plane:
   for (const km of plane.distanceKm) number(km)
   for (const array of arrays) {
     number(array.length)
-    for (let i = 0; i < array.length; i++) number(array[i])
+    for (const n of array) number(n)
   }
 
   if (name !== 'back') {

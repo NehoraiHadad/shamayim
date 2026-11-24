@@ -4,8 +4,7 @@ import { utcOf } from '../astro/utc'
 import { daylightFraction, minutesBetween } from '../domain/time'
 import type { DayPoint, LocalTime } from '../domain/types'
 import { moonScenePoint } from './moonPath'
-import { brightLimbAngle, type ScenePoint } from './moonShape'
-import { SCENE_CAMERA } from '../domain/camera'
+import { brightLimbAngle, sunDirection, type ScenePoint } from './moonShape'
 import { SCENE_W } from './sceneBox'
 import type { Skyline } from './skyline'
 import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
@@ -55,7 +54,6 @@ export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { alt
   const instant = utcOf(at, site.timezone)
   const { altitude, azimuth } = moonPosition(instant, site.lat, site.lon)
   const { fraction, phase } = moonIllumination(instant)
-  const camera = skyline.camera ?? SCENE_CAMERA
   const point = moonScenePoint(instant, site, skyline)
   const clearance = judge(point.x) - point.y
   return {
@@ -63,6 +61,6 @@ export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { alt
     up: apparentAltitude(altitude) > 0,
     overLand: clearance > 0, clearance, visible: discShare(clearance),
     phase, illumination: fraction,
-    tilt: brightLimbAngle({ altitude, azimuth }, sun, camera.handed),
+    tilt: brightLimbAngle(point, sunDirection(sun.altitude, sun.azimuth, skyline)),
   }
 }

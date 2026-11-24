@@ -55,7 +55,7 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
   const ground = name === 'back' ? { gullies: [], terraces: [] } : groundForm(world, box, name, clear)
   const surface = planeSurfaceOf(world, name, plane, box.landHeight)
   const vegetation = name === 'back' ? EMPTY_VEGETATION : planeVegetationOf(world, box, name, plane, surface.median, clear)
-  const key = layerKey('plane', name, FORM, world.keys.terrain, geom.geomKey, world.keys.place, world.keys.land, surface.key, landBoxKey(box),
+  const key = layerKey('plane', name, FORM, world.keys.terrain, geom.geomKey, world.keys.place, world.keys.land, landBoxKey(box),
     name === 'back' ? '' : groundClearKey(clear), name === 'back' ? '' : cropEvidenceKey(world))
   const light = planeLight(world, box, name, plane)
   const canopyId = vegetation.trees.length || vegetation.tufts.length ? `canopy.${name}` : undefined

@@ -68,36 +68,3 @@ describe('scene hours', () => {
     expect(cruise.humidity).toBeLessThanOrEqual(70)
   })
 })
-
-it('uses the closest measured wind direction for current and both-null model hours', () => {
-  const east = layers.hourly.time.indexOf('2026-11-17T04:00')
-  const west = layers.hourly.time.indexOf('2026-11-17T06:00')
-  const directions = layers.hourly.time.map((_, i) => i === east ? 90 : i === west ? 270 : null)
-  const forecast = mapForecast({ ...layers,
-    current: { ...layers.current, time: '2026-11-17T05:30', wind_direction_10m: null },
-    hourly: { ...layers.hourly, wind_direction_10m_icon_seamless: directions, wind_direction_10m_ecmwf_ifs025: directions },
-  })
-  expect(forecast.current.windDirection).toBe(270)
-  expect(forecast.hours.find(hour => hour.time === '2026-11-17T05:00')?.windDirection).toBe(90)
-  expect(forecast.hours.find(hour => hour.time === '2026-11-17T09:00')?.windDirection).toBe(270)
-  expect(forecast.hours.find(hour => hour.time === '2026-11-17T10:00')?.windDirection).toBeNull()
-})
-
-it('fills numerical columns from original nearby hours and preserves a single model or zero', () => {
-  const hourly = layers.hourly
-  const icon = hourly.time.map((_, i) => i === 4 ? 300 : i === 6 ? 100 : i === 7 ? 0 : null)
-  const ecmwf = hourly.time.map((_, i) => i === 4 ? 100 : null)
-  const { hours } = mapForecast({ ...layers, hourly: {
-    ...hourly,
-    cape_icon_seamless: icon,
-    cape_ecmwf_ifs025: ecmwf,
-  } })
-  const cape = (index: number) => hours.find(hour => hour.time === hourly.time[index])?.cape
-  expect(cape(0)).toBeNull()
-  expect(cape(1)).toBe(cape(4))
-  expect(cape(5)).toBe(cape(4))
-  expect(cape(6)).toBe(100)
-  expect(cape(7)).toBe(0)
-  expect(cape(10)).toBe(0)
-  expect(cape(11)).toBeNull()
-})

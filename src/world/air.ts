@@ -46,8 +46,8 @@ export function chooseVisibility(input: AirSourceInput): { km: number; source: W
   return { km: 40, source: 'default' }
 }
 
-/** Marine stratus evidence and the cooling blocker from the sky layers (0–100). */
-function mistCloudLayers(m: NonNullable<AirSourceInput['mist']>, shown: AirInput) {
+/** Raw low/mid cloud cover (0–100) for mist: never the renderer's rescaled `covers`. */
+function rawCloudLayers(m: NonNullable<AirSourceInput['mist']>, shown: AirInput) {
   if (m.forcedLayers) {
     const lowCloudPct = m.forcedLayers.low * 100
     return { lowCloudPct, blockingCloudPct: blockingCloudCover(lowCloudPct, m.forcedLayers.mid * 100, 0) }
@@ -82,7 +82,7 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
       ? Number(isFogCode(shown.weatherCode)) * (1 - visibilityWeight) : m.weather.fogCodeWeight,
     dustWeight,
     rainRateMmH: r,
-    ...mistCloudLayers(m, shown),
+    ...rawCloudLayers(m, shown),
     windMs: m.windMs,
     sunAltitude: m.sun.altitude,
     sunRising: m.sun.azimuth < 180,

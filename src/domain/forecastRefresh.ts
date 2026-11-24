@@ -11,17 +11,15 @@ const EASE_MS = 10 * 60_000
 
 export const arrivalWeight = (receivedAt: number, at: number) => smoothstep(receivedAt, receivedAt + EASE_MS, at)
 
-/**
- * Attach the outgoing data. Keep overlapping transitions so a rapid refresh starts from the same timeline. With nothing of
- * this place shown before there is nothing to ease from: the forecast stands as it is, as a reload reads it from the store.
- */
+/** Attach the outgoing data. Keep overlapping transitions so a rapid refresh starts from the same timeline. */
 export function withForecastRefresh(next: Forecast, outgoing: Forecast | null, receivedAt: number): Forecast {
   if (next === outgoing) return next
-  if (!outgoing || outgoing.placeId !== next.placeId) return next
+  const incoming = { ...next, receivedAt }
+  if (!outgoing || outgoing.placeId !== next.placeId) return incoming
   if (outgoing.previous && arrivalWeight(outgoing.previous.receivedAt, receivedAt) === 1) {
     outgoing = { ...outgoing, previous: undefined }
   }
-  return { ...next, previous: { forecast: outgoing, receivedAt } }
+  return { ...incoming, previous: { forecast: outgoing, receivedAt } }
 }
 
 /** Sample the same minute on both timelines. No clock or frame history enters this calculation. */
@@ -37,5 +35,5 @@ export function blendForecast<T>(forecast: Forecast, nowMs: number, sample: (for
 
 /** Cache keys stay stable before receipt and after the latest transition finishes. */
 export function forecastArrivalProgress(forecast: Forecast, nowMs: number): number {
-  return forecast.previous ? arrivalWeight(forecast.previous.receivedAt, nowMs) : 1
+  return forecast.receivedAt === undefined ? 1 : arrivalWeight(forecast.receivedAt, nowMs)
 }

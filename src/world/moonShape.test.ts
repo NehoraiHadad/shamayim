@@ -22,13 +22,11 @@ describe('skyPoint', () => {
 
 describe('brightLimbAngle', () => {
   it('turns the lit side towards the sun below the western ridge', () => {
-    const moon = { altitude: 30, azimuth: 160 }
-    const sunWest = { altitude: -10, azimuth: 250 }
-    const angle = brightLimbAngle(moon, sunWest, 1)
-    // At a 90° azimuth separation, the tangent has a positive x component.
-    expect(angle).toBeGreaterThan(0)
-    expect(angle).toBeLessThan(90)
-    expect(brightLimbAngle(moon, sunWest, -1)).toBeCloseTo(180 - angle)
+    const moon = skyPoint(30, 160)
+    const sunWest = skyPoint(-10, 250)
+    const angle = brightLimbAngle(moon, sunWest)
+    // West is on the right: the lit side faces right (and down, the sun being lower).
+    expect(Math.abs(angle)).toBeLessThan(90)
   })
 })
 

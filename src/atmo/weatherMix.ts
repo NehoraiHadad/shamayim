@@ -1,7 +1,5 @@
-import { precedingHourAt } from '../domain/bracket'
-import type { HourPoint, LocalTime, WindVector } from '../domain/types'
+import type { WindVector } from '../domain/types'
 import type { Covers } from '../world/clouds'
-import { blockingCloudCover } from '../world/mist'
 import type { WorldSources } from '../world/types'
 import { ALOFT_FACTOR } from '../world/wind'
 import type { AirInput } from './airTypes'
@@ -31,17 +29,14 @@ export type Weather = Omit<AirInput, 'date' | 'localHour' | 'sunElevation' | 'pr
     weightedVisibilityKm: number
     fogCodeWeight: number
     lowCloudPct: number
+    midCloudPct: number
+    rawLayerWeight: number
     blockingCloudPct: number
     nightMinTemp: number
   }
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-
-export function cloudMist({ low, mid }: Covers, source: Weather['cloudSource']) {
-  return { lowCloudPct: source === 'forecast' ? low * 100 : 0,
-    blockingCloudPct: blockingCloudCover(low * 100, mid * 100, 0) }
-}
 
 /** Shortest arc in degrees, so 350° → 10° passes through north. */
 function lerpDirection(a: number, b: number, t: number): number {
@@ -54,8 +49,6 @@ const mixKnown = (a: number | null, b: number | null, t: number) => a === null |
 export function mixWeather(a: Weather, b: Weather, t: number): Weather {
   const nearest = t < 0.5 ? a : b
   const mistValue = (key: keyof Weather['mist']) => lerp(a.mist[key], b.mist[key], t)
-  const covers = { low: lerp(a.covers.low, b.covers.low, t), mid: lerp(a.covers.mid, b.covers.mid, t),
-    high: lerp(a.covers.high, b.covers.high, t) }
   const cruise = a.cruise && b.cruise ? {
     temperature: lerp(a.cruise.temperature, b.cruise.temperature, t),
     humidity: lerp(a.cruise.humidity, b.cruise.humidity, t),
@@ -102,34 +95,13 @@ export function mixWeather(a: Weather, b: Weather, t: number): Weather {
       visibilityWeight: mistValue('visibilityWeight'),
       weightedVisibilityKm: mistValue('weightedVisibilityKm'),
       fogCodeWeight: mistValue('fogCodeWeight'),
-      ...cloudMist(covers, 'forecast'),
       lowCloudPct: mistValue('lowCloudPct'),
+      midCloudPct: mistValue('midCloudPct'),
+      rawLayerWeight: mistValue('rawLayerWeight'),
+      blockingCloudPct: mistValue('blockingCloudPct'),
       nightMinTemp: mistValue('nightMinTemp'),
     },
-    covers,
-  }
-}
-
-type PeriodWeather = Pick<Weather, 'precipitation' | 'windGusts' | 'rainMmH' | 'fallingSnow'
-  | 'snowCloudRate' | 'snowfall' | 'thunderWeight' | 'showerWeight' | 'fieldWeather'>
-
-export function mixPrecedingHour(
-  hours: readonly HourPoint[], at: LocalTime, read: (row: HourPoint) => PeriodWeather,
-): PeriodWeather | undefined {
-  const { before, after, fraction } = precedingHourAt(hours, at)
-  if (!before) return undefined
-  const a = read(before)
-  if (!after || fraction === 0) return a
-  const b = read(after)
-  return {
-    precipitation: lerp(a.precipitation, b.precipitation, fraction),
-    windGusts: lerp(a.windGusts, b.windGusts, fraction),
-    rainMmH: lerp(a.rainMmH, b.rainMmH, fraction),
-    fallingSnow: lerp(a.fallingSnow, b.fallingSnow, fraction),
-    snowCloudRate: lerp(a.snowCloudRate, b.snowCloudRate, fraction),
-    snowfall: lerp(a.snowfall, b.snowfall, fraction),
-    thunderWeight: lerp(a.thunderWeight, b.thunderWeight, fraction),
-    showerWeight: lerp(a.showerWeight, b.showerWeight, fraction),
-    fieldWeather: mixFieldWeather(a.fieldWeather, b.fieldWeather, fraction),
+    covers: { low: lerp(a.covers.low, b.covers.low, t), mid: lerp(a.covers.mid, b.covers.mid, t),
+      high: lerp(a.covers.high, b.covers.high, t) },
   }
 }

@@ -87,19 +87,12 @@ export function planeGeomOf(world: WorldState, name: PlaneName, plane: Plane, la
     const xL = Math.max(0, x - DX_DEM), xR = Math.min(SCENE_W, x + DX_DEM)
     const dAngleRad = (lineAt(plane.points, xL) - lineAt(plane.points, xR)) / Math.max(1, pxPerRadY)
     const fallbackAcross = dAngleRad / Math.max(1e-5, (xR - xL) * radPerPx)
-    const depth = Math.max(0, fy - cy)
-    let previousKm = NaN, across = fallbackAcross
 
     for (let r = 0; r < rows; r++) {
       const rowFrac = rows > 1 ? r / (rows - 1) : 0
-      const targetY = cy + rowFrac * depth
+      const targetY = cy + rowFrac * Math.max(0, fy - cy)
       const sample = faceAtY(world, name, plane, x, cy, fy, targetY)
-      // Rows below the last measured point hold its distance. The back plane
-      // also uses one crest distance, so those rows share the same DEM slope.
-      if (sample.km !== previousKm) {
-        across = demAcrossSlope(world.terrain, x, sample.km, radPerPx, fallbackAcross)
-        previousKm = sample.km
-      }
+      const across = demAcrossSlope(world.terrain, x, sample.km, radPerPx, fallbackAcross)
       const [ux, uy, uz] = surfaceNormal(across, sample.slope)
       const idx = r * cols + c
       nx[idx] = ux; ny[idx] = uy; nz[idx] = uz; km[idx] = sample.km
