@@ -41,16 +41,12 @@ function withSun(world: WorldState, altitude: number, azimuth: number): WorldSta
 
 describe.each(places)('twilight in $id', place => {
   it('keeps viewer-facing masonry in the land light through the solar crossing', () => {
-    for (const T of [[600,'lin'],[700,'lin'],[700,'log'],[700,'quad'],[500,'lin'],[401,'lin'],[800,'log'],[900,'log'],[1000,'log']]) { (globalThis as unknown as {T:unknown}).T = T
-    let worst = [9, 0, 9, 0]
-    const rgb: unknown[] = []
     const build = makeWorldBuilder()
     for (const at of ['2026-11-17T06:20', '2026-11-17T16:30'] as const) {
       const fixture = build(worldInput(loaded.get(place.id)!, at))
       const view = fixture.place3 as OutsideView
       const albedo = view.land ? outsideGroundAlbedo(fixture, view.land, view.frame)
         : planeSurfaceOf(fixture, 'near', fixture.terrain.near).median
-      rgb.push(view.land ? 'land' : 'plane', albedo.map(c => Math.round(c*255)).join())
       const shape = outsideShape(fixture, box, [])
       const ids = [...new Set(shape.items.flatMap(i => i.kind === 'box' && !i.beyond ? [i.receiver] : []))]
       expect(ids.length).toBeGreaterThan(8)
@@ -81,13 +77,11 @@ describe.each(places)('twilight in $id', place => {
           }
           prior = next
           const ratio = median(ratios), hue = median(hues)
-          worst = [Math.min(worst[0], ratio), Math.max(worst[1], ratio), Math.min(worst[2], hue), Math.max(worst[3], hue)]
-          if (Number.isNaN(1) && !(ratio >= .6 && ratio <= 1.35 && hue >= .78 && hue <= 1.22)) {
+          if (!(ratio >= .6 && ratio <= 1.35 && hue >= .78 && hue <= 1.22)) {
             throw Error(`${at}, ${altitude}°, ${azimuth}°: wall/ground Y ${ratio}, B/R ${hue}`)
           }
         }
       }
     }
-  console.info('DIAG', place.id, String(T), String(rgb), worst.map(v => v.toFixed(3)).join(' ')) }
-  }, 300_000)
+  }, 30_000)
 })
