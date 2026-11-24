@@ -1,3 +1,4 @@
+import type { RasterSquare } from '../data/city/cityRaster'
 import { squareOf } from '../data/city/grid'
 import { HOUSE_TOP_M } from '../data/city/outsideView'
 import { roofHeight, STOREY_M } from '../data/city/skylineHeight'
@@ -24,8 +25,7 @@ export function fabricHeights(city: CityResult | null | undefined) {
     const key = squareKey(lat, lon)
     towerLevels.set(key, Math.min(towerLevels.get(key) ?? MAX_LEVELS, Math.round(heightM / RASTER_STOREY_M)))
   }
-  return (lat: number, lon: number, u: number): { heightM: number; siteHeightM?: number } => {
-    const at = city?.raster?.at(lat, lon)
+  return (at: RasterSquare | undefined, lat: number, lon: number, u: number): { heightM: number; siteHeightM?: number } => {
     if (at && at.built >= SPARSE) return { heightM: roofHeight(at.levels, at.p90, u) }
     const house = HOUSE_M[u < .6 ? 0 : 1]
     const typical = at ? roofHeight(at.levels, 0, 0) : house

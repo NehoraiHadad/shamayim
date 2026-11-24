@@ -1,8 +1,9 @@
+import { N } from '../../data/city/tune.tmp'
 import { STOREY_M } from '../../data/city/skylineHeight'
+import { rowY } from '../../data/city/fabricCover'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { hashId, seeded } from '../../data/landmarks/hash'
-import { outsideItemKm } from '../../world/outsideDepth'
-import { hits } from '../../world/sceneClearance'
+import { outsideBodies, roofM } from '../../world/outsideBodies'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
 import { receiversUsed } from './buildingUsage'
@@ -12,7 +13,7 @@ import { massAt, type DrawnMass } from './markOcclusion'
 import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { neighbourhood } from './outsideNeighbourhood'
 import { outsideMarks } from './outsideMarks'
-import { boundsOf, clearBody, towerItem } from './outsideBody'
+import { boundsOf, towerItem } from './outsideBody'
 import type { Box, OutsideItem, SceneBox } from './types'
 import { townGroundKm, wallStep } from './wallDistance'
 
@@ -39,8 +40,8 @@ interface Shape {
 /** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
 
-/** Sets a block's wall draw apart from its roof's. */
-const BLOCK_WALL = 0x5bd1e995
+/** A block's wall is a draw of its own: its seed's first draw is its roof's height. */
+const WALL_DRAW = 0x5bd1e995
 
 export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {
   const view = world.place3 as OutsideView
@@ -61,24 +62,20 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     if (i === undefined) { i = kms.length; index.set(key, i); kms.push(q); wallKms.push(wall) }
     return i
   }
-  const { frame, skyline, baseKm } = view
   const out: OutsideItem[] = []
-  const free = (left: number, top: number, right: number, bottom: number) => !hits(clear, left, top, right, bottom)
+  const standing = outsideBodies(view, clear, sx)
   // The towers beyond the place: at their true distance, far first, behind the place.
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
-  const beyond = [...view.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
-    ...(view.beyondTowns ?? []).map((b) => ({ km: b.km, tower: null, block: b }))].sort((a, b) => b.km - a.km)
+  const beyond = [...standing.beyond.map((t) => ({ km: t.km, tower: t, block: null })),
+    ...standing.towns.map((b) => ({ km: b.km, tower: null, block: b }))].sort((a, b) => b.km - a.km)
   const mass: DrawnMass[] = []
   const drawnBlocks = new Map<string, NeighbourBlock>()
   for (const { tower: t, block: b } of beyond) {
     if (t) {
-      const x = t.x * sx
-      if (!free(x - t.w / 2, t.baseY - t.h, x + t.w / 2, t.baseY)) continue
-      mass.push(massAt(x, t.w, t.baseY - t.h, t.km))
+      mass.push(massAt(t.x * sx, t.w, t.baseY - t.h, t.km))
       out.push(towerItem(t, sx, tier(t.km, t.x, t.baseY)))
     } else if (b) {
       const x = b.x * sx, w = b.w * sx
-      if (!free(x - w / 2, b.baseY - b.h, x + w / 2, b.baseY)) continue
       const blockTier = tier(b.km, b.x, b.baseY)
       drawnBlocks.set(b.id, { id: b.id, x, w, top: b.baseY - b.h, foot: b.baseY, hazeKm: kms[blockTier] })
       mass.push(massAt(x, w, b.baseY - b.h, b.km, b.id))
@@ -88,39 +85,24 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   }
   // The place: its mass, its spires and full towers, its trees, its own marks, back to front by where they stand.
   const own: { y: number; item: OutsideItem; km?: number }[] = []
-  const stacks = skyline.towers.filter(t => t.industrial && free(t.x * sx - t.w / 2, t.baseY - t.h, t.x * sx + t.w / 2, t.baseY))
-    .map(t => ({ x: t.x * sx - t.w / 2, y: t.baseY - t.h, w: t.w, h: t.h, base: t.baseY, km: outsideItemKm(frame, baseKm, t) }))
-  for (const b of skyline.boxes) {
-    const km = outsideItemKm(frame, baseKm, b)
-    const heightM = b.heightM ?? 3 * STOREY_M
-    // A wide block keeps its clear side, and leaves a mapped stack behind it readable; a house is whole or not there.
-    const zones = heightM < HOUSE_TOP_M ? clear : [...clear, ...stacks.filter(stack => stack.km > km && stack.base <= b.foot)]
-    const body = clearBody(zones, b.x * sx, b.w * sx, b.top, b.foot, heightM >= HOUSE_TOP_M)
-    if (!body) continue
-    const { x, w } = body
+  for (const { box: b, x, w, km } of standing.boxes) {
     mass.push(massAt(x, w, b.top, km))
+    const heightM = roofM(b)
     const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
     // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
-      // A block's roof is its seed's first draw, so its wall comes of another: the tall are no paler than the low.
-      seed, receiver: receiverId(roof ? seed : seed ^ BLOCK_WALL),
+    own.push({ y: rowY(b), item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
+      seed, receiver: receiverId(seed, false, false, roof || N('salt') < 0 ? seed : seed ^ [WALL_DRAW, 0x9e3779b9, 0x2545f491, 0x1b873593, 0x7f4a7c15, 0x6a09e667][N('salt')]),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }
-  for (const t of skyline.towers) {
-    const body = clearBody(clear, t.x * sx, t.w, t.baseY - t.h, t.baseY, !t.industrial)
-    if (!body) continue
-    const km = outsideItemKm(frame, baseKm, t)
-    mass.push(massAt(body.x, body.w, t.baseY - t.h, km))
-    own.push({ y: t.baseY, item: towerItem({ ...t, x: body.x / sx, w: body.w }, sx, tier(km, body.x / sx, t.baseY, true)) })
+  for (const { tower: t, x, w, km } of standing.towers) {
+    mass.push(massAt(x, w, t.baseY - t.h, km))
+    own.push({ y: t.baseY, item: towerItem({ ...t, x: x / sx, w }, sx, tier(km, x / sx, t.baseY, true)) })
   }
-  for (const t of view.trees) {
-    const x = t.x * sx
-    if (!free(x - t.w, t.base - t.h, x + t.w, t.base)) continue
-    own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
-  }
+  for (const t of standing.trees)
+    own.push({ y: t.base + .002, item: { kind: 'tree', tree: { kind: t.kind, x: t.x * sx, base: t.base, w: t.w, h: t.h, seed: t.seed }, tier: tier(t.km, t.x, t.base) } })
   const localItems = own.map(o => o.item)
   neighbourhood(localItems, sx)
   const home = homeRoofline(localItems, kms)

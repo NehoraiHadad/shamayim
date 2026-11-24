@@ -1,10 +1,10 @@
 import type { OutsideBox } from './outsideView'
 
-/** Near to far: a box whose top is under the nearer boxes' tops all across it is hidden. */
+/** Near to far (a row's bodies by their place in it): a box whose top is under the nearer boxes' tops all across it is hidden. */
 export function visible(boxes: readonly OutsideBox[], width: number): OutsideBox[] {
   const cover = new Float64Array(Math.ceil(width) + 8).fill(Infinity)
   const kept: OutsideBox[] = []
-  for (const box of [...boxes].sort((a, b) => b.near - a.near)) {
+  for (const box of [...boxes].sort((a, b) => b.near - a.near || b.x - a.x || (a.seed ?? 0) - (b.seed ?? 0))) {
     const from = Math.max(0, Math.floor(box.x - box.w / 2)), to = Math.min(cover.length, Math.ceil(box.x + box.w / 2))
     let shows = false
     for (let px = from; px < to; px++) if (box.top < cover[px] - .25) shows = true

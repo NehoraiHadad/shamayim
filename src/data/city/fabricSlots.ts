@@ -1,3 +1,4 @@
+import { shownBlocks } from './fabricCover'
 import type { OutsideBox } from './outsideView'
 
 /** A built cell on the screen. */
@@ -33,34 +34,12 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
   return standing
 }
 
-/** Whether `body` covers `other`: within one row, and so near its middle that only a strip of `other` would show. */
-const covers = (body: OutsideBox, other: OutsideBox, pitch: number) =>
-  Math.abs(body.x - other.x) < body.w / 6 && Math.abs(body.foot - other.foot) < pitch
-
 /**
- * The standing sites' bodies, where a block drawn wider than its site takes the ground it covers: a widened block that a
- * nearer one (or one at its own width) covers within one row (`pitch` px of ground) is left out. Houses keep their
- * sites (the painter's order hides what stands behind a block), so a low-rise place keeps its layout.
+ * The standing sites' bodies, without the blocks drawn wider than their sites that nearer ones hide but for a sliver
+ * (`shownBlocks`). Houses, and blocks at their own width, keep their sites, so a low-rise place keeps its layout.
  */
-export function composeBodies(sites: readonly FabricSite[], pitch: number, houseTopM: number): OutsideBox[] {
-  const columns = new Map<number, OutsideBox[]>()
-  const span = (box: OutsideBox) => [Math.floor((box.x - box.w / 2) / pitch), Math.floor((box.x + box.w / 2) / pitch)]
-  const lay = (box: OutsideBox) => {
-    const [from, to] = span(box)
-    for (let c = from; c <= to; c++) {
-      const column = columns.get(c)
-      if (column) column.push(box)
-      else columns.set(c, [box])
-    }
-  }
-  const taken = (box: OutsideBox) => columns.get(Math.floor(box.x / pitch))?.some(other => covers(other, box, pitch))
-  const blocks = sites.filter(({ body }) => (body.heightM ?? 0) >= houseTopM)
-  const widened = blocks.filter(({ box, body }) => body.w > box.w).sort((a, b) => b.body.near - a.body.near)
-  for (const { box, body } of blocks) if (body.w <= box.w) lay(body)
-  const covered = new Set<OutsideBox>()
-  for (const { body } of widened) {
-    if (taken(body)) covered.add(body)
-    else lay(body)
-  }
-  return sites.flatMap(({ body }) => covered.has(body) ? [] : [body])
+export function composeBodies(sites: readonly FabricSite[], houseTopM: number): OutsideBox[] {
+  const widened = sites.filter(({ box, body }) => (body.heightM ?? 0) >= houseTopM && body.w > box.w).map(({ body }) => body)
+  const shown = shownBlocks(widened), hidden = new Set(widened.filter(body => !shown.has(body)))
+  return sites.flatMap(({ body }) => hidden.has(body) ? [] : [body])
 }

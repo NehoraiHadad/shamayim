@@ -396,7 +396,7 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     sites.push({ box, slotW: w < legible ? legible : 0, body: { ...box, w: bodyW, top: roof(heightM), heightM } })
   }
   const standing = standingSites(sites)
-  const bodies = look ? composeBodies(standing, look.house.w, HOUSE_TOP_M) : standing.map(({ body }) => body)
+  const bodies = look ? composeBodies(standing, HOUSE_TOP_M) : standing.map(({ body }) => body)
   return { sites: standing.map(({ box }) => box), boxes: visible(bodies, width) }
 }
 

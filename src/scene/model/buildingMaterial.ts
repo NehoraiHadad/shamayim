@@ -39,8 +39,9 @@ export function materialBin(seed: number): number {
   return Math.floor(seeded(seed)() * WALL_ALBEDOS.length)
 }
 
-export function receiverId(seed: number, glass = false, industrial = false): number {
-  const id = (materialBin(seed) * FACINGS.length + facingBin(seed)) * 2 + Number(glass)
+/** A body's wall and facing, each by its own draw: `material` where the seed's own plaster draw is already spent. */
+export function receiverId(seed: number, glass = false, industrial = false, material = seed): number {
+  const id = (materialBin(material) * FACINGS.length + facingBin(seed)) * 2 + Number(glass)
   return industrial ? -1 - id : id
 }
 

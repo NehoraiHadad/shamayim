@@ -1,23 +1,6 @@
-import { hits } from '../../world/sceneClearance'
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { receiverId } from './buildingMaterial'
-import type { Box, OutsideItem } from './types'
-
-/** Trim in fifths, keeping at least three fifths so a body still reads as a building. */
-const TRIMMED_WIDTHS = [.8, .6]
-
-/** The body clear of the zones: whole, or (`trim`) its wider clear portion, anchored at one of its own edges; else none. */
-export function clearBody(zones: readonly Box[], x: number, w: number, top: number, foot: number, trim: boolean) {
-  const left = x - w / 2, right = x + w / 2
-  if (!hits(zones, left, top, right, foot)) return { x, w }
-  if (!trim) return null
-  for (const share of TRIMMED_WIDTHS) {
-    const kept = w * share
-    if (!hits(zones, left, top, left + kept, foot)) return { x: left + kept / 2, w: kept }
-    if (!hits(zones, right - kept, top, right, foot)) return { x: right - kept / 2, w: kept }
-  }
-  return null
-}
+import type { OutsideItem } from './types'
 
 /** A full tower or spire, with glyph widths in CSS pixels. */
 export function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;

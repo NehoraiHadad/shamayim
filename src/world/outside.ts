@@ -174,12 +174,12 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
         if (c === TREE) { treeSpots.push({ dx, dy, lat, lon }); continue }
         const seed = hashId(`${row}:${col}`)
         const random = seeded(seed)
-        const heights = heightsAt(lat, lon, random())
+        const square = raster?.at(lat, lon), heights = heightsAt(square, lat, lon, random())
         // C9 (defect 10): a built cell is as wide as its buildings' frontage, not wall to wall: its width by the root of
         // the raster square's built share (the share of the ground under roofs; a row of blocks shows about its root
         // across), at a seeded spot inside the cell, so the streets and yards between them open and the rows behind,
         // with their own heights, show through. A cell the raster knows nothing of is whole.
-        const built = raster?.at(lat, lon).built ?? 0, frontM = raster?.front?.(lat, lon)
+        const built = square?.built ?? 0, frontM = raster?.front?.(lat, lon)
         const front = built > 0 ? Math.min(1, Math.max(MIN_FRONT, Math.sqrt(built) * FRONT_K)) : 1
         const shift = (random() - .5) * (1 - front) * wKm
         cells.push({ dx: dx + shift, dy, wKm: wKm * front, ...heights, seed, ...(frontM ? { frontM } : {}) })
@@ -210,7 +210,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     const lat = place.lat + sq.dy / 111.32, lon = place.lon + sq.dx / (111.32 * cos)
     const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`)
     const frontM = raster?.front?.(lat, lon)
-    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(lat, lon, seeded(seed)()), seed,
+    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(raster?.at(lat, lon), lat, lon, seeded(seed)()), seed,
       ...(frontM ? { frontM } : {}) })
   }
   return { cells, trees, source: 'raster' as const }
