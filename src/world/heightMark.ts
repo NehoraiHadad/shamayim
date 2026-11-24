@@ -2,7 +2,7 @@ import { DOT_DRAWN, LETTER_H, letterWidth, overlaps, type Box, type Point } from
 import { markBox, type WorldMark } from './markGeometry'
 import { outsideBodies } from './outsideBodies'
 import { SCENE_W } from './sceneBox'
-import { sceneClearance } from './sceneClearance'
+import { noteClearance, sceneClearance, type ScreenBox } from './sceneClearance'
 import type { HeightMark, OutsideView, WorldLabels } from './types'
 
 /** The figure's widths (px) the mark must stand clear at: text keeps its size while its place scales. */
@@ -16,7 +16,7 @@ const HOUSE_NEAR = 24
 const COLUMN = 4, HOLD = 9
 /** What is over a roof as drawn (px): a parapet or a ridge, a tower's crown. */
 const ROOF = 2.5, CROWN = 4
-/** Costs, in px of height over the roofs: a px aside, a covered px of the town, letters half on the sky, a note or a mark under them. */
+/** Costs, in px of height over the roofs: a px aside, a covered px of the town (at the narrowest figure), letters half on the sky, a note or a mark under them. */
 const ASIDE = 1, FABRIC = 1, SPLIT = 8, BARRED = 1000
 const EDGE = 2
 
@@ -32,18 +32,18 @@ export interface HeightMarkInput {
   landY(x: number): number
 }
 
-/** The place's own houses and towers round its spot, as they stand clear of the dot and the notes. */
-function ownBodies({ view, dot, labels }: HeightMarkInput, dotted: boolean, reach: number): Box[] {
+/** The place's own houses and towers within `reach` of its spot, as they stand clear of `clear`. */
+function ownBodies({ view, dot }: HeightMarkInput, clear: readonly ScreenBox[], reach: number): Box[] {
   const near = <T extends { x: number; w: number }>(list: readonly T[]) => list.filter((b) => Math.abs(b.x - dot.x) < reach + b.w / 2)
   const skyline = { ...view.skyline, boxes: near(view.skyline.boxes), towers: near(view.skyline.towers) }
-  const { boxes, towers } = outsideBodies({ ...view, skyline, beyond: [], beyondTowns: [], trees: [] }, sceneClearance({ ...labels, height: { dotted } }, dot, SCENE_W), 1)
+  const { boxes, towers } = outsideBodies({ ...view, skyline, beyond: [], beyondTowns: [], trees: [] }, clear, 1)
   return [...boxes.map(({ box, x, w }) => ({ left: x - w / 2, right: x + w / 2, top: box.top - ROOF, bottom: box.foot })),
     ...towers.map(({ tower, x, w }) => ({ left: x - w / 2, right: x + w / 2, top: tower.baseY - tower.h - CROWN, bottom: tower.baseY }))]
 }
 
 /** Whether the spot is marked with a dot: only where none of the place's own houses is drawn near it. */
-function dottedAt({ view, dot }: HeightMarkInput): boolean {
-  return ![...view.skyline.boxes, ...view.skyline.towers].some((b) => Math.abs(b.x - dot.x) < HOUSE_NEAR + b.w / 2)
+function dottedAt(input: HeightMarkInput): boolean {
+  return !ownBodies(input, sceneClearance(input.labels, input.dot, SCENE_W), HOUSE_NEAR).length
 }
 
 /** What the letters may not cover at a figure's width (screen px): the notes, the marks, the datum's line. */
@@ -70,7 +70,8 @@ export function heightMark(input: HeightMarkInput): HeightMark {
   const { dot, text, landY } = input
   const dotted = dottedAt(input)
   const w = letterWidth(text), reach = Math.floor(w / 2 - HOLD)
-  const bodies = ownBodies(input, dotted, w + reach)
+  // Over the town's whole roofs: the spot's small clearing among them is no way down for the letters.
+  const bodies = ownBodies(input, noteClearance(input.labels.notes, SCENE_W), w + reach)
   const bars = MARK_WIDTHS.map((width) => barred(input, width))
   const column = { left: dot.x - COLUMN, right: dot.x + COLUMN, top: -Infinity, bottom: dot.y }
   const tops = [...bodies, ...input.marks.filter((m) => m.plane !== 'far').map(markBox)].filter((b) => overlaps(b, column)).map((b) => b.top)
@@ -80,14 +81,14 @@ export function heightMark(input: HeightMarkInput): HeightMark {
     const y = stop - rise - LETTER_H
     if (y < EDGE || (best && rise >= best.cost)) break
     for (let dx = -reach; dx <= reach; dx++) {
-      const x = dot.x + dx, box = { left: x - w / 2, right: x + w / 2, top: y, bottom: y + LETTER_H }
+      const x = dot.x + dx, wide = w / 2 * SCENE_W / MARK_WIDTHS[0], box = { left: x - w / 2, right: x + w / 2, top: y, bottom: y + LETTER_H }
       const hidden = bars.filter(({ sx, boxes }) => {
         const at = { ...box, left: x * sx - w / 2, right: x * sx + w / 2 }
         return at.left < EDGE || at.right > SCENE_W * sx - EDGE || boxes.some((b) => overlaps(b, at, AIR))
       }).length * BARRED
       const land = [box.left, box.right].map((end) => box.bottom > landY(end))
       const cost = rise + Math.abs(dx) * ASIDE + hidden + (land[0] === land[1] ? 0 : SPLIT)
-        + FABRIC * bodies.reduce((sum, b) => sum + area(b, box), 0)
+        + FABRIC * bodies.reduce((sum, b) => sum + area(b, { ...box, left: x - wide, right: x + wide }), 0)
       if (best && cost >= best.cost) continue
       best = { cost, mark: { x, y, on: y + LETTER_H / 2 > landY(x) ? 'land' : 'sky', dotted } }
     }

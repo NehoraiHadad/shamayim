@@ -1,3 +1,4 @@
+import { ratio } from '../../theme/contrast'
 import { labelTone } from '../../theme/labelTone'
 import { SCENE_W } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
@@ -21,6 +22,7 @@ export function heightItem(world: WorldState, width: number): Extract<OverlayIte
   const { text, x, y, on, dotted } = world.labels.height, { dot } = world.place3
   const sx = width / SCENE_W, { palette } = world.light
   const land = landTone(world)
+  const inks = [palette.ink, palette.ridgeNear].sort((a, b) => ratio(b, land) - ratio(a, land))
   return { kind: 'height', text, x: x * sx, y, spot: { x: dot.x * sx, y: dot.y }, tone: labelTone(palette, on, land),
-    dot: dotted ? labelTone(palette, 'land', land).ink : null }
+    dot: dotted ? inks[0] : null }
 }
