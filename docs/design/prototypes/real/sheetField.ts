@@ -18,6 +18,8 @@ export const RASTER = 0.6
 const FOOT = 12, STEP = 1.6
 /** How far over its far rim a hole shows its wall, px overhead: the eye looks up at a slant, into the hole. */
 const WALL = 9
+/** Nearer than this (px) to the light's own place it comes from behind, not from a side. */
+const BEFORE = 70
 
 export interface SheetField extends LitBody {
   /** Drawn opacity 0–1, the model's tone 0–1, the towns' light 0–1, how far the heads face away from the light. */
@@ -71,7 +73,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>, from: { x: number; y: nu
       const a = here + wall * 0.8
       if (a < 0.012) continue
       const p = j * w + i, x = i / RASTER
-      const dx = from.x - xs[0] - x, dy = from.y - ys[0] - y, far = Math.hypot(dx, dy) || 1
+      const dx = from.x - xs[0] - x, dy = from.y - ys[0] - y, far = Math.max(BEFORE, Math.hypot(dx, dy))
       const g = grain(x - width / 2, y, dx / far, dy / far)
       // An underside: cloud over it, open air under it.
       const edge = (o: number, u: number) => buf[(over + o) * 4 + 3] - buf[(under + u) * 4 + 3]
