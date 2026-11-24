@@ -1298,6 +1298,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             lamp's half-degree altitude steps the moon's and dusk's light on the sheets, the tower key lacks `tau`, a combed veil and a hole's
             wall may pass the dust bound, a low sheet's beam ignores the upper deck. Written down, not chased: deckOpenness' hard node count and the mean anchor shifting as a bank
             enters; closed decks' and veils' tone not premultiplied; lamp bits in their keys; tower octave switch at 70 px; towers' crowns not
-            capped in dust; a twilight body keeps a faint ring. Perf over main d0195813: scrub latency, animation and memory flat;
-            first paint dearer (firstShown +5..37 %, 21-86 ms once; cold sky and land +19..29 %, over the +15 % cap), thunder batch sky +20..38 %: the manager's call
+            capped in dust; a twilight body keeps a faint ring. Owner's first look fixed: a deck is calm
+            inside (the sky round a point says so), dusk leans to the light, the light's grid a third of the raster. The dark smudges at Shadmot
+            15:00 and Neve Zohar 16:00 are the model's (alike in main). Perf 337074df over main 7e4b5ce6: scrub latency -17..+4 %, animation and
+            memory flat; firstShown +3..39 %, cold sky and land +19..30 % (the cap is +15 %), thunder batch sky +9..56 %: the manager's call.
+            Written down: the sunny heaps' inside is a little calmer than at 3ed29531
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
