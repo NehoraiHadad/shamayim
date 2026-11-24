@@ -3,7 +3,7 @@ import { utcOf } from '../astro/utc'
 import { daylightFraction } from '../domain/time'
 import type { LocalDate, LocalTime } from '../domain/types'
 import { FLAT_SKYLINE, type Skyline } from './skyline'
-import { apparentAltitude, horizonLine, projectSky } from './skyProjection'
+import { apparentSunAltitude, horizonLine, projectSky } from './skyProjection'
 
 export { FLOOR_Y, HORIZON_Y, SCENE_H, SCENE_W, SEA_Y } from './sceneBox'
 
@@ -35,9 +35,6 @@ export interface SunSite {
   timezone: string
 }
 
-/** The sun's radius (deg): the disc is placed by its top edge, which is what first shows over a ridge and last goes. */
-const SUN_RADIUS = 0.267
-
 /**
  * The sun at a daylight fraction (0 = sunrise, 1 = sunset; outside that, before or after) as it really is: its true
  * azimuth across and true altitude up (see `skyProjection.ts`), on the horizon line from the ridge where it rises
@@ -50,7 +47,7 @@ export function sunAt(t: number, sunrise: LocalTime, sunset: LocalTime, site: Su
   const at = new Date(rise + (set - rise) * t)
   const h = horizonLine(sunSky(new Date(rise), site.lat, site.lon).azimuth, sunSky(new Date(set), site.lat, site.lon).azimuth, skyline)
   const { altitude, azimuth } = sunSky(at, site.lat, site.lon)
-  const { x, y } = projectSky(apparentAltitude(altitude) + SUN_RADIUS, azimuth, h)
+  const { x, y } = projectSky(apparentSunAltitude(altitude), azimuth, h)
   return { t, x, y }
 }
 

@@ -85,9 +85,12 @@ it.each(ids)('shows the recorded %s sheet', id => {
     expect(Math.abs(coverage - layer.cover)).toBeLessThanOrEqual(0.05)
   } else {
     const deck = sheets.find(sheet => sheet.lattice === 'mid')!
-    const rows = deck.ys.filter(y => y < geom.horizon / 2)
+    // The sky above 38°, as the upper half of the screen showed it under a dome with a kink at its join (on rows at 42–90°).
+    // The quantiles leave out less than a row's share at each end: the first row and the last.
+    const rows = deck.ys.filter(y => geom.domeAltitudeAt(y) >= 38)
+    const tail = 1 / (rows.length + 1)
     const upper = deck.tone.slice(0, rows.length * deck.xs.length)
-    const spread = quantile(upper, 0.9) - quantile(upper, 0.1)
+    const spread = quantile(upper, 1 - tail) - quantile(upper, tail)
     const channel = deck.body.indexOf(Math.max(...deck.body))
     const body = deck.body[channel], shade = deck.shade[channel]
     const opaqueTone = rows.map(y => {
@@ -95,8 +98,8 @@ it.each(ids)('shows the recorded %s sheet', id => {
       const target = scaleLight(deck.body, OVERCAST_HORIZON + (1 - OVERCAST_HORIZON) * mu)[channel]
       return 0.5 + 0.5 * (body - target) / (body - shade)
     })
-    const opaqueSpread = quantile(opaqueTone, 0.9) - quantile(opaqueTone, 0.1)
-    console.info({ upperToneSpread: spread, upperP10: quantile(upper, 0.1), upperP90: quantile(upper, 0.9),
+    const opaqueSpread = quantile(opaqueTone, 1 - tail) - quantile(opaqueTone, tail)
+    console.info({ upperToneSpread: spread, upperLow: quantile(upper, tail), upperHigh: quantile(upper, 1 - tail),
       opaqueSpread, rowMedian: rows.map((_, row) =>
         quantile(deck.tone.slice(row * deck.xs.length, (row + 1) * deck.xs.length), 0.5)) })
     // The opaque As deck follows the CIE overcast source ramp, encoded in

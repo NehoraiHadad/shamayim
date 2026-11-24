@@ -5,7 +5,6 @@ import { offsetKm, type Coordinate } from '../data/landmarks/project'
 import { score } from '../data/landmarks/rank'
 import { isSettlementMark } from '../data/landmarks/settlement'
 import type { Landmark } from '../data/landmarks/types'
-import type { NoteBox } from '../data/terrain/sceneNotes'
 import { neighbourGeometry } from './neighbourSize'
 import { neighbourRule, viableNeighbour } from './neighbourPolicy'
 import type { SeatMark } from './beyondSeat'
@@ -31,7 +30,7 @@ export function nearBeyondKept(place: Coordinate, mark: Landmark): boolean {
 
 /** Budget seats for world layout and carry every viable seat to the scene model for its final cull. */
 export function beyondMarks(place: Coordinate, marks: Landmark[], width: number, seatMark: SeatMark | null,
-  dot: Point, notes: readonly NoteBox[], townAt?: (mark: Landmark) => boolean) {
+  dot: Point, townAt?: (mark: Landmark) => boolean) {
   const other: Landmark[] = []
   const viable: { mark: SeatedWorldMark; bounds: Box }[] = []
   const dotBox = boxAround(dot.x, dot.y, DOT_R)
@@ -57,7 +56,7 @@ export function beyondMarks(place: Coordinate, marks: Landmark[], width: number,
       km: seat.km, seatBlockId: seat.blockId, seatRank: score(mark, Math.hypot(dx, dy), 0, SKYLINE_TO_KM),
       dy, layer: 'near', plane: 'near' }
     const box = markBox(worldMark)
-    if (overlaps(box, dotBox) || notes.some((note) => overlaps(box, note))) continue
+    if (overlaps(box, dotBox)) continue
     viable.push({ mark: worldMark, bounds: box })
   }
   viable.sort((a, b) => b.mark.seatRank - a.mark.seatRank)

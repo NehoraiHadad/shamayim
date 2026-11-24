@@ -53,7 +53,7 @@ describe('landmark projection', () => {
 })
 
 const terrain: SceneTerrain = {
-  centerLeft: '50%', seaY: 60, horizonY: 60, seaInView: false,
+  centerLeft: '50%', horizonY: 60, seaInView: false,
   seaSide: null,
   nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
   nearElevations: [20, 20], farElevations: [20, 20],
@@ -75,7 +75,7 @@ describe('placement and selection', () => {
   })
 
   it('caps near and far counts and filters a short far mast', () => {
-    const KINDS = ['highrise', 'chimney', 'cooling', 'waterTower', 'church', 'silo', 'castle', 'minaret', 'turbine'] as const
+    const KINDS = ['highrise', 'chimney', 'cooling', 'waterTower', 'church', 'silo', 'castle', 'mast', 'turbine'] as const
     const candidate = (index: number, layer: 'near' | 'far', heightM = 80): Candidate => ({
       mark: { ...baseMark, id: String(index), heightM, kind: KINDS[index % KINDS.length] }, dx: layer === 'far' ? 20 : index,
       dy: 0, x: 20 + index * 25, layer, width: 10, score: 20 - index,
@@ -88,11 +88,11 @@ describe('placement and selection', () => {
   })
 
   it('caps repeated OSM kinds and prefers variety', () => {
-    const minaret = (index: number): Candidate => ({ mark: { ...baseMark, id: `m${index}`, kind: 'minaret' }, dx: index,
+    const orchard = (index: number): Candidate => ({ mark: { ...baseMark, id: `o${index}`, kind: 'orchard' }, dx: index,
       dy: 0, x: 20 + index * 25, layer: 'near', width: 10, score: 20 - index * .1 })
-    const tower: Candidate = { ...minaret(9), mark: { ...baseMark, id: 'w', kind: 'waterTower' }, score: 15 }
-    const picked = select([...Array.from({ length: 6 }, (_, i) => minaret(i)), tower], 375)
-    expect(picked.filter((item) => item.mark.kind === 'minaret')).toHaveLength(2)
+    const tower: Candidate = { ...orchard(9), mark: { ...baseMark, id: 'w', kind: 'waterTower' }, score: 15 }
+    const picked = select([...Array.from({ length: 6 }, (_, i) => orchard(i)), tower], 375)
+    expect(picked.filter((item) => item.mark.kind === 'orchard')).toHaveLength(2)
     expect(picked.map((item) => item.mark.id)).toContain('w')
   })
 
@@ -128,17 +128,6 @@ describe('placement and selection', () => {
     const marks = placeMarks(city, terrain, withIcons(city, [dagon, sail]), width)
     expect(marks.map((mark) => mark.id)).toEqual(expect.arrayContaining(['haifa-bab', 'osm-dagon', 'osm-sail']))
     expect(marks.find((mark) => mark.id === 'haifa-bab')!.hPx).toBeGreaterThanOrEqual(10)
-  })
-
-  it('keeps clear of the notes written on the land', () => {
-    // 8.8 km due west stands at x 325 on the old cross-section; a note (a water body's name) is written there.
-    const onWestLabel = { ...baseMark, id: 'west', lat: place.lat,
-      lon: place.lon - 8.8 / (111.32 * Math.cos(place.lat * Math.PI / 180)), heightM: 120 }
-    const note = { left: 310, right: 340, top: 0, bottom: 128 }
-    const kept = placeMarks(place, terrain, [onWestLabel], 375, undefined, false, undefined, [note])
-    const free = placeMarks(place, terrain, [onWestLabel], 375)
-    expect(free[0].xPct * 3.75).toBeCloseTo(325, 0)
-    expect(kept[0]?.xPct * 3.75).not.toBeCloseTo(325, 0)
   })
 })
 

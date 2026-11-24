@@ -1,5 +1,6 @@
 import type { AirInput } from '../atmo/airTypes'
 import type { Weather } from '../atmo/weatherMix'
+import { dustVeilPotential } from '../theme/skyLight'
 import { dustShare, haze, heat, rainRate, visibilityKm } from './airParts'
 import { blockingCloudCover, isFogCode, mistOf, NO_MIST } from './mist'
 import type { Air, Body, RGB, WorldSources } from './types'
@@ -46,8 +47,8 @@ export function chooseVisibility(input: AirSourceInput): { km: number; source: W
   return { km: 40, source: 'default' }
 }
 
-/** Raw low/mid cloud cover (0–100) for mist: never the renderer's rescaled `covers`. */
-function rawCloudLayers(m: NonNullable<AirSourceInput['mist']>, shown: AirInput) {
+/** Marine stratus evidence and the cooling blocker from the sky layers (0–100). */
+function mistCloudLayers(m: NonNullable<AirSourceInput['mist']>, shown: AirInput) {
   if (m.forcedLayers) {
     const lowCloudPct = m.forcedLayers.low * 100
     return { lowCloudPct, blockingCloudPct: blockingCloudCover(lowCloudPct, m.forcedLayers.mid * 100, 0) }
@@ -82,7 +83,7 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
       ? Number(isFogCode(shown.weatherCode)) * (1 - visibilityWeight) : m.weather.fogCodeWeight,
     dustWeight,
     rainRateMmH: r,
-    ...rawCloudLayers(m, shown),
+    ...mistCloudLayers(m, shown),
     windMs: m.windMs,
     sunAltitude: m.sun.altitude,
     sunRising: m.sun.azimuth < 180,
@@ -95,6 +96,8 @@ export function airOf(input: AirSourceInput): { air: Air; source: WorldSources['
       visibilityKm: v,
       humidity: shown.humidity,
       dustWeight,
+      // The display palette adds its PM10 tint only when optical PM10 is available.
+      dustVeilPotential: dustVeilPotential(shown.opticalPm10 ?? null) * dustWeight,
       haze: tint,
       fade: (distanceKm: number) => 1 - Math.exp(-KOSCHMIEDER * Math.max(0, distanceKm) / v),
       farFade: h.farFade,

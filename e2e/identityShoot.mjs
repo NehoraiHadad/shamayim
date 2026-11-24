@@ -82,7 +82,7 @@ async function load(browser, tree, unit, dpr) {
     page.setDefaultNavigationTimeout(LOAD_TIMEOUT)
     await page.addInitScript(prepare)
     await loadScene(page, sceneUrl(tree.url, { ...unit.moment, style: unit.style, paint: unit.paint,
-      overlay: unit.overlay ?? false, hide: unit.hide ?? unit.moment.hide }), LOAD_TIMEOUT, 0)
+      hide: unit.hide ?? unit.moment.hide }), LOAD_TIMEOUT, 0)
     await page.evaluate(() => window.__scene.settled())
     const pngs = []
     for (const grey of unit.alone ? BACKDROPS : [null]) {

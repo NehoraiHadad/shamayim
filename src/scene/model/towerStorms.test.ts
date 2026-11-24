@@ -83,3 +83,12 @@ it('gives a far night tower the light of the towns on the sheet behind it, where
   expect(over.behind[0]).toBeGreaterThan(0.2)
   expect(over.body[0]).toBeGreaterThan(dark[0] + 0.05)
 })
+
+it('aims a tower at the sheet only as far as the rendered row remains visible through dust', () => {
+  const sky: RGB = [0.5, 0.6, 0.8], cloud: RGB = [0.7, 0.4, 0.4]
+  const tones = { body: sky, shade: sky, behind: sky, fade: 0.5 }
+  const sheet = { xs: [0, 100], ys: [0, 50], through: [1, 0] }
+  const background = { rgb: cloud, cover: 0.8 }
+  expect(beforeSheet(tones, { ...background, sheet }, 50, 25)).toEqual(beforeSheet(tones, { ...background, cover: 0.4 }))
+  expect(beforeSheet(tones, { ...background, sheet }, 50, 50).behind[2]).toBeCloseTo(sky[2])
+})

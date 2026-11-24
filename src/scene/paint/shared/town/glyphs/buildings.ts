@@ -1,44 +1,13 @@
 import { mix } from '../../base/hand'
-import { arch, disc, Kit, MINARET_LAMP, poly, rect } from './kit'
+import { arch, disc, Kit, poly, rect } from './kit'
 
 /*
  * Worship halls, the water tower, the ruin and a far village (stage C4), in the scene's hand (kit.ts). Real references,
- * from the prototype's brief (docs/design/prototypes/canvas-scene/brief-glyphs.md): mosque — Al-Jazzar (Acre), Mahmoudiya
- * (Jaffa), Galilee village mosques; church — St Peter's (Jaffa), Galilee village churches; synagogue — the Israeli town
+ * from the prototype's brief (docs/design/prototypes/canvas-scene/brief-glyphs.md): church — St Peter's (Jaffa),
+ * Galilee village churches; synagogue — the Israeli town
  * synagogue of the 1950s–70s; water tower — the concrete "mushroom" of kibbutzim and towns (Givat Brenner, Ein Shemer);
  * castle — the Crusader ruins of Yehiam and Montfort; homes — a Galilee village's houses seen from across a valley.
  */
-/** Mosque: domed hall on a drum, a slender minaret with one corbelled balcony and a pencil cone (height `h`). */
-export function minaret(k: Kit, h: number) {
-  const { t } = k
-  k.box(-7, -5, 9, 5, 1.5, { shadeW: 1 })
-  k.rim(-7, -5, 9)
-  k.fill(rect(-7, -5.5, 9, 0.5), t.wall)
-  k.fill(rect(-7, -5.5, 1.5, 0.5), k.litL)
-  k.rim(-7, -5.5, 9, 0.6)
-  k.round(rect(-5, -6.5, 5, 1), -5, 0)
-  for (const x of [-4.5, -3, -1.5]) k.fill(rect(x, -6.25, 0.5, 0.5), t.deep, 0.5)
-  k.round((c) => {
-    c.beginPath(); c.moveTo(-5.2, -6.5); c.bezierCurveTo(-5.2, -8.9, -3.9, -9.6, -2.5, -9.6)
-    c.bezierCurveTo(-1.1, -9.6, 0.2, -8.9, 0.2, -6.5); c.closePath()
-  }, -5.2, 0.2)
-  k.fill(rect(-2.75, -10.6, 0.5, 1), t.wall)
-  k.fill(rect(-2.9, -11.1, 0.8, 0.5), mix(t.wall, t.rim, 0.6))
-  for (const x of [-4.4, -1.6]) k.open(arch(x, -1.2, 1, 2.4), true)
-  k.open(arch(-0.2, 0, 1.2, 2.6), true, 0.6)
-  // The minaret: square base, shaft, balcony on corbels, upper shaft, pencil cone.
-  const bal = -h * 0.68, top = -h + 4.6
-  k.box(1.9, -6, 2.6, 6, 0.9, { shadeW: 0.5 })
-  k.round(rect(2.2, bal, 2, -6 - bal), 2.2, 4.2)
-  k.fill(poly([2.2, bal + 1.2, 4.2, bal + 1.2, 4.9, bal, 1.5, bal]), t.shade)
-  k.round(rect(1.4, bal - 0.6, 3.6, 0.6), 1.4, 5)
-  k.rim(1.4, bal - 0.6, 3.6, 0.8)
-  k.round(rect(2.45, top, 1.5, bal - 0.6 - top), 2.45, 3.95)
-  k.round(poly([2.35, top, 4.05, top, 3.2, -h + 0.9]), 2.35, 4.05)
-  k.fill(rect(3.05, -h, 0.3, 0.9), t.wall)
-  k.open(rect(2.95, bal - 3.4, 0.5, 1.2), false)
-  k.lamp(3.2, bal - 0.3, 2.2, MINARET_LAMP, 0.75 * k.night, k.nightFade(0.3, 0.5))
-}
 /** Church: gabled stone nave with a rose window and a tiled roof, a square tower with an arched belfry, cap and cross. */
 export function church(k: Kit, h: number) {
   const { t } = k

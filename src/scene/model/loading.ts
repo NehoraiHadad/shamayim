@@ -7,6 +7,7 @@ import { UNKNOWN_EYE_Y } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { landBoxKey, layerKey } from './keys'
 import { ambientToneAt } from './landVeil'
+import { gradeSky } from './skyTone'
 import { mixRgb, rgbOf } from './tone'
 import type { AnimSpec, LandClock, LayerDesc, LayerOf, MistBandDesc, MistPuff, Pt, RGB, SceneBox } from './types'
 
@@ -79,7 +80,7 @@ function mistTones(world: WorldState) {
   const sun = world.bodies.sun.altitude
   const day = smoothstep(2, 20, sun)
   // By night a bank holds a little of the night sky's own glow (and the towns' under it), so it still reads as a bank.
-  const sky = mixRgb(rgbOf(palette.horizon), rgbOf(palette.mid), 0.15)
+  const sky = gradeSky(world, mixRgb(rgbOf(palette.horizon), rgbOf(palette.mid), 0.15))
   const body = mixRgb(mixRgb(sky, world.air.haze, 0.3 * (1 - dark)), WHITE, 0.2 * day + 0.07 * dark)
   const foot = mixRgb(body, ambientToneAt(world, 2), 0.32)
   // A low sun lights the bank's top (the warm of the hour) as far as the cloud lets it through.
@@ -198,8 +199,11 @@ export function arrivingLayers(world: WorldState, box: SceneBox, layers: readonl
   const at = (step: { at: number }) => t0 + step.at
   const ramp = (step: { at: number; dur: number }, from: number, to: number) => ({ at: at(step), dur: step.dur, from, to })
   const dy = reveal.fromHorizonY - world.relief.horizonY
+  const graded = layers.some(layer => layer.kind === 'skyFilter')
   const out = layers.map((layer): LayerDesc => {
     if (layer.surface === 'sky') {
+      // Hold the opaque backdrop and grade together, without exposing an unpainted edge.
+      if (graded && (layer.kind === 'sky' || layer.kind === 'skyFilter')) return layer
       if (Math.abs(dy) < 0.5) return layer
       return { ...layer, animated: { ...(layer.animated ?? { mode: 'settle' }), glide: { dy, at: at(ARRIVAL.glide), dur: ARRIVAL.glide.dur } } }
     }

@@ -1,3 +1,4 @@
+import { sunDiscAlpha } from '../../../model/dustDisc'
 import type { Disc, LayerOf, MoonDisc, Star } from '../../../model/types'
 import { css, type Ctx2D } from '../base/hand'
 
@@ -10,42 +11,41 @@ import { css, type Ctx2D } from '../base/hand'
  */
 export function paintBodies(ctx: Ctx2D, desc: LayerOf<'bodies'>): void {
   if (desc.sun && desc.part === 'aureole') { paintAureole(ctx, desc.sun); return }
-  if (desc.sun) paintSun(ctx, desc.sun)
+  if (desc.sun) paintSun(ctx, desc.sun, desc.part === 'discLight')
   if (desc.moon) paintMoon(ctx, desc.moon)
 }
 
 /**
- * The aureole: forward-scattered light round the limb, wide in haze, taken by the cloud in front (its own layer over the
- * clouds, C9: the air between the eye and any cloud glows too).
+ * The aureole: forward-scattered light round the limb, wide in haze, as much as the cloud leaves of the sun's light (its
+ * own layer over the clouds, C9: the air between the eye and any cloud glows too).
  */
 function paintAureole(ctx: Ctx2D, d: Disc) {
   const { x, y, r } = d
-  const clear = 1 - d.veil
   for (const [reach, a] of [[2.6, 0.2], [1.6, 0.42]] as const) {
     const g = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * reach)
-    g.addColorStop(0, css(d.halo, a * d.aureole * clear))
+    g.addColorStop(0, css(d.halo, a * d.aureole))
     g.addColorStop(1, css(d.halo, 0))
     ctx.fillStyle = g
     ctx.fillRect(x - r * reach, y - r * reach, 2 * r * reach, 2 * r * reach)
   }
 }
 
-function paintSun(ctx: Ctx2D, d: Disc) {
+function paintSun(ctx: Ctx2D, d: Disc, beamOnly: boolean) {
   const { x, y, r } = d
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(1, d.flatten)
   // Through cloud the disc spreads into a soft patch: stacked wider copies, no hard limb.
-  if (d.veil > 0.15) {
+  if (!beamOnly && d.veil > 0.15) {
     for (const k of [2.2, 1.6, 1.25]) {
-      ctx.fillStyle = css(d.core, 0.12 * d.veil)
+      ctx.fillStyle = css(d.cloudGlow ?? d.core, 0.12 * d.veil * d.shown)
       ctx.beginPath()
       ctx.arc(0, 0, r * k, 0, Math.PI * 2)
       ctx.fill()
     }
   }
   // Behind cloud the disc goes fast: at 80 % of its light taken it is a pale patch.
-  const alpha = Math.max(0.1, 1 - 0.97 * d.veil ** 0.7)
+  const alpha = d.beamAlpha ?? sunDiscAlpha(d.veil) * d.shown
   if (d.coin > 0.5) {
     ctx.fillStyle = css(d.core, alpha)
   } else {

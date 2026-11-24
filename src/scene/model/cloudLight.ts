@@ -5,7 +5,10 @@ import { cloudLight, layerMeanTransmission, SKY_CLOUD_DEPTH_SCALE } from '../../
 import { smoothstep } from '../../world/ridgeLighting'
 import { sunLight } from '../../world/sceneLight'
 import type { CloudLayer, CloudLevel, WorldState } from '../../world/types'
-import { coversOf, stopAt, veilOf, type SkyGeom } from './sky'
+import { cloudHazeFade } from './cloudDust'
+import { coversOf, stopAt, veilOf } from './skyColour'
+import type { SkyGeom } from './skyGeom'
+import { gradeSky } from './skyTone'
 import { mixRgb, rgbOf } from './tone'
 import type { RGB, SceneBox } from './types'
 
@@ -101,11 +104,12 @@ function tonesOf(world: WorldState, box: SceneBox, stops: [number, RGB][], level
   const fair = mixRgb(behind, [0.95, 0.96, 0.98], 0.55 + 0.3 * thick)
   const closed = mixRgb(mixRgb(behind, DECK_GREY, 0.3 * thick), mixRgb(behind, RAIN_GREY, 0.55 * thick), rainWeight)
   const dayBody = mixRgb(fair, closed, smoothstep(0.35, 0.95, union))
-  const nightBody = mixRgb(behind, mixRgb(rgbOf(palette.mid), rgbOf(palette.horizon), 0.6), 0.55 * thick)
+  const nightSky = gradeSky(world, mixRgb(rgbOf(palette.mid), rgbOf(palette.horizon), 0.6))
+  const nightBody = mixRgb(behind, nightSky, 0.55 * thick)
   const near = mixRgb(nightBody, dayBody, day)
   const nearShade = mixRgb(near, day > 0.5 ? [0.3, 0.34, 0.45] : [0.03, 0.04, 0.1], (0.22 + 0.18 * union) * thick)
-  // The air between: a far bank fades toward the sky behind it, as the far land fades toward the haze (and in dust).
-  const fade = 0.85 * world.air.fade(km)
+  // The residual air fades a far bank toward the sky. Explicit dust extinction is applied to its alpha.
+  const fade = 0.85 * cloudHazeFade(world, km)
   return { body: mixRgb(near, behind, fade), shade: mixRgb(nearShade, behind, fade), behind, fade }
 }
 

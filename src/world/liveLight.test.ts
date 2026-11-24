@@ -94,9 +94,7 @@ describe('live weather and light', () => {
 
     const halfway = addMinutes(RECEIPT, 5)
     const visibility = (forecast: Forecast) => build({ ...input, now: halfway, forecast }).air.visibilityKm
-    const hourlyVisibility = visibility(input.forecast)
-    const incomingVisibility = (hourlyVisibility + incoming.current.visibility! / 1000) / 2
-    expect(visibility(incoming)).toBeCloseTo((visibility(baseline) + incomingVisibility) / 2)
+    expect(visibility(incoming)).toBeCloseTo((visibility(baseline) + incoming.current.visibility! / 1000) / 2)
   })
 
   it.each(['2026-11-17T10:00', '2026-11-18T10:00'])('eases light through a refresh while scrub is held at %s', (selected) => {

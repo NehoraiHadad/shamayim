@@ -46,7 +46,7 @@ export function sceneLabel(world: LabelWorld, forecast: Forecast, now: LocalTime
   { temperature, hasLightning }: { temperature: number; hasLightning: boolean }): string {
   const shown = airInput(forecast, now, world.place, selected)
   const isDay = world.bodies.sun.up
-  const event = nextSunEvent(forecast.days, now)
+  const event = nextSunEvent(forecast.days, selected ?? now)
   const elevation = Math.round(forecast.elevation)
   return [
     `${world.place.nameHe}, ${conditionLabel(renderedCondition(shown, world, hasLightning), isDay)}, ${tempText(temperature)}.`,

@@ -90,6 +90,8 @@ const claim = (px: number, py: number, reach: number, x: number, y: number) => M
 
 /** The mask's cell (km): finer than a built square of the city raster (~118 × 232 m). */
 const STEP = .05
+const maskRows = (reachKm: number) => Math.ceil(2 * reachKm / STEP)
+const maskY = (reachKm: number, row: number) => -reachKm + (row + .5) * STEP
 /**
  * Tolerance (km) for matching a cluster's OSM place node (`cityOffset` from `cell.p`) to its point in `bounds.json`.
  * `scripts/city/bounds.ts` copies `cell.p` coordinates verbatim (only polygon rings are simplified to 40 m), so the gap
@@ -103,11 +105,11 @@ const OWN_POINT_KM = .05
  */
 function masked(place: Coordinate, reachKm: number, fill: (row: number, y: number, set: (x0: number, x1: number) => void) => void,
   exact: (x: number, y: number) => boolean) {
-  const n = Math.ceil(2 * reachKm / STEP)
+  const n = maskRows(reachKm)
   const bits = new Uint8Array(n * n)
   let w = Infinity, e = -Infinity, s = Infinity, nn = -Infinity
   for (let row = 0; row < n; row++) {
-    const y = -reachKm + (row + .5) * STEP
+    const y = maskY(reachKm, row)
     fill(row, y, (x0, x1) => {
       const c0 = Math.max(0, Math.ceil((x0 + reachKm) / STEP - .5)), c1 = Math.min(n - 1, Math.floor((x1 + reachKm) / STEP - .5))
       for (let col = c0; col <= c1; col++) bits[row * n + col] = 1
@@ -124,6 +126,23 @@ function masked(place: Coordinate, reachKm: number, fill: (row: number, y: numbe
     return col >= 0 && col < n && row >= 0 && row < n ? bits[row * n + col] === 1 : exact(x, y)
   }
   return { contains, box: Number.isFinite(w) ? { w, e, s, n: nn } : null }
+}
+
+/** Where the rings' edges cross each of the mask's rows (x, km): each edge is asked only of the rows it spans. */
+function crossings(rings: readonly (readonly (readonly [number, number])[])[], reachKm: number) {
+  const rows = Array.from({ length: maskRows(reachKm) }, (): number[] => [])
+  const rowOf = (y: number) => Math.floor((y + reachKm) / STEP - .5)
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [ax, ay] = ring[i], [bx, by] = ring[j]
+      const from = Math.max(0, rowOf(Math.min(ay, by))), to = Math.min(rows.length - 1, rowOf(Math.max(ay, by)) + 1)
+      for (let row = from; row <= to; row++) {
+        const y = maskY(reachKm, row)
+        if ((ay > y) !== (by > y)) rows[row].push(ax + (bx - ax) * (y - ay) / (by - ay))
+      }
+    }
+  }
+  return rows
 }
 
 /**
@@ -150,15 +169,9 @@ export function placeBounds(place: Coordinate, file: BoundsFile | null | undefin
   }
   if (best) {
     const rings = best.rings.map((ring) => ring.map(km))
-    const { contains, box } = masked(place, reach, (_row, y, set) => {
-      const xs: number[] = []
-      for (const ring of rings) {
-        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-          const [ax, ay] = ring[i], [bx, by] = ring[j]
-          if ((ay > y) !== (by > y)) xs.push(ax + (bx - ax) * (y - ay) / (by - ay))
-        }
-      }
-      xs.sort((a, b) => a - b)
+    const crossed = crossings(rings, reach)
+    const { contains, box } = masked(place, reach, (row, _y, set) => {
+      const xs = crossed[row].sort((a, b) => a - b)
       for (let i = 0; i + 1 < xs.length; i += 2) set(xs[i], xs[i + 1])
     }, (x, y) => inRings(best.rings, place.lat + y / per.y, place.lon + x / per.x))
     if (box) return { source: 'boundary', point: file.points[best.b.at], name: best.b.name, contains, box }
@@ -197,11 +210,13 @@ export function boundsForPlace(place: Coordinate & { nameHe?: string }, clusters
   return placeBounds(place, file, reachKm, home && at ? { ...at, reachKm: clusterReach(home, at) } : undefined)
 }
 
-/** Whether a spot given as km east / north of the place lies within its bounds. */
-export function boundsHoldKm(bounds: PlaceBounds, place: Coordinate, dx: number, dy: number) {
+/** Whether spots given as km east / north of the place lie within its bounds. */
+export function boundsHolder(bounds: PlaceBounds, place: Coordinate) {
   const per = kmPer(place)
-  return bounds.contains(place.lat + dy / per.y, place.lon + dx / per.x)
+  return (dx: number, dy: number) => bounds.contains(place.lat + dy / per.y, place.lon + dx / per.x)
 }
+/** Whether one such spot does. */
+export const boundsHoldKm = (bounds: PlaceBounds, place: Coordinate, dx: number, dy: number) => boundsHolder(bounds, place)(dx, dy)
 
 let boundsPromise: Promise<BoundsFile | null> | undefined
 

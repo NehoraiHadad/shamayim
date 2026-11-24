@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { loadBounds, type BoundsFile } from '../../data/city/bounds'
 import { loadFar, type FarData } from '../../data/city/farData'
 import { loadLandCover, type LandCover } from '../../data/land/landData'
+import { useVillageTile } from '../../data/village/useVillageTile'
 import { loadWaterMask, type WaterMask } from '../../data/water/waterMask'
 import type { Forecast, LocalTime } from '../../domain/types'
 import { pinnedTime } from '../../ui/devParams'
@@ -29,6 +30,8 @@ interface Props {
   wear?: WearLine | null
   /** The hand the valley is painted with; it may change while mounted. */
   sceneStyle?: SceneStyle
+  /** Told the waters drawn in a place's picture, for the page's line about it. */
+  onWaters?: (placeId: string, names: string[]) => void
 }
 
 /**
@@ -36,7 +39,7 @@ interface Props {
  * module lazily, so the world, the model, the painters and the compositor load as their own chunk after the page's first
  * paint. The world is left on `window.__world` for inspection.
  */
-export default function CanvasScene({ input, sceneStyle = DEFAULT_STYLE, ...scene }: Props) {
+export default function CanvasScene({ input, sceneStyle = DEFAULT_STYLE, onWaters, ...scene }: Props) {
   const { offsetMinutes, laidAt, sinceS } = useLifeClock(scene.selected ?? scene.now, scene.selected ?? pinnedTime(), input.place.timezone)
   const life = useMemo(() => ({ laidAt, sinceS }), [laidAt, sinceS])
   // The far towns' raster (`far.json`), loaded once; the world places the towns from it.
@@ -60,12 +63,18 @@ export default function CanvasScene({ input, sceneStyle = DEFAULT_STYLE, ...scen
     void loadWaterMask().then((data) => { if (active) setWaterMask(data) })
     return () => { active = false }
   }, [])
-  const placeCover = cover?.id === placeId ? cover.cover : null
-  const full = useMemo(() => ({ ...input, far, bounds, waterMask, cover: placeCover, lifeOffsetMinutes: offsetMinutes }),
-    [input, far, bounds, waterMask, placeCover, offsetMinutes])
+  const village = useVillageTile(input.place)
+  // The cover waits for the village's tile: what is drawn of a place is drawn once.
+  const placeCover = cover?.id === placeId && village !== undefined ? cover.cover : null
+  const full = useMemo(() => ({ ...input, far, bounds, waterMask, cover: placeCover, village, lifeOffsetMinutes: offsetMinutes }),
+    [input, far, bounds, waterMask, placeCover, village, offsetMinutes])
   const world = useWorld(full)
   useEffect(() => {
     if (world) (window as Window & { __world?: unknown }).__world = world
   }, [world])
+  const waters = world?.watersShown
+  useEffect(() => {
+    if (waters) onWaters?.(placeId, waters)
+  }, [waters, placeId, onWaters])
   return world ? <SceneCanvas world={world} life={life} style={forcedStyle() ?? sceneStyle} {...scene} /> : null
 }

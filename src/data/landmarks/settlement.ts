@@ -1,8 +1,8 @@
 import type { Place } from '../../config/place'
 import type { Landmark, MarkKind } from './types'
 
-/** Building kinds that belong to a town's fabric and seat on drawn town blocks beyond the place. */
-export const SETTLEMENT_KINDS = new Set<MarkKind>(['minaret', 'church', 'synagogue', 'highrise', 'homes'])
+/** Building kinds eligible for seating on drawn town blocks beyond the place. */
+export const SETTLEMENT_KINDS = new Set<MarkKind>(['church', 'synagogue', 'highrise', 'homes'])
 
 /** Whether a mark is a non-curated settlement-fabric building eligible for town-block seating beyond the place. */
 export function isSettlementMark(mark: Landmark): boolean {

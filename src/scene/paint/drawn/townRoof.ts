@@ -1,6 +1,7 @@
 import type { Tones } from '../../model/types'
 import { css, mix, outline, type Ctx2D } from '../shared/base/hand'
 import type { Block } from './townBlocks'
+import { keyedShape } from './townKey'
 import type { Planes, TownLight } from './townLight'
 
 /* The drawn town's roofs (v1b's): a hipped tile roof of two clear planes, or a flat one seen as a light plane. Pure. */
@@ -28,6 +29,7 @@ export function tileRoof(ctx: Ctx2D, b: Block, t: Tones, l: TownLight) {
   ctx.fillRect(b.x - ridge, top - 0.1, 2 * ridge, 0.35)
   ctx.fillStyle = css(t.deep, 0.3)
   ctx.fillRect(x0 + EAVE, eave, b.w, 0.5)
+  keyedShape(ctx, [[x0, eave], [b.x - ridge, top], [b.x + ridge, top], [x1, eave]], b.w, t)
 }
 
 export function flatRoof(ctx: Ctx2D, b: Block, t: Tones, planes: Planes, l: TownLight) {

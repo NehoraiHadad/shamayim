@@ -1,19 +1,15 @@
+import { exactWords } from '../../world/keys'
 import type { Plane, TerrainPlanes } from '../../world/types'
 import { SCENE_W } from '../../world/sceneBox'
 import { PALETTE_COLS, type PlaneName } from './faceProjection'
 
 /** Hash the complete inputs consumed by the form and receiver builders once per terrain revision. */
 export function planeGeometryKey(terrain: TerrainPlanes, name: PlaneName, plane: Plane, arrays: readonly Float32Array[]) {
-  const value = new Float64Array(1)
-  const bits = new Uint32Array(value.buffer)
   let hash = 2166136261
-  const number = (n: number) => {
-    value[0] = n
-    hash = Math.imul(Math.imul(hash ^ bits[0], 16777619) ^ bits[1], 16777619)
-  }
+  const number = exactWords((word) => { hash = Math.imul(hash ^ word, 16777619) })
   const path = (points: readonly (readonly [number, number])[]) => {
     number(points.length)
-    for (const [x, y] of points) { number(x); number(y) }
+    for (const point of points) { number(point[0]); number(point[1]) }
   }
   path(plane.points)
   path(terrain.near.points)
@@ -21,10 +17,12 @@ export function planeGeometryKey(terrain: TerrainPlanes, name: PlaneName, plane:
   for (const km of plane.distanceKm) number(km)
   for (const array of arrays) {
     number(array.length)
-    for (const n of array) number(n)
+    for (let i = 0; i < array.length; i++) number(array[i])
   }
 
-  if (name !== 'back') {
+  // The far land covers the back's foot: the part of it that shows is the part its one tone is of.
+  if (name === 'back') path(terrain.far?.points ?? [])
+  else {
     const columns = terrain.faces[name]?.columns ?? []
     number(columns.length)
     for (const col of columns) {

@@ -1,6 +1,7 @@
 import type { Normal } from '../../world/livingLight'
-import type { WorldState } from '../../world/types'
+import type { RGB, WorldState } from '../../world/types'
 import type { LandIrradiance } from './landIrradiance'
+import type { LampKind } from './layers/lamp'
 import type { outsideShape } from './outsideShape'
 import type { OutsideItem, Plain, SceneBox, Shine, Tones } from './types'
 
@@ -27,12 +28,26 @@ export interface OutsideLook {
   own?: Plain
 }
 
+/**
+ * How a hand paints the sky's colours: a pure function of the colour (sRGB 0-1, and so its answer) and the sun's true
+ * altitude (deg). The model asks it once for each colour it makes of the sky (`skyTone.ts`), never for the light on things.
+ */
+export interface SkyGrade {
+  /** The grade's identity in the cache keys: another function or other numbers, another key. */
+  key: string
+  colour: (rgb: RGB, sunAltitude: number) => RGB
+}
+
 /** A hand's light, where it does not take the model's own. Passed as a value: the model knows no hand. */
 export interface StyleLight {
   /** Tells the hands' light keys apart. */
   key: string
   screen?: (irr: LandIrradiance) => TwilightScreen
+  lamp?: readonly LampKind[]
+  /** Asks for the cloud sheets' places in their own air (`CloudAir`). */
+  cloudAir?: boolean
   outside?: (facts: OutsideFacts) => OutsideLook
+  sky?: { grade?: SkyGrade }
 }
 
 /** The model's own light. One object, so whoever takes it shares one set of caches. */

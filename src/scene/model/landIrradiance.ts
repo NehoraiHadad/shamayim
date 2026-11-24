@@ -41,12 +41,13 @@ export function skyView(normal: Normal, sun: LightDir, bias: number) {
 // Bird & Hulstrom (SERI/TR-642-761), evaluated at 52° zenith, air mass 1.62, 101325 Pa,
 // 1361 W/m² extraterrestrial DNI, 0.30 atm-cm ozone, 1.5 cm water, 0.116 AOD at 500 nm,
 // 0.166 at 380 nm (Ångström 1.3), 0.85 aerosol asymmetry and 0.18 ground albedo:
-// DNI ≈ 828 W/m², DHI ≈ 109 W/m². This reference fixes the clear beam/fill ratio.
+// The unrounded DNI and DHI (about 828 and 109 W/m²) give the clear beam/fill ratio 7.62.
 // The 5.65 divisor is the illustration's daytime radiance scale, independent of horizon azimuth.
 const DAY_DHI = 1 / 5.65
-const DAY_DNI = 7.62 * DAY_DHI
+export const SUN_TO_SKY = 7.62
+const DAY_DNI = SUN_TO_SKY * DAY_DHI
 const REF_AIR = { visibilityKm: 30, dustWeight: 0 }
-const REF_BEAM = solarBeam(38, REF_AIR).strength
+export const REF_BEAM = solarBeam(38, REF_AIR).strength
 const REF_SCATTER = 0.099 + aerosolDepth(REF_AIR)[1]
 
 // Kyba, Mohar & Posch 2017, doi:10.1093/astrogeo/atx025: ~0.05–0.1 lx typical moonlight,
@@ -54,7 +55,16 @@ const REF_SCATTER = 0.099 + aerosolDepth(REF_AIR)[1]
 // against a 0.625 lx illustration reference at night, with a daylight-relative fade in twilight.
 const FULL_MOON_LUX = 0.30
 const NIGHT_EXPOSURE_LUX = 0.625
+// Keep the existing land exposure cap at 115% of the reference DNI.
+const beamShare = (strength: number) => Math.min(1.15, strength / REF_BEAM)
+const CLEAR_NOON_BEAM = DAY_DNI * beamShare(solarBeam(90, REF_AIR).strength)
 const memo = new WeakMap<RadianceWorld, LandIrradiance>()
+
+/** Direct beam in the picture's own exposure relative to clear noon, before receiver wet reflectance. */
+export function clearNoonBeamShare(world: RadianceWorld, body: 'sun' | 'moon'): number {
+  const { eSunPi, eMoonPi } = landIrradiance(world)
+  return (body === 'sun' ? eSunPi : eMoonPi) / CLEAR_NOON_BEAM
+}
 
 export function landIrradiance(world: RadianceWorld): LandIrradiance {
   const known = memo.get(world)
@@ -82,7 +92,7 @@ export function landIrradiance(world: RadianceWorld): LandIrradiance {
   const scatter = Math.min(0.7, Math.max(0, 1 - Math.exp(REF_SCATTER - tau)))
   const sky = diffuseSky(light, sunAlt, tau)
   const eSkyPi = sky.amount * (1 - day) + DAY_DHI * (1 + DAY_CLOUD_DHI_GAIN * Math.max(clamp01(light.diffuse), scatter)) * day
-  const eSunPi = DAY_DNI * openVisible * Math.min(1.15, beam.strength / REF_BEAM)
+  const eSunPi = DAY_DNI * openVisible * beamShare(beam.strength)
   const eMoonPi = FULL_MOON_LUX / NIGHT_EXPOSURE_LUX * clamp01(moonShare)
   const cSun = normalized(beam.transmission as unknown as RGB), cMoon = unitChroma(MOON_RGB), cSky = normalized(sky.rgb)
   const wetFactor = 1 - WET_REFLECTANCE_DROP * clamp01(world.ground.wet)

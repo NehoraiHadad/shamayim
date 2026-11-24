@@ -13,7 +13,6 @@ import { STYLES } from '../paint/styles'
 import { layersOn, sceneModel, type LifeClock } from '../model'
 import { PerfHud } from './PerfHud'
 import { sceneLabel } from './sceneLabel'
-import { SceneOverlay } from './SceneOverlay'
 import { SkyCanvas } from './SkyCanvas'
 import { useLandClock } from './useLandClock'
 import { useSkyHost } from './useSkyHost'
@@ -41,10 +40,10 @@ interface Props {
 }
 
 /**
- * The valley on canvas (§1e): the figure keeps its role and label (as the SVG scene's, C9), hosts the LandSurface, the HTML overlay
- * placed from the model and the scrubber. The world is built once in App (`useWorld`). From C6 the sky is drawn from the
+ * The valley on canvas (§1e): the figure keeps its role and label (as the SVG scene's, C9), hosts the LandSurface
+ * and the scrubber; no text is written on the scene. The world is built once in App (`useWorld`). From C6 the sky is drawn from the
  * same model, into the app's sky (`ui/Sky.tsx`) through a portal, with the figure's place in it measured (`useSkyHost`).
- * From C8, while the place's land is not known the land's place holds a mist and the labels wait; the land's arrival is
+ * From C8, while the place's land is not known the land's place holds a mist; the land's arrival is
  * timed by `useLandClock`. The wear card's clothesline is drawn from the same world, into the card (`WearCanvas`).
  */
 export function SceneCanvas({ world, life, forecast, now, selected, temperature, readout = null, first, last, onScrub, onRelease, onNow, wear = null,
@@ -54,7 +53,7 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
   const host = useSkyHost(sceneRef)
   const box = useMemo(() => ({ width, skyHeight: host?.height ?? 0, landTop: host?.landTop ?? 0, landHeight: SCENE_H, dpr,
     skyWidth: host?.width ?? width, landLeft: host?.landLeft ?? 0 }), [width, dpr, host])
-  const { clock, labelStyle, ready } = useLandClock(world)
+  const { clock, ready } = useLandClock(world)
   const still = typeof window !== 'undefined' && reducedMotion()
   const model = useMemo(() => sceneModel(world, box, clock, { ...life, still }, STYLES[style].light), [world, box, clock, life, still, style])
   const land = useMemo(() => layersOn(model, 'land'), [model])
@@ -72,7 +71,6 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
         data-scene data-canvas>
         <canvas ref={ref} aria-hidden="true"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        <SceneOverlay items={model.overlay} width={width} style={labelStyle} />
         <SceneScrubber at={selected} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
           onNow={onNow} />
       </figure>

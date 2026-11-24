@@ -44,14 +44,14 @@ async function captureSet(browser, baseUrl, subdir) {
   try {
     for (const s of SEASONS) {
       for (const p of PLACES) {
-        await loadScene(page, sceneUrl(baseUrl, { place: p.id, at: s.at, weather: s.weather, overlay: true }))
+        await loadScene(page, sceneUrl(baseUrl, { place: p.id, at: s.at, weather: s.weather }))
         const png = await page.screenshot({ clip: CLIP, animations: 'disabled' })
         await fs.writeFile(path.join(dir, `${s.id}-${p.id}.png`), png)
       }
       console.log(`captured ${subdir} ${s.id} (${PLACES.length})`)
     }
     for (const w of WINDY) {
-      await loadScene(page, sceneUrl(baseUrl, { place: w.id, at: w.at, weather: w.weather, phase: w.phase, overlay: true }))
+      await loadScene(page, sceneUrl(baseUrl, { place: w.id, at: w.at, weather: w.weather, phase: w.phase }))
       const png = await page.screenshot({ clip: CLIP, animations: 'disabled' })
       await fs.writeFile(path.join(dir, `windy-${w.id}.png`), png)
     }

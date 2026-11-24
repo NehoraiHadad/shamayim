@@ -7,13 +7,13 @@ export interface Painter<K extends LayerKind = LayerKind> {
   form: (ctx: Ctx2D, desc: LayerOf<K>, env: PaintEnv) => void
   light?: (ctx: Ctx2D, desc: LayerOf<K>, env: PaintEnv) => void
   /**
-   * The form draws nothing while there is a light part (a layer that is all light: the far towns, the water but for its
-   * datum): the surface lays the light canvas alone, sparing a blit of an empty canvas every frame.
+   * The form draws nothing while there is a light part (a layer that is all light: the far towns, the
+   * water): the surface lays the light canvas alone, sparing a blit of an empty canvas every frame.
    */
   formless?: (desc: LayerOf<K>) => boolean
 }
 
-/** Every layer kind a painter paints: all but the contrails, which the surface lays itself. */
+/** Every layer kind a painter paints. The compositor lays the filter form over the assembled sky. */
 export type PaintedKind = Exclude<LayerKind, 'contrail'>
 
 /** A style's painters, one for every painted kind: a kind left out is a type error. */
@@ -31,6 +31,12 @@ export interface Style {
   readonly painters: Painters
   /** The model's own light (`PLAIN_LIGHT`), or where the hand lights things its own way. */
   readonly light: StyleLight
+  /**
+   * The hand's own base of the sky, from the same desc: a CSS `background-image` list over the layer's whole box (px from
+   * its top left, as `skyBackground`, the default); its size, place and repeat are the canvas's. A row's mean colour stays
+   * the default's (`src/test/skyBaseRows.ts`). A hand that has one paints the canvas form too (`painters.sky`).
+   */
+  readonly skyBase?: (desc: LayerOf<'sky'>) => string
 }
 
 /** The form of a layer that is all light (water, far towns): only its place, nothing drawn. */

@@ -8,7 +8,7 @@ import type { Landmark } from './types'
 const place: Place = { id: 'x', nameHe: 'מקום', regionHe: '', lat: 32, lon: 35, timezone: 'Asia/Jerusalem' }
 const baseMark: Landmark = { id: 'm', kind: 'mast', lat: 32, lon: 35, heightM: 60, source: 'osm' }
 const terrain: SceneTerrain = {
-  centerLeft: '50%', seaY: 60, horizonY: 60, seaInView: false, seaSide: null,
+  centerLeft: '50%', horizonY: 60, seaInView: false, seaSide: null,
   nearPoints: [[0, 60], [375, 60]], farPoints: [[0, 40], [375, 40]],
   nearElevations: [20, 20], farElevations: [20, 20],
 }
@@ -42,10 +42,12 @@ describe('place homes', () => {
     expect(nearby == null || Math.abs(nearby.xPct - 47) * 3.75 >= 27).toBe(true)
   })
 
-  it('absorbs the own minaret of the place into the cluster, clear of the dot', () => {
+  it('absorbs the own water tower clear of the dot even with competing mosque marks', () => {
     const homes = placeHomes({ ...place, featureCode: 'PPL' })[0]
-    const minaret = { ...baseMark, id: 'own', kind: 'minaret' as const, lon: place.lon + .003, heightM: 25 }
-    const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, minaret], 375)
+    const tower = { ...baseMark, id: 'own', kind: 'waterTower' as const, lon: place.lon + .003, heightM: 25 }
+    const marks = placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, tower], 375)
+    const minaret: Landmark = { ...tower, id: 'mosque', kind: 'minaret', heightM: 30 }
+    expect(placeMarks(place, { ...terrain, centerLeft: '47%' }, [homes, minaret, tower], 375)).toEqual(marks)
     const own = marks.find((mark) => mark.id === 'own')!
     expect(own.absorbed).toBe(true)
     const offset = (own.xPct - 47) * 3.75

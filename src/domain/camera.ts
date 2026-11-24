@@ -94,9 +94,3 @@ export function toward(azimuth: number, c: Camera = SCENE_CAMERA): number {
   const a = (azimuth * Math.PI) / 180
   return Math.cos(a) * cosH + Math.sin(a) * sinH
 }
-
-/**
- * Where the "sea level" note stands below sea level (no sea in view): over the open side of the Rift, which was drawn
- * on the right when east was; it follows east.
- */
-export const SEA_LABEL_SIDE: 'left' | 'right' = screenSide('east')

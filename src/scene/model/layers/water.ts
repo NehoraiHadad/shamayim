@@ -1,4 +1,5 @@
 import type { Pt, RGB } from '../../../world/types'
+import type { Lamp } from './lamp'
 import type { LayerBase } from './base'
 
 /**
@@ -50,4 +51,4 @@ export interface SeaDesc {
 
 export type WaterLayers =
   | LayerBase & { kind: 'water'; bands: WaterBand[]; ruffle: Ruffle; glints: GlintPath[];
-      datum: { y: number; segments: { x1: number; x2: number; fadeLeft: number; fadeRight: number }[]; rgb: RGB; alpha: number } | null }
+      lamp?: Lamp }

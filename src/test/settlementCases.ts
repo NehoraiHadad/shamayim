@@ -3,7 +3,7 @@ import { hashId } from '../data/landmarks/hash'
 import type { BundledEntry } from './bundledWorld'
 import { buildGlobalCityClusters } from './bundledCityClusters'
 import phase1 from './fixtures/worship-ownership-phase1.json'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from './scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from './scenePlaces'
 
 /** Fixed sample seed keeps the extra geographic coverage reproducible across machines and CI. */
 const SAMPLE_SEED = 'worship-ownership-round2'
@@ -12,7 +12,7 @@ const SAMPLE_COUNT = 8
 const KINDS = ['city', 'town', 'village', 'hamlet'] as const
 
 export const recordedSettlementCases = () =>
-  [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES]
+  [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...BELOW_SEA_PLACES]
     .map(place => ({ place, source: 'scenePlaces' as const }))
 
 const cached = new Map<string, BundledEntry[]>()
@@ -21,7 +21,7 @@ export function settlementCases(root: string): BundledEntry[] {
   if (prior) return prior
   const { namedClusters } = buildGlobalCityClusters(root)
   const nodeAt = new Map(namedClusters.map(({ node }) => [`${node[0]},${node[1]}`, node]))
-  const recorded = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES]
+  const recorded = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...BELOW_SEA_PLACES]
   if (recorded.length !== 18) throw new Error('Recorded fixture set changed')
   const entries = new Map<string, BundledEntry>(recorded.map(place => [place.id, { place, source: 'scenePlaces' }]))
   for (const given of phase1.places) {

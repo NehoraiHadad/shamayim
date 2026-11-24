@@ -45,7 +45,6 @@ export function terrainPlanes(terrain: SceneTerrain, placeId = ''): TerrainPlane
       return sight ? (sight.farShows ? sight.farKm : sight.nearKm) : UNKNOWN_KM.far
     }),
     floorY: FLOOR_Y,
-    seaY: terrain.seaY,
     horizonY: terrain.horizonY,
     status: landStatusOf(terrain),
     sightAt: terrain.sightAt,

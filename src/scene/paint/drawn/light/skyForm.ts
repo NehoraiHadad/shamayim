@@ -1,8 +1,9 @@
 import type { WorldState } from '../../../../world/types'
 import { smoothstep } from '../../../../world/ridgeLighting'
 import { againstLight } from '../../../model/illustratedTones'
-import { illustratedAerialFor as aerialFor, illustratedHazeOf as hazeOf } from '../../../model/illustratedHaze'
+import { illustratedAerialFor as aerialFor } from '../../../model/illustratedHaze'
 import { skyAt } from '../../../model/sky'
+import { ungradedWorld } from '../../../model/skyTone'
 import { lightness, mixRgb, scaleLight } from '../../../model/tone'
 import type { SceneBox, Tones, RGB } from '../../../model/types'
 import type { SkyForm } from '../outsideOwn'
@@ -27,7 +28,7 @@ const VIEW = { top: 0.62, face: 0.55 }
  * walls the eye sees face the sky behind the eye, so against the light (`againstLight`: a low sun beyond the land) they
  * see its dim half and the mass reads as a dark silhouette, its tops and rims alone catching the bright sky beyond.
  */
-export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones[], sx: number): SkyForm {
+export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers: Tones[], sx: number, seen: RGB): SkyForm {
   const { light, night } = world
   const day = 1 - night.dark
   const strength = day * (0.35 + 0.65 * (1 - clamp01(light.direct)))
@@ -37,8 +38,8 @@ export function skyFormOf(world: WorldState, box: SceneBox, kms: number[], tiers
   // side it
   // stands (the living light: it eases in as the sun leaves the middle and as it rises, never a step).
   const side = -Math.sign(across) * smoothstep(0.02, 0.3, Math.abs(across)) * smoothstep(-8, 0, sun.altitude)
-  const sky = skyAt(world, box)
-  const aerial = aerialFor(world, hazeOf(world))
+  const sky = skyAt(ungradedWorld(world), box, true)
+  const aerial = aerialFor(world, seen)
   const against = againstLight(world)
   // The sky the walls face: the view's own, but against the light the dim half behind the eye.
   const mean = scaleLight(mixRgb(sky(35), sky(8), 0.4), 1 - 0.55 * against)

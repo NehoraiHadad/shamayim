@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { cellKey, encodeRuns } from '../../src/data/city/grid'
 import type { CityCell, CityIndex, Tower } from '../../src/data/city/types'
+import { towerWidthClass } from '../../src/data/city/towerWidth'
 import { contains, eastMetres } from './geometry'
 import { taggedLevels } from './heights'
 import { Raster } from './raster'
@@ -30,7 +31,7 @@ export async function buildCity(input: string, outputDir: string, generatedAt = 
       const key = cellKey(lat, lon)
       const width = (east - west) * eastMetres(lat)
       const name = tags['name:he']?.trim() || tags.name?.trim()
-      const tower: Tower = [rounded(lat, 5), rounded(lon, 5), rounded(tagged, 1), width < 25 ? 0 : width <= 50 ? 1 : 2]
+      const tower: Tower = [rounded(lat, 5), rounded(lon, 5), rounded(tagged, 1), towerWidthClass(width)]
       if (name) tower.push(name)
       const list = towers.get(key) ?? []
       if (list.length < 250 || tower[2] > list.at(-1)![2]) {
