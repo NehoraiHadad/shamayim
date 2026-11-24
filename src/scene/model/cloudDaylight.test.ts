@@ -81,6 +81,15 @@ it('raises the tone of an opaque cellular texel in the recorded Haifa 16:30 worl
 })
 
 it.each([['haifa', '2026-11-17T14:30'], ['tiberias', '2026-11-17T15:30']] as const)('lights no opaque column of a daylit low deck as a thin one, at %s %s', (id, at) => {
+  for (const place of ['haifa', 'tiberias', 'neve-zohar']) for (let h = 8; h < 15.6; h += 0.5) {
+    const when = `2026-11-17T${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}` as LocalTime
+    const f = frame(place, when)
+    for (const s of f.sheets) {
+      const tones = s.tone.filter((_, n) => s.ys[Math.floor(n / s.xs.length)] < 240 && s.alpha[n] >= 0.98)
+      console.info('DIAG', place, when, f.altitude.toFixed(1), s.lattice, s.genus, 'opaque', tones.length, 'min', Math.min(...tones).toFixed(3),
+        'of', s.ys.filter((y) => y < 240).length * s.xs.length, 'a>.9', s.alpha.filter((a, n) => s.ys[Math.floor(n / s.xs.length)] < 240 && a >= 0.9).length)
+    }
+  }
   const { altitude, sheets } = frame(id, at)
   expect(altitude).toBeGreaterThanOrEqual(7)
   const low = sheets.find(({ lattice }) => lattice === 'low')
