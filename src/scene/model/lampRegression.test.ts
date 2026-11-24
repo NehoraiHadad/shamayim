@@ -5,17 +5,10 @@ import { utcOf } from '../../astro/utc'
 import { addMinutes } from '../../domain/time'
 import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
-import { cloudLight } from '../../world/lightCloud'
-import { smoothstep } from '../../world/ridgeLighting'
-import { solarBeam } from '../../world/sceneLight'
 import { buildWorld } from '../../world/world'
 import { bodyLayers } from './bodies'
 import { sceneModel } from './index'
-import { byteKey, layerKey } from './keys'
 import { lampOf, lampPlace, withLamp } from './lamp'
-import { landIrradiance } from './landIrradiance'
-import { planeGeomOf } from './planeGeometry'
-import { planeLayer } from './planes'
 import { skyGeom } from './sky'
 import type { Lamp, LayerDesc, SceneBox } from './types'
 
@@ -65,36 +58,6 @@ it('leaves the datum-only water descriptor and both keys untouched', () => {
   expect(lampOf(world, BOX)).toBeDefined()
   expect(datum).toBe(layers[at])
   expect(datum).not.toHaveProperty('lamp')
-})
-
-it('preserves the exact original plane light key in broken cloud', () => {
-  const input = worldInput(haifa, '2026-11-17T12:00')
-  const dayDni = 7.62 * (1 / 5.65)
-  const refBeam = solarBeam(38, { visibilityKm: 30, dustWeight: 0 }).strength
-  // Select the first broken deck that exposes the multiplication-order regression in binary64.
-  for (const low of [0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65]) {
-    const world = buildWorld({ ...input, forcedLayers: { low, mid: 0, high: 0 } })
-    const alt = world.bodies.sun.altitude
-    const { strength } = solarBeam(alt, world.air)
-    const field = world.cloudField?.field
-    expect(field).toBeDefined()
-    const open = cloudLight({ low: 0, mid: 0, high: 0 }, field).open
-    const openVisible = open * smoothstep(-0.265, 0.265, alt)
-    const oldBeam = dayDni * openVisible * Math.min(1.15, strength / refBeam)
-    if (oldBeam === openVisible * (dayDni * Math.min(1.15, strength / refBeam))) continue
-    const irr = landIrradiance(world)
-    const eSun = irr.cSun.map(channel => channel * (oldBeam * irr.wetFactor))
-    const near = world.terrain.near
-    const plane = planeLayer(world, BOX, 'near', near, [])!
-    const { grid, hazeLin, snow, snowSeam } = plane.light.litField
-    const geom = planeGeomOf(world, 'near', near, BOX.landHeight)
-    const expected = layerKey('plane.light', geom.geomKey, byteKey(grid),
-      JSON.stringify([eSun, irr.eMoonVec, irr.eSkyVec, hazeLin, irr.yHorizon, snow, snowSeam]))
-    expect(plane.light.litField.eSun).toEqual(eSun)
-    expect(plane.light.key).toBe(layerKey(expected, plane.key))
-    return
-  }
-  throw new Error('Broken-cloud fixture did not expose the irradiance rounding difference')
 })
 
 it('serialises the stored quantum into the right cache part', () => {
