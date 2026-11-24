@@ -1081,6 +1081,14 @@ B landmark size 6-16 px (68523b2b). Weather Worker deployed with cape + freezing
 - [x] Track G LOW 2: the satellite's correction is measured at its own minute (cover − model there, ±40 points, full for
       40 min, nothing at 150), so a held preview does not drift while the clock runs, nor at the hour's rollover
       (`observedCloud.ts`, `liveLightSatelliteCases.ts` with unequal model and observed cover).
+- [~] A sky the satellite plainly calls clear is clear (`claude/clear-sky`, owner's Shadmot Mehola evening, 24 Nov: mask 0 % for 3 h, ICON 53 %):
+      - [x] Three slots in a row, all ≤ 2 % (or all ≥ 98 %), lift the ±40 cap, continuously to 10 points off; without daylight an error of 70–90
+            brings the cap back (dawn fog). 53 → 0 there, 13 before (`observedCloud.ts`, `observedCloudAgreement.test.ts`)
+      - [x] Low sun: a patch is a sighting only if it was there in the last slot of daylight (of the night, at dawn) and in those since
+            (`observeCloud.ts`, `maskSlots.ts`, `stoodBefore`). The false patches began an hour before sunset and stood still for 2 h
+      - [x] A failed request is asked once more; a slot that failed is unknown, never clear (`fetchMask.ts`). Cold view 3 requests, not 1; +1 with
+            patches in low sun; then 1 a slot
+      - [ ] Infrared (`msg_fes:ir108`) as a second witness: a new source, not built. Partial fog (model < ~70) the mask misses at dawn is still cleared
 - [ ] The correction steps 0 → full where a scrub back crosses the observation's own minute (unchanged from before).
 - [x] CI gap: the stills job renders the built page too (`vite build` + preview, 375 px, recorded Haifa 15.3 noon, other hosts
       refused): `e2e/skyShown.mjs` fails when the sky is the boot colour, when hiding the sky changes nothing, or when its
