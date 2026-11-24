@@ -20,7 +20,7 @@ import { printSheet } from './sheetPrint'
  */
 
 /** Raster px per sky px, and where all that is cut is printed: soft wisps alone are left. */
-const RASTER = 0.5, WISPS = 0.33
+const RASTER = 0.5, WISPS = 0.25
 /** The light's hand: a puff's lit cap and shaded foot, how far a closed deck's banks move the tone; the puffs' light inside a
  *  mass against its edge: calmer in the middle; the small heads' light on the edge. */
 const CAP = 1.7, FOOT = 1.9, BANKS = 0.27, INSIDE = 0.85, SMALL_LIT = 0.25
@@ -46,22 +46,22 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
     Math.max(WISP * (1 - smoothstep(ALONE[0], ALONE[1], fieldAt(wide, field.cols, field.rows, gx, gy))), VEIL * (1 - nearAt(field, gy)))
   const left = (a: number, gx: number, gy: number) => (read ? a * (1 - open + open * wisp(gx, gy, read.wide)) : a)
   if (desc.lattice === 'high') veil(image.data, desc, field, w, h)
-  else masses(image.data, desc, field, left, w, h)
+  else masses(image.data, desc, field, left, open, w, h)
   throughAir(image.data, w, h, desc)
   carryDown(image.data, w * 4, h, more)
   scratch.ctx.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = open < 1 ? 'high' : 'low'
-  ctx.drawImage(scratch.canvas, 0.5, 0.5, w - 1, h + more - 1, field.x0, field.y0, field.width, field.height + (more * field.height) / (h - 1))
-  ctx.globalAlpha *= open
-  if (read) printSheet(ctx, desc, read, env)
+  const soft = () => ctx.drawImage(scratch.canvas, 0.5, 0.5, w - 1, h + more - 1, field.x0, field.y0, field.width, field.height + (more * field.height) / (h - 1))
+  if (read) printSheet(ctx, desc, read, env, open, soft)
+  else soft()
   ctx.restore()
 }
 
-/** What is not printed: the model's own alpha as far as it is `left`, with the hand's broad light over it. */
-function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetField, left: (a: number, gx: number, gy: number) => number, w: number, h: number) {
-  const head = billows(hashId(desc.id)), low = lowLight(desc), bright = whitened(desc.lit)
+/** What is not printed: the model's own alpha as far as it is `left`, with the hand's broad light over it, less the more `open` it is. */
+function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetField, left: (a: number, gx: number, gy: number) => number, open: number, w: number, h: number) {
+  const head = open < 1 ? billows(hashId(desc.id)) : null, low = lowLight(desc), bright = whitened(desc.lit)
   const { cols, rows } = f
   let v = 0
   for (let j = 0; j < h; j++) {
@@ -71,8 +71,8 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
     for (let i = 0; i < w; i++) {
       const gx = (i * (cols - 1)) / (w - 1), a = fieldAt(f.alpha, cols, rows, gx, gy), alpha = a < 0.004 ? 0 : left(a, gx, gy)
       if (alpha < 0.004) continue
-      const puff = head(((i / (w - 1) - 0.5) * f.width) / size, v), part = 4 * a * (1 - a)
-      const relief = puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small
+      const puff = head?.(((i / (w - 1) - 0.5) * f.width) / size, v), part = 4 * a * (1 - a)
+      const relief = puff ? (1 - open) * (puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small) : 0
       const full = BANKS * (relief > 0 ? CAP : FOOT) * (1 - LOW_CALM * low) * relief
       const lift = full * (1 - air * (full > 0 ? AIR_LIT : AIR_SHADE))
       const base = toneOf(desc, fieldAt(f.tone, cols, rows, gx, gy))
