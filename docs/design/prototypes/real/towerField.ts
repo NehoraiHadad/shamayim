@@ -21,7 +21,7 @@ const BILLOWS = [[1.5, 0.55], [0.62, 0.3]] as const, STAND = 0.26
 /** A tower's billows are its own: the grain carries its edge less. */
 const TOWER: Make = { ...HEAP, carry: 0.55, rim: 0.7 }
 /** The softness of an edge: of the tower's width, px at least. */
-const SOFT = 0.09, LEAST = 3
+const SOFT = 0.09, LEAST = 4.5
 /** The ice's cover, and its softness against the heads'. */
 const ICE = 0.5, ICE_SOFT = 2.4
 const FROM_ICE = 0.58

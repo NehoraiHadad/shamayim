@@ -37,11 +37,11 @@ export function cloudTone(ramp: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 'sh
   const heads = p.relief * RELIEF * p.own ** 2 * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * p.sun)
   const shaded = MODEL_SHARE * p.tone * (0.5 + 0.5 * p.near)
     + p.near * (OWN_SHADE * (1 - light) ** 1.2 * (0.45 + 0.55 * p.deep) + BASE * p.base * (0.4 + 0.6 * p.deep) + heads - 0.2 * light)
-  const there = p.tone + (shaded - p.tone) * (0.25 + 0.75 * p.own) + p.near * (EDGE * p.flat - WALL * p.wall)
+  const there = p.tone + (shaded - p.tone) * (0.15 + 0.85 * p.own ** 2) + p.near * (EDGE * p.flat - WALL * p.wall)
   const place = Math.min(1.2, Math.max(0, there))
   // A sky whose lit and shade hardly part has no deep shade either.
   const range = Math.min(1, 0.2 + 4 * Math.max(0, ramp.lit[1] - ramp.shade[1]))
-  const [r, g, b] = toneOf(ramp as LayerOf<'cloudSheet'>, place), under = UNDER * range * p.own * p.near * Math.max(0, place - UNDER_FROM)
+  const [r, g, b] = toneOf(ramp as LayerOf<'cloudSheet'>, place), under = UNDER * range * p.own ** 2 * p.near * Math.max(0, place - UNDER_FROM)
   const rgb: RGB = [r * (1 - under), g * (1 - 0.85 * under), b * (1 - 0.65 * under)]
   const crown = Math.min(1, Math.max(0, (0.4 - place) * 2.4)) * (0.35 + 0.65 * light) * p.near * Math.max(p.own, p.wall)
   // A dim sky's lit cloud is no sunlit crown.
