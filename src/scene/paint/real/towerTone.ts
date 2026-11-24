@@ -27,7 +27,9 @@ const FOOT_TONE = 0.72, TOP_TONE = 0.3
 /** A tower this wide (px) keeps its whole contrast, one this narrow a far cloud's. */
 const NEAR = [14, 70] as const, KEEP = 0.5
 /** How far the base stands in its own shade, and the share of the height it climbs. */
-const BASE = 0.75, CLIMB = 0.3
+const BASE = 0.8, CLIMB = 0.3
+/** The mean shade of a tower's own light, over its tone. */
+const MEAN = 0.12
 /** The silver rim of a tower before the sun. */
 const SILVER = 0.6
 
@@ -72,5 +74,5 @@ function lightIn(s: CloudSprite, shape: TowerShape, tx: number, ty: number, beam
     }
   }
   const far = 1e4
-  return { light: cloudLight({ w, h, k, thick, scale }, { x: w / 2 + tx * far, y: h / 2 + ty * far }, beam, foot), w, h, k, x0, y0 }
+  return { light: cloudLight({ w, h, k, thick, scale }, { x: w / 2 + tx * far, y: h / 2 + ty * far }, beam, MEAN, foot), w, h, k, x0, y0 }
 }

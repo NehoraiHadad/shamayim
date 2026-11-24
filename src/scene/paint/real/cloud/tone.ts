@@ -10,7 +10,7 @@ import { toneOf } from '../../shared/cloud/deck'
  */
 
 /** How far the model's tone places a point between lit and shade (the rest is the cloud's own light). */
-const MODEL_SHARE = 0.34
+export const MODEL_SHARE = 0.34
 /** How strongly a head's side toward the light and its far side part, and what of it is left deep in the mass's shade. */
 const RELIEF = 0.85, IN_SHADE = 0.45
 /** How far over the model's lit colour the brightest crowns stand, as light (the model's lit is a mass's mean). */
@@ -18,9 +18,9 @@ const CROWN = 0.24
 /** How far under the model's shade the deepest shade stands (its red the most: a shade is lit by the sky), from which place. */
 const UNDER = 0.26, UNDER_FROM = 0.5
 /** How far a hole's far wall stands toward the lit colour, and its near edge's underside toward the shade. */
-const WALL = 0.7, EDGE = 0.3
+const WALL = 0.45, EDGE = 0.2
 /** How far a low sun's light goes through a cloud, and how much warmer than its body its lit colour then is. */
-const LOW = 0.38, WARM = [0.08, 0.3] as const
+const LOW = 0.16, WARM = [0.08, 0.3] as const
 /** Steps of the model's ramp from lit to shade, and the place past its end a shade may stand at. */
 const RAMP = 255, FULL = 1.1
 
@@ -52,8 +52,8 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
   return (p: CloudPoint, out: Float32Array) => {
     const { tone, near, light } = p
     const heads = p.relief * RELIEF * self * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * light)
-    const shaded = MODEL_SHARE * tone * (0.5 + 0.5 * near) + near * (p.shade + heads)
-    const there = tone + (shaded - tone) * own * (0.15 + 0.85 * own) + near * own * (EDGE * p.flat - WALL * p.wall)
+    // Far off and in a closed deck it is the model's tone.
+    const there = tone + near * own * (MODEL_SHARE * tone + p.shade + heads - tone + EDGE * p.flat - WALL * p.wall)
     const place = there < 0 ? 0 : there > FULL ? FULL : there
     const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * near * Math.max(0, place - UNDER_FROM)
     const crown = 1 + over * clamp((0.4 - place) * 2.4) * (0.35 + 0.65 * light) * near * own

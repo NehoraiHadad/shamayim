@@ -22,16 +22,16 @@ const LOSS_SUN = 0.05, LOSS_SKY = 0.032, BROAD = 0.24, MANY = 0.72
 const FROM_SUN = 0.68
 /** How far a point's own shade and the flat base take it toward the shade, and a full light toward the lit. */
 const OWN_SHADE = 0.7, BASE = 0.42, LIT = 0.2
-/** A broad thick mass is all shade by this measure, and the model's tone says so already: the mean shade a mass keeps at
- *  most, and how much of what is over it goes. */
-const MEAN = 0.1, OVER = 0.85
+/** A broad thick mass is all shade by this measure, and the model's tone says how dark it is already: how far its mean goes to
+ *  the model's. */
+const TO_MEAN = 0.9
 /** How far round a point its depth in the mass is taken, sky px overhead. */
 const DEEP = 26
 
 const through = (loss: number, depth: number) => (1 - MANY) * Math.exp(-loss * depth) + MANY * Math.exp(-BROAD * loss * depth)
 
-/** `from`: the light's place, in cells of the grid. `beam`: how much of it is direct, 0–1. */
-export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: number, foot?: Foot): CloudLight {
+/** `from`: the light's place, in cells of the grid. `beam`: how much of it is direct, 0–1. `mean`: the model's own mean shade. */
+export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: number, mean: number, foot?: Foot): CloudLight {
   const { w, h, k, thick, scale } = body, size = w * h, direct = FROM_SUN * beam, deep = depth(body)
   const light = new Float32Array(size), shade = new Float32Array(size)
   let all = 0, mass = 0
@@ -55,7 +55,7 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
       mass += thick[n]
     }
   }
-  const over = mass ? OVER * Math.max(0, all / mass - MEAN) : 0
+  const over = mass ? TO_MEAN * (all / mass - mean) : 0
   for (let n = 0; n < size; n++) shade[n] -= over
   return { light, shade }
 }

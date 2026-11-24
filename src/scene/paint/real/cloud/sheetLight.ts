@@ -1,6 +1,6 @@
 import { cloudLight } from './light'
 import { RASTER, type SheetField } from './sheetField'
-import type { CloudPoint } from './tone'
+import { MODEL_SHARE, type CloudPoint } from './tone'
 
 /** Nearer than this (px) to the light's own place it comes from behind a cloud, not from a side. */
 const BEFORE = 70
@@ -18,11 +18,24 @@ function halved(full: Float32Array, w: number, h: number, hw: number, hh: number
   return half
 }
 
+/** How much lighter than the model's mean tone a mass stands: its crowns are its own. */
+const LIFT = 0.04
+
+/** The mean shade the model's tone leaves to the light. */
+function meanShade({ tone, thick }: SheetField): number {
+  let sum = 0, mass = 0
+  for (let p = 0; p < thick.length; p++) {
+    sum += tone[p] * thick[p]
+    mass += thick[p]
+  }
+  return mass ? ((1 - MODEL_SHARE) * sum) / mass - LIFT : 0
+}
+
 /** Writes the light on a sheet's pixel into a point. Worked out at half the raster's size. `from`: the light's place, raster px. */
 export function sheetLight(field: SheetField, from: { x: number; y: number }, beam: number) {
   const { w, h } = field, hw = Math.ceil(w / 2), hh = Math.ceil(h / 2)
   const thick = halved(field.thick, w, h, hw, hh), scale = Float32Array.from({ length: hh }, (_, j) => field.scale[Math.min(h - 1, 2 * j)])
-  const { light, shade } = cloudLight({ w: hw, h: hh, k: RASTER / 2, thick, scale }, { x: from.x / 2, y: from.y / 2 }, beam)
+  const { light, shade } = cloudLight({ w: hw, h: hh, k: RASTER / 2, thick, scale }, { x: from.x / 2, y: from.y / 2 }, beam, meanShade(field))
   const relief = reliefOf(field, thick, hw, hh, from)
   return (i: number, j: number, p: number, point: CloudPoint) => {
     const x = Math.min(hw - 1.001, Math.max(0, i / 2 - 0.25)), y = Math.min(hh - 1.001, Math.max(0, j / 2 - 0.25))
