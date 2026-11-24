@@ -11,6 +11,8 @@ on:
       base: { description: 'The commit named beside it', required: false, default: 'b0181337609bf8cc71e2afefa975017395b96615' }
       concept: { description: 'The prototype laid over head', required: false, default: 'claude/real-style-13639d' }
       full: { description: 'S0: with the same-commit pairs and the prototype', required: false, type: boolean, default: true }
+      perf: { description: 'With the perf pair', required: false, type: boolean, default: true }
+      moments: { description: 'Stills (empty: the set)', required: false, default: '' }
 
 env:
   PLAYWRIGHT_BROWSERS_PATH: /home/runner/pw
@@ -19,6 +21,7 @@ env:
 
 jobs:
   perf:
+    if: inputs.perf
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
@@ -43,7 +46,7 @@ jobs:
 
   table:
     needs: perf
-    if: always()
+    if: always() && inputs.perf
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -85,16 +88,17 @@ jobs:
         with: { fetch-depth: 0, path: src }
       - uses: actions/setup-node@v5
         with: { node-version-file: tools/.nvmrc }
-      - run: bash tools/s0/trees.sh "${{ inputs.head }}" "${{ inputs.head }}"
-      - working-directory: b
+      - run: bash tools/s0/trees.sh "${{ inputs.full && inputs.head || inputs.base }}" "${{ inputs.head }}"
+      - env: { MOMENTS: '${{ inputs.moments }}' }
         run: |
-          set=$(node -e "import('./e2e/stillSet.mjs').then(m => console.log(m.STILL_SET.join(' ')))")
-          node e2e/scene.stills.mjs ci-stills $set $EXTRA --dpr=2
+          cd b && set=$(node -e "import('./e2e/stillSet.mjs').then(m => console.log(m.STILL_SET.join(' ')))") && cd ..
+          for d in a b; do (cd $d && node e2e/scene.stills.mjs ../ci-stills/$d ${MOMENTS:-$set $EXTRA} --dpr=2); done
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: stills-before, path: b/ci-stills/, retention-days: 90 }
+        with: { name: stills, path: ci-stills/, retention-days: 90 }
 
   identity:
+    if: inputs.full || inputs.perf
     runs-on: ubuntu-latest
     timeout-minutes: 120
     strategy:
