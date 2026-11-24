@@ -18,6 +18,18 @@ function valueNoise(seed: number, x: number, y: number) {
   return a + (b - a) * sx + (c - a + (d - c - b + a) * sx) * sy
 }
 
+/** The mottle's factor of the reflectance at a place: the ground's fine grain. */
+export function mottle(seed: number, x: number, y: number, amount: number): number {
+  const coarse = valueNoise(seed, x * 0.055, y * 0.095) - 0.5
+  const fine = valueNoise(seed + 7, x * 0.12, y * 0.20)
+  const fleck = Math.max(0, (0.62 - fine) / 0.62)
+  // Roll off the strongest marks continuously so overlapping dark mottles
+  // and flecks cannot hit a flat reflectance floor across the terrain.
+  const delta = (0.95 * coarse + 0.17 - 0.8 * fleck ** 2) * amount
+  const headroom = delta < 0 ? 0.62 : 0.42
+  return 1 + headroom * Math.tanh(delta / headroom)
+}
+
 /** Light-independent palette, gouache drift and asymmetric dark flecks. */
 export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v: number, out: [number, number, number] = [0, 0, 0]): [number, number, number] {
   const { surface, paletteLin, seed, grainAmount } = t
@@ -40,14 +52,7 @@ export function materialAt(t: PlaneTexelCtx, x: number, y: number, u: number, v:
 
   // Material mottle: linear reflectance variation BEFORE lighting so texture stays crisp in sunlit relief.
   if (grainAmount > 0) {
-    const coarse = valueNoise(seed, x * 0.055, y * 0.095) - 0.5
-    const fine = valueNoise(seed + 7, x * 0.12, y * 0.20)
-    const fleck = Math.max(0, (0.62 - fine) / 0.62)
-    // Roll off the strongest marks continuously so overlapping dark mottles
-    // and flecks cannot hit a flat reflectance floor across the terrain.
-    const delta = (0.95 * coarse + 0.17 - 0.8 * fleck ** 2) * grainAmount
-    const headroom = delta < 0 ? 0.62 : 0.42
-    const f = 1 + headroom * Math.tanh(delta / headroom)
+    const f = mottle(seed, x, y, grainAmount)
     rr = clamp(rr * f, 0, 1); rg = clamp(rg * f, 0, 1); rb = clamp(rb * f, 0, 1)
   }
   // Lying snow enters receiver reflectance BEFORE lighting and haze (Finding 7).

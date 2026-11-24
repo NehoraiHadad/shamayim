@@ -1317,4 +1317,19 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] The strip under eye level (`claude/real-strip`, a live bug of both styles): what is in the sky at eye level goes on to the far
             horizon a high place shows (`model/crest.ts` skyBelowEye, sheets, the haze band, the CSS base); a real deck's rows turn down, a
             print's go on; nothing changes without a dip (`paint/belowEye.test.ts`). Also: sunny heaps keep more of their forms
+      - [~] F, weather near the eye (`claude/real-air`): fog in uneven banks with lit tops and shaded hollows, rain streaks with depth, drops and
+            flakes of many sizes on a tile twice as wide (`paint/real/air/`, `model/fallTile.ts`, `styleLight.fallTile`). Dropped: dust, smoke (no gain
+            at phone size). No baseline moved. Codex review: 4 findings, 3 fixed (tile key and
+            chains, the fog's light key). Written down, not chased: the fog's crop thins the top few px, near rain a bit fat at its top, the mist repeats every 240 px
+      - [~] E, trees and the sea (`claude/real-sea`): leaf-clump crowns with lit tops, the town's round trees too; waves in perspective gathered
+            in gusts, shallows, broken foam, a hazy far edge; lakes' wavelets (`paint/real/foliage.ts`, `paint/real/sea/`). Dropped: a lit side
+            on canopy crowns (no canopy lamp), the `water` lamp, own palms. Written down: discs over Ein Gedi (likely the `orchard` glyph), the
+            town tree's lean formula twice, dashed foam on Haifa's spit, bodies over the sea without its grain, the sea's light key
+            without the sparks' places (as on main). Codex review: 5 findings, 3 fixed
+      - [~] B, the ground (`claude/real-plane`): soil and scrub patches, small relief the lamp rakes, gullies as folds (`paint/real/land/`),
+            through one optional hook in `planeTexel.ts`. Dropped: the day lift (the land's noon target), specks, terraces. Written down: the
+            ground in an overcast stays flat, dust leaves the foreground soft, a fold may reach 2 px into a label's zone. Codex review:
+            3 findings, 2 fixed
+      - [~] B, E and F joined (`claude/real-join` over main 350efdbd), the owner's two fixes: main's mottle and paper back on the ground over the
+            relief (the hook had left both out), the plants' own inks, fuller clumps and a stronger foot for the crowns
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)

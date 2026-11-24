@@ -188,7 +188,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
       dark: mixRgb(sky(25), body, 0.5), lit, shade, drift },
     // C7: the ripples run with the wind and the glint's sparks come and go, in a strip of frames (the light canvas only).
     ...(lit.length + shade.length + glints.length ? { animated: { mode: 'frames' as const, frames: WATER_FRAMES } } : {}),
-    glints,
+    glints, clear,
   }
 }
 

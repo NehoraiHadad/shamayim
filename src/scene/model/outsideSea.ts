@@ -89,7 +89,7 @@ export function outsideSea(world: WorldState, box: SceneBox, sx: number, clear: 
   const horizonRgb = aerial(mixRgb(skyAt(world, box)(0.3), [1, 1, 1], 0.35 * (1 - world.night.dark)), sea.km[0][1])
   const edge = sea.side === 'right' ? right : left
   return { points: sea.points.map(([x, y]) => [x * sx, y]), coast: sea.coast.map(([x, y]) => [x * sx, y]), stops,
-    top: sea.top, bottom: sea.bottom, shore, glint, ripples, light: tone(sea.top + 1, midKm), dark: mixRgb(stops.at(-1)![1], DEEP, 0.4),
+    top: sea.top, bottom: sea.bottom, shore, glint, ripples, clear, light: tone(sea.top + 1, midKm), dark: mixRgb(stops.at(-1)![1], DEEP, 0.4),
     horizon: { y: sea.horizon, x0: Math.min(edge, coastX(sea.horizon)), x1: Math.max(edge, coastX(sea.horizon)), rgb: horizonRgb,
       alpha: 0.35 * (1 - 0.55 * world.night.dark) },
     drift: (Math.abs(wind.across) > 0.05 ? Math.sign(wind.across) : 0) * 2.4 * Math.min(1, wind.ms / 9) * sx }

@@ -18,7 +18,7 @@ import { STEPS } from './steps'
  */
 
 /** Each mark of a tile, and its copies across the tile's edges (the tile repeats as a pattern). */
-function wrapped(marks: readonly FallMark[], w: number, h: number, reach: number, each: (m: FallMark, x: number, y: number) => void) {
+export function wrapped(marks: readonly FallMark[], w: number, h: number, reach: number, each: (m: FallMark, x: number, y: number) => void) {
   for (const m of marks) {
     for (const dx of [-w, 0, w]) {
       for (const dy of [-h, 0, h]) {
