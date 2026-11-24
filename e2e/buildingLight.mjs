@@ -71,7 +71,7 @@ try {
       if (time === '1200' && !weather) {
         for (const pane of colors.glass) band(pane.ratio, 1, 1.8, 'glass / corresponding shaded wall')
         assert.ok(colors.light.walls >= 20, 'measure the light on shaded walls')
-        band(colors.light.ratio, ...WALL_LIGHT, 'wall light / ground light, B/R, over the expected sky and bounce')
+        for (const ratio of colors.light.ratio) band(ratio, ...WALL_LIGHT, 'wall light / ground light, B/R, over the expected sky and bounce')
         assert.ok(colors.light.skyOnly > WALL_LIGHT[1], 'the band must refuse a wall lit by the sky alone')
         band(m.front, .67, .94, 'shaded wall/ground')
         assert.ok(m.n.roof >= 80, 'flat caps should resolve including beside clay roofs')
