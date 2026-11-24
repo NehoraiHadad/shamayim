@@ -34,8 +34,8 @@ export function groundLines(ctx: Ctx2D, desc: LayerOf<'plane'>): void {
 /** Cuts a plane takes per 1000 px²; their length (px) at the foot, their width, how far their value goes from the ground's. */
 const DENSITY = { near: 18, far: 8, back: 1.5 } as const
 const LONG = [3, 20] as const, WIDE = [0.35, 0.6] as const, LIGHT = 0.06, DARK = -0.13, DARKS = 0.78, SEED = 5501
-/** Cuts stand in hatches, more on darker ground: a hatch's most, the px between its cuts, what a step of value does, its least. */
-const HATCH = 4, BESIDE = 1.9, BY_VALUE = 7, LEAST = 0.6, PROBES = 8
+/** Cuts stand in hatches, more on darker ground: a hatch's most, the px between its cuts, what a step of value does, its mean and least. */
+const HATCH = 4, BESIDE = 1.9, BY_VALUE = 7, MEAN = 0.5, LEAST = 0.35, PROBES = 8
 /** A field's edge (px), how much darker than the ground, how strong. */
 const FIELD = { wide: 0.6, dark: -0.17, alpha: 0.7, stride: 9 } as const
 
@@ -54,7 +54,7 @@ export function groundDabs(ctx: Ctx2D, desc: LayerOf<'plane'>, t: PlaneTexelCtx,
     const deep = Math.min(1, (y - t.crestY[i]) / 90), len = (LONG[0] + (LONG[1] - LONG[0]) * long * long) * (0.45 + 0.55 * deep)
     const step = 6, slope = (t.crestY[Math.min(t.wPx - 1, i + step)] - t.crestY[Math.max(0, i - step)]) / (2 * step * TEXEL)
     const dy = len * slope * 0.7 * (1 - 0.6 * deep)
-    const ground = colourAt(x, y), dark = Math.min(1, Math.max(0, LEAST + BY_VALUE * (mean - labOf(ground).l)))
+    const ground = colourAt(x, y), dark = Math.min(1, Math.max(LEAST, MEAN + BY_VALUE * (mean - labOf(ground).l)))
     if (close > 0.25 + dark) continue
     ctx.beginPath()
     for (let k = 0; k < Math.max(1, Math.round(HATCH * dark * (0.4 + close))); k++) {
