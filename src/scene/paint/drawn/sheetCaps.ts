@@ -16,11 +16,11 @@ type Sheet = LayerOf<'cloudSheet'>
 export interface SheetCap extends Cap { gx: number; gy: number; side: number }
 
 /** Half a lattice's pitch (px) against its row's spacing, at least and at most. */
-const SIZE = 1.7, LEAST = 3, MOST = 24
+const SIZE = 1.7, LEAST = 3.5, MOST = 24
 /** Where a lattice is (its half pitch against the size wanted): comes in over, lets go over; how much smaller its caps may be at a rim. */
 const COMES = [0.5, 0.75] as const, GOES = [1.5, 2.1] as const, FINER = 0.4
 /** How far a cap strays (of the pitch), its least and most size (of half of it), how seldom it is large; the size (px) it is drawn from. */
-const STRAY = 0.85, SIZES = [0.7, 1.9] as const, SELDOM = 1.4, DRAWN = 2
+const STRAY = 0.85, SIZES = [0.7, 1.9] as const, SELDOM = 1.4, DRAWN = 2.6
 /** A cap's most at the edge (of its size), what it grows with each px in from it, and over how far (px) in it comes: none stands off its mass. */
 const OUT = [0.3, 0.6] as const, IN = 0.75, ONTO = [0.5, 5] as const
 /** How far in (of its size) a rim goes; the share of places kept deep inside, and what eases it. */
@@ -38,6 +38,7 @@ export function sheetCaps(desc: Sheet, read: Eased, cut: Cut, seed: number): She
   if (!air) return out
   const places = placesOf(desc, air), tiers = tiersOf(places, air.ranges, ys.map((y) => sizeAt(f, ((y - f.y0) / f.height) * (f.rows - 1))))
   for (const { d, weight } of air.frames) {
+    if (!weight) continue
     for (const { level, from, to } of tiers) {
       const pitch = 2 ** level, reach = to + pitch, [i0, i1, j0, j1] = [-reach - d[0], reach - d[0], -reach - d[1], reach - d[1]].map((v) => Math.floor(v / pitch))
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {

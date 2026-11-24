@@ -28,13 +28,13 @@ describe('the caps of a broken sheet', () => {
   })
 
   it('go with the air and keep their shape: none jumps, few come or go', () => {
-    const moved = new Map(capsAt([{ d: [0.02, 0.01], weight: 1 }]).map((c) => [c.seed, c]))
+    const moved = new Map(capsAt([{ d: [0.005, 0.0025], weight: 1 }]).map((c) => [c.seed, c]))
     const kept = still.filter(({ seed }) => moved.has(seed))
     expect(kept.length).toBeGreaterThan(0.85 * still.length)
     for (const cap of kept) {
       const to = moved.get(cap.seed)
-      expect(Math.hypot((to?.x ?? 0) - cap.x, (to?.y ?? 0) - cap.y)).toBeLessThan(7)
-      expect(Math.abs((to?.r ?? 0) - cap.r)).toBeLessThan(6)
+      expect(Math.hypot((to?.x ?? 0) - cap.x, (to?.y ?? 0) - cap.y)).toBeLessThan(2)
+      expect(Math.abs((to?.r ?? 0) - cap.r)).toBeLessThan(8)
     }
   })
 

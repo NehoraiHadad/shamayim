@@ -36,11 +36,11 @@ export function placesOf({ xs, ys }: Pick<Sheet, 'xs' | 'ys'>, { ranges, east, n
   return {
     perKm,
     near: (e, n, about, from, to) => {
-      const range = Math.hypot(e, n)
+      const range = Math.sqrt(e * e + n * n)
       return range >= from - about && range <= to + about && e * e0 + n * n0 >= open * range - about
     },
     seen: (e, n) => {
-      const range = Math.hypot(e, n)
+      const range = Math.sqrt(e * e + n * n)
       if (!(range >= ranges[1]) || range > ranges[last]) return null
       const col = cols / 2 + wrapped(Math.atan2(e, n) - middle) / turn
       if (col < -ASIDE || col > cols + ASIDE) return null
