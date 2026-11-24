@@ -54,15 +54,15 @@ it.each([
   ['ac', 5, 1.5, 0.4], ['cu', 1.4, 0.35, 0.36],
 ] as const)('draws a lone %s cell as wide as it is tall, on a broad foot', (genus, heightKm, r, vKm) => {
   for (const elevation of [35, 40, 45, 50, 55, 60]) {
-    const range = groundRangeAt(heightKm, elevation)
-    // Round the sky of several places: each has its own lobes.
-    const shapes = ['a', 'b', 'c'].flatMap((id) => [140, 160, 180, 200, 220].map((azimuth) => {
+    // Round the sky of several places, as each has its own lobes, and over a row's span (5°), as a rim is drawn on the rows.
+    const shapes = ['a', 'b', 'c'].flatMap((id) => [150, 180, 210].flatMap((azimuth) => [-2, -1, 0, 1, 2].map((step) => {
+      const range = groundRangeAt(heightKm, elevation + step)
       const rows = widths(cloudSheetOf(worldOf(id), geom,
         lone(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
       const widest = Math.max(...rows)
       // Its body: less than a quarter as wide as its widest, a row is a lobe's tip (an oval loses a thirtieth of its height).
       return { tall: rows.filter((wide) => wide >= widest / 4).length / 2, widest, foot: rows[Math.floor(0.85 * rows.length)] / widest }
-    }))
+    })))
     const mean = (of: (shape: (typeof shapes)[number]) => number) => shapes.reduce((sum, shape) => sum + of(shape), 0) / shapes.length
     const aspect = mean(({ tall, widest }) => tall / widest), foot = mean((shape) => shape.foot)
     console.info(`${genus} ${elevation}: aspect ${aspect.toFixed(2)}, foot ${foot.toFixed(2)}`)
@@ -70,7 +70,7 @@ it.each([
     // An oval is .71 of its width there: no cone, no drop hanging from its tip.
     expect.soft(foot, `${genus} ${elevation}`).toBeGreaterThanOrEqual(0.6)
   }
-})
+}, 30_000)
 
 it('draws no level rim: an overhead cell ends at an altitude that follows the air, not the projection', () => {
   const heightKm = 5, snapshot = lone('ac', 0, 0, groundRangeAt(heightKm, 40), 0.4, heightKm)

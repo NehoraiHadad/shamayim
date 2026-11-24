@@ -32,7 +32,8 @@ const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(val
 /** Fresh sheets per minute and variant: the fastest stands for the work, the rest for the runner's noise. */
 const REPS = 5
 
-it.each(cases)('shows the field as the eye sees it within the cold budget at %s %s', (id, time) => {
+/** A scene's cold sheets (ms), the median minute, plain and as the eye sees the field. */
+function coldMs(id: string, time: string) {
   const input = worldInput(places.get(id)!, time as LocalTime, time as LocalTime), build = makeWorldBuilder()
   const samples = Array.from({ length: 24 }, (_, minute) => {
     const world = build({ ...input, selected: addMinutes(time as LocalTime, minute) }), geom = skyGeom(world, box)
@@ -52,5 +53,17 @@ it.each(cases)('shows the field as the eye sees it within the cold budget at %s 
   }).slice(8)
   const plain = median(samples.map((sample) => sample.plain)), shaped = median(samples.map((sample) => sample.shaped))
   console.info({ id, time, plain, shaped, ratio: shaped / plain })
-  expect(shaped / plain).toBeLessThanOrEqual(1.1)
-}, 120_000)
+  return { plain, shaped }
+}
+
+// The scenes' together: one alone is a few ms, where a runner's noise is as large as the difference.
+it('shows the field as the eye sees it within the cold budget', () => {
+  const total = { plain: 0, shaped: 0 }
+  for (const [id, time] of cases) {
+    const { plain, shaped } = coldMs(id, time)
+    total.plain += plain
+    total.shaped += shaped
+  }
+  console.info({ ...total, ratio: total.shaped / total.plain })
+  expect(total.shaped / total.plain).toBeLessThanOrEqual(1.1)
+}, 240_000)
