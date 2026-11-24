@@ -32,7 +32,7 @@ describe('wearTip', () => {
       { max: 18, min: 10, hour: (h) => (h >= 12 && h <= 15 ? { precipProb: 70, precipitation: 2 } : {}) },
       { max: 18, min: 10 },
     ])
-    expect(wearTip(f, at('08:00'))?.text).toContain('קחו מטרייה.')
+    expect(wearTip(f, at('08:00'))?.text).toContain('קחו מטרייה, גשם צפוי בצהריים ואחר הצהריים.')
     expect(wearTip(f, at('08:00'))?.garments).toContain('umbrella')
   })
 

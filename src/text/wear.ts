@@ -2,6 +2,7 @@ import { THRESHOLDS as T } from '../config/thresholds'
 import { hourOf } from '../domain/time'
 import type { Forecast, LocalDate, LocalTime } from '../domain/types'
 import { hoursBetween, nextDate, windowFacts } from './facts'
+import { rainGear } from './wearRain'
 
 /** Clothing levels, warmest first. Lower bounds in °C of the felt temperature. */
 const LEVELS = [
@@ -63,13 +64,12 @@ export function wearTip(f: Forecast, now: LocalTime): WearTip | null {
     if (coolest !== midday) garments.push(LEVELS[coolest].garment)
   }
 
-  const facts = windowFacts(f, `${date}T07:00`, `${date}T22:00`)
-  if (facts.rainProb >= T.rain.likely) {
-    parts.push('קחו מטרייה.')
-    garments.push('umbrella')
-  } else if (facts.rainProb >= T.rain.possible) {
-    parts.push('כדאי מעיל גשם קל בתיק.')
-    garments.push('rainJacket')
+  // Only the hours still ahead: rain that has already passed calls for nothing.
+  const facts = windowFacts(f, `${date}T${String(startHour).padStart(2, '0')}:00`, `${date}T22:00`)
+  const gear = rainGear(facts, garments.includes('coat'))
+  if (gear) {
+    parts.push(gear.text)
+    if (gear.garment) garments.push(gear.garment)
   }
   const uv = (f.air ?? []).filter((a) => a.time.startsWith(date)).map((a) => a.uv ?? 0)
   const maxTemp = Math.max(...facts.hours.map((h) => h.temperature))
