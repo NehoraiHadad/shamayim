@@ -87,13 +87,15 @@ describe('mapped town frontage and roof heights', () => {
 
   it('gives a sparse square its houses where a mapped tower stands, which is drawn as itself', () => {
     const fixture = loaded.get('haifa')!
-    const raster = { at: () => ({ built: 2 / 15, levels: 15, p90: 60 }) }
-    const boxesWith = (towers: NonNullable<typeof fixture.city>['towers']) => {
+    const boxesWith = (towers: NonNullable<typeof fixture.city>['towers'], levels = 15) => {
+      const raster = { at: () => ({ built: 2 / 15, levels, p90: 60 }) }
       const world = buildWorld(worldInput({ ...fixture, city: { ...fixture.city!, towers, raster } }, NOON))
       return (world.place3 as OutsideView).skyline.boxes.filter(b => b.seed !== undefined)
     }
     expect(boxesWith([]).every(b => b.heightM! >= HOUSE_TOP_M)).toBe(true)
     expect(boxesWith(fixture.city!.towers).some(b => b.heightM! < HOUSE_TOP_M)).toBe(true)
+    // A lower typical building is another one beside the tower.
+    expect(boxesWith(fixture.city!.towers, 5).every(b => b.heightM! >= HOUSE_TOP_M)).toBe(true)
   })
 
   it('still gives dense squares without height data their raster default roof', () => {

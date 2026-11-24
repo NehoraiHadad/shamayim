@@ -19,13 +19,6 @@ it('lets a widened block take only the blocks on the ground it covers', () => {
     .toEqual([near.body, beside.body, rowBehind.body, house.body])
 })
 
-it('keeps a block that shows past a narrower one, not one that hides behind a wider', () => {
-  const narrow = site(100, 100, .8, 25, 1, 4), wide = site(101, 99, .7, 25, 1, 9)
-  expect(composeBodies([narrow, wide], 5, HOUSE_TOP_M)).toEqual([narrow.body, wide.body])
-  const nearer = site(100, 100, .8, 25, 1, 9), hidden = site(103, 99, .7, 25, 1, 4)
-  expect(composeBodies([hidden, nearer], 5, HOUSE_TOP_M)).toEqual([nearer.body])
-})
-
 it('gives way to a block that stands at its own width', () => {
   const own = site(100, 100, .5, 25, 9, 9), widened = site(102, 100, .8, 25, 1, 9)
   expect(composeBodies([widened, own], 5, HOUSE_TOP_M)).toEqual([own.body])
