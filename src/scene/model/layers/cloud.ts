@@ -36,6 +36,8 @@ export type CloudLayers =
       /** In a dusty air, per row of `ys`: the share of the sheet's light the dust before it lets through (0–1). */
       through?: number[]
       /** By day, how far the sun stands above the twilight's last degrees (0–1). */
-      daylit?: number }
+      daylit?: number
+      /** Px its last row goes on down, as it stands at eye level, to the far horizon of a place that looks down on it. */
+      below?: number }
   /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */
   | LayerBase & { kind: 'cloudCells'; lattice: 'tower'; cells: { sprite: CloudSprite; x: number; y: number; speed: number }[] }
