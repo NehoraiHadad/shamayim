@@ -19,8 +19,9 @@ const COLUMN = 8
 /** The px of width over which `body` shows a whole px of wall over the bodies in front (their true spans and roofs). */
 export function shownWidth(body: OutsideBox, front: readonly OutsideBox[]) {
   const left = body.x - body.w / 2, right = body.x + body.w / 2
-  const spans = front.map(f => ({ left: Math.max(left, f.x - f.w / 2), right: Math.min(right, f.x + f.w / 2), top: f.top }))
-    .filter(s => s.right > s.left)
+  // A roof a px or more under the body's own takes nothing of it.
+  const spans = front.filter(f => f.top < body.top + 1 && f.x - f.w / 2 < right && f.x + f.w / 2 > left)
+    .map(f => ({ left: Math.max(left, f.x - f.w / 2), right: Math.min(right, f.x + f.w / 2), top: f.top }))
   const edges = [left, right, ...spans.flatMap(s => [s.left, s.right])].sort((a, b) => a - b)
   let shown = 0
   for (let i = 1; i < edges.length; i++) {
@@ -40,11 +41,17 @@ export function shownWidth(body: OutsideBox, front: readonly OutsideBox[]) {
 export function shownBlocks(widened: readonly OutsideBox[]): Set<OutsideBox> {
   const shown = new Set<OutsideBox>()
   const columns = new Map<number, OutsideBox[]>()
+  const columnOf = (x: number) => Math.floor(x / COLUMN)
   for (const body of [...widened].sort(frontFirst)) {
-    const from = Math.floor((body.x - body.w / 2) / COLUMN), to = Math.floor((body.x + body.w / 2) / COLUMN)
-    const front = new Set<OutsideBox>()
-    for (let c = from; c <= to; c++) for (const other of columns.get(c) ?? []) if (other.near >= body.near) front.add(other)
-    if (shownWidth(body, [...front]) < LEAST_SHOWN_PX) continue
+    const from = columnOf(body.x - body.w / 2), to = columnOf(body.x + body.w / 2)
+    const front: OutsideBox[] = []
+    for (let c = from; c <= to; c++) {
+      for (const other of columns.get(c) ?? []) {
+        const first = c === Math.max(from, columnOf(other.x - other.w / 2))
+        if (first && other.near >= body.near) front.push(other)
+      }
+    }
+    if (shownWidth(body, front) < LEAST_SHOWN_PX) continue
     shown.add(body)
     for (let c = from; c <= to; c++) {
       const column = columns.get(c)
