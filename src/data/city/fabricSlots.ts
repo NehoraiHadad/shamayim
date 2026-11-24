@@ -33,15 +33,14 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
   return standing
 }
 
-/** Whether `body` covers `other`: its spot, within one row, and its roof, so that `other` would show only as a strip. */
-const covers = (body: OutsideBox, other: OutsideBox, pitch: number) => body.top <= other.top &&
-  Math.abs(body.x - other.x) < body.w / 2 && Math.abs(body.foot - other.foot) < pitch
+/** Whether `body` covers `other`: within one row, and so near its middle that only a strip of `other` would show. */
+const covers = (body: OutsideBox, other: OutsideBox, pitch: number) =>
+  Math.abs(body.x - other.x) < body.w / 4 && Math.abs(body.foot - other.foot) < pitch
 
 /**
  * The standing sites' bodies, where a block drawn wider than its site takes the ground it covers: a widened block that a
- * nearer one (or one at its own width) covers within one row (`pitch` px of ground) is left out, unless it rises above it
- * and steps the skyline. Houses keep their sites (the painter's order hides what stands behind a block), so a low-rise
- * place keeps its layout.
+ * nearer one (or one at its own width) covers within one row (`pitch` px of ground) is left out. Houses keep their
+ * sites (the painter's order hides what stands behind a block), so a low-rise place keeps its layout.
  */
 export function composeBodies(sites: readonly FabricSite[], pitch: number, houseTopM: number): OutsideBox[] {
   const columns = new Map<number, OutsideBox[]>()
