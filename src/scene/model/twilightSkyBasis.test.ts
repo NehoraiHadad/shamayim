@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { receiverScene } from '../../test/receiverScene'
 import type { RGB, WorldState } from '../../world/types'
-import { diffuseSky, skyReflection } from './landSkyIrradiance'
-import type { RadianceLight } from './landIrradiance'
+import { skyReflection } from './landSkyIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { rgbOf } from './tone'
-import { buildingSurroundings } from './buildingLight'
+import { buildingLight, buildingSurroundings } from './buildingLight'
+import { metalHorizon } from './buildingGround'
 import { glassIncidence } from './glassLight'
 import { domeSectors, metalLight, silverLight } from './metalLight'
 import { AFTERGLOW, afterglowColour } from '../../world/afterglow'
+import { aerosolDepth } from '../../world/sceneLight'
 import { NORMALS } from '../../world/livingLight'
 import { skyGlows, type SkyGeom } from './sky'
 import type { SceneBox } from './types'
@@ -16,13 +17,6 @@ import type { SceneBox } from './types'
 const referenceGlows = (world: Parameters<typeof skyGlows>[0]) =>
   skyGlows({ ...world, night: { ...world.night, litShare: 0 } },
     { landTop: 0 } as SceneBox, { left: 0, s: 1 } as SkyGeom)
-
-const light = {
-  ambient: [.36, .29, .63],
-  palette: { top: '#303d91', horizon: '#f69d66' },
-  diffuse: 0,
-  afterglow: { rgb: [1, .17, .0003] },
-} as unknown as RadianceLight
 
 function xy([r, g, b]: readonly number[]) {
   const x = .4124 * r + .3576 * g + .1805 * b
@@ -69,6 +63,8 @@ describe('sunward reflected sky lobe', () => {
     const rgb: RGB = [0, 1, 2].map(i => (1 - glow.alpha) * horizon[i] + glow.alpha * glow.rgb[i]) as [number, number, number]
     const sectors = domeSectors(fixture, 0).flat().map(srgbRgbToLinear)
     const unlit = { ...fixture, light: { ...fixture.light, glow: null } }
+    expect(metalHorizon(fixture)).toBe(metalHorizon(fixture))
+    expect(metalHorizon(fixture)).not.toEqual(metalHorizon(unlit))
     expect(pane(fixture)).toEqual(pane(unlit))
     expect(sectors).not.toEqual(domeSectors(unlit, 0).flat().map(srgbRgbToLinear))
     const peak = sectors.reduce((a, b) => linearLuminance(a) > linearLuminance(b) ? a : b)
@@ -84,21 +80,30 @@ describe('sunward reflected sky lobe', () => {
 })
 
 describe('clear twilight sky', () => {
-  it.each([1.4, -5])('uses the same reflected and diffuse chromaticity at %s°', (altitude) => {
-    const tau = .099
-    const diffuse = diffuseSky(light, altitude, tau).rgb
-    const sample = skyReflection(light, altitude, tau, diffuse, srgbRgbToLinear(rgbOf(light.palette.horizon)))
-    const integral = [0, 0, 0]
-    for (let i = 0; i < 24; i++) {
-      const up = (i + .5) / 24
-      for (let j = 0; j < 36; j++) {
-        const toward = Math.sqrt(1 - up ** 2) * Math.cos((j + .5) * Math.PI / 18)
-        sample(up, toward).forEach((channel, k) => { integral[k] += up * channel })
-      }
-    }
-    const [dx, dy] = xy(diffuse), [rx, ry] = xy(integral)
-    const dxy = Math.hypot(dx - rx, dy - ry)
-    expect(dxy).toBeLessThan(.03)
+  it.each([-1.5, 1.4, -6])('keeps the front pane and neutral wall within .04 in CIE xy at %s°', altitude => {
+    const world = receiverScene(252, altitude)
+    const receive = buildingLight(world, 0)
+    const [wx, wy] = xy(srgbRgbToLinear(receive([1, 1, 1], NORMALS.front, 1, 0)))
+    const [px, py] = xy(srgbRgbToLinear(receive.glass(NORMALS.front, false, [1, 1, 1], 1, 0)))
+    // The pane samples near the horizon and the wall also sees the ground.
+    expect(Math.hypot(wx - px, wy - py)).toBeLessThan(.04)
+  })
+
+  // Smoothstep's midpoint is .5 in the 2° lower and 2.3° upper fade windows.
+  it.each([-6, 1.85])('blends the pane lobe halfway in linear RGB at %s°', altitude => {
+    const world = receiverScene(252, altitude)
+    const surroundings = buildingSurroundings(world)
+    const { irr } = surroundings
+    const horizon = srgbRgbToLinear(rgbOf(world.light.palette.horizon))
+    const glow = srgbRgbToLinear(world.light.afterglow!.rgb)
+    const lobe: RGB = [(horizon[0] + glow[0]) / 2, (horizon[1] + glow[1]) / 2, (horizon[2] + glow[2]) / 2]
+    const sky = skyReflection(world.light, altitude, .099 + aerosolDepth(world.air)[1], irr.eSkyVec, lobe)
+    const { across, ahead } = irr.sunDir
+    const reflected = sky(.14, -ahead / Math.hypot(across, ahead))
+    // Four glass surfaces at 4% normal-incidence reflectance, plus 37% interior fill.
+    const f = .16 / 1.12
+    const pane = glassIncidence(world, surroundings)(NORMALS.front, [1, 1, 1], [1, 1, 1])
+    reflected.forEach((channel, i) => expect(pane[i]).toBeCloseTo(f * channel + .37 * (1 - f) * irr.eSkyVec[i], 10))
   })
 })
 
@@ -107,8 +112,6 @@ it.each([AFTERGLOW.from, AFTERGLOW.to])('keeps painted ridge glow continuous at 
     const world = receiverScene(252, altitude)
     const x = 295, y = 390
     world.bodies.sun = { ...world.bodies.sun, x, y }
-    world.air = { ...world.air, heat: 0, farFade: 0 }
-    world.light.clear = 1
     world.light.glow = { side: 'west', opacity: .34, x, y }
     world.light.afterglow = altitude > AFTERGLOW.to && altitude < AFTERGLOW.from
       ? { x, altitude, rgb: afterglowColour(altitude, world.air) } : null

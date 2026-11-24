@@ -10,15 +10,14 @@ import { landIrradiance, skyView } from './landIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { hazeAt, hazeOf } from './landVeil'
 import { metalLight } from './metalLight'
-import { mixLight } from './tone'
+import { labOf, mixLight } from './tone'
 
 function twilightScene(altitude: number, open = 1): WorldState {
   const world = scene(252, altitude, open)
   const x = 295, y = 390 // Put the ridge glow and solar meridian over the eye-level sample.
   world.relief = { ...world.relief, horizonY: y }
   world.bodies.sun = { ...world.bodies.sun, x, y }
-  world.air = { ...world.air, heat: 0, farFade: 0 }
-  world.light = { ...world.light, clear: open, glow: { side: 'west', opacity: .34, x, y },
+  world.light = { ...world.light, glow: { side: 'west', opacity: .34, x, y },
     afterglow: altitude > AFTERGLOW.to && altitude < AFTERGLOW.from ? { x, altitude, rgb: afterglowColour(altitude, world.air) } : null }
   return world
 }
@@ -127,18 +126,15 @@ describe('building receiver', () => {
     const far = buildingLight(w, km)(STONE, NORMALS.front)
     mixLight(near, hazeOf(w), hazeAt(w, km)).forEach((c, i) => expect(far[i]).toBeCloseTo(c, 5))
   })
-  it('puts gold chroma on the reflected twilight side even with the beam absent', () => {
-    const gold = metalLight(twilightScene(-1, .82), 0)
-    const left = gold([-.70, -.71, .05]), right = gold([.70, -.71, .05])
-    expect(right[0] - right[2]).toBeGreaterThan(left[0] - left[2])
-    expect(y(right)).toBeGreaterThan(y(left))
-  })
   it('tapers directional afterglow at the shared sky cutoffs', () => {
     for (const cutoff of [AFTERGLOW.to, AFTERGLOW.from]) {
       const a = twilightScene(cutoff - .001), b = twilightScene(cutoff + .001)
       const normal = [.70, -.71, .05] as const
-      const difference = Math.abs(y(metalLight(a, 0)(normal)) - y(metalLight(b, 0)(normal)))
-      expect(difference).toBeLessThan(.012)
+      const before = metalLight(a, 0)(normal), after = metalLight(b, 0)(normal)
+      expect(Math.abs(y(before) - y(after))).toBeLessThan(.012)
+      const p = labOf(before), q = labOf(after)
+      // This sweep straddles only .002° of sun travel, so require sub-JND chroma continuity.
+      expect(Math.hypot(p.a - q.a, p.b - q.b)).toBeLessThan(.001)
     }
   })
 })

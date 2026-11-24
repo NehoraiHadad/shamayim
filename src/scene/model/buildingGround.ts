@@ -3,10 +3,11 @@ import type { RGB, WorldState } from '../../world/types'
 import { nearGroundAlbedo } from './landColour'
 import { landIrradiance, type LandIrradiance } from './landIrradiance'
 import { albedoLinear, EXPOSURE_GAMMA, linearLuminance, srgbRgbToLinear } from './landRadiance'
-import { afterglowWeight } from './landSkyIrradiance'
-import { mixLight, rgbOf } from './tone'
+import { afterglowHorizon, afterglowWeight, twilightShare } from './landSkyIrradiance'
 import { hazeOf } from './landVeil'
 import { outsideGroundAlbedo } from './outsideGround'
+import { solarSkyGlows, sunwardHorizon } from './skyGlows'
+import { rgbOf } from './tone'
 
 export function reflectedGround(rho: RGB, irr: LandIrradiance, visible: number, sunlit: number): RGB {
   const sun = sunlit * Math.max(0, irr.sunDir.up), moon = Math.max(0, irr.moonDir.up)
@@ -27,6 +28,20 @@ export function sunlitGround({ up }: LandIrradiance['sunDir']) {
 export interface Surroundings { irr: LandIrradiance; ground: RGB; air: RGB }
 export interface BuildingSurroundings extends Surroundings { streetY: number }
 const memo = new WeakMap<WorldState, { buildings: BuildingSurroundings; accents: Surroundings }>()
+const metalLobes = new WeakMap<WorldState, RGB>()
+
+/** Sample the palette and solar glows on the Sun's meridian in the reference
+ * projection. The painted haze band and city light on the sky are omitted. */
+export function metalHorizon(world: WorldState) {
+  const cached = metalLobes.get(world)
+  if (cached) return cached
+  const horizon = rgbOf(world.light.palette.horizon)
+  const lobe = twilightShare(world.bodies.sun.altitude) > 0
+    ? sunwardHorizon(horizon, solarSkyGlows(world, 0, 0, 1), world.bodies.sun.x, world.relief.horizonY)
+    : srgbRgbToLinear(horizon)
+  metalLobes.set(world, lobe)
+  return lobe
+}
 
 export function groundLighting(world: WorldState) {
   const cached = memo.get(world)
@@ -34,11 +49,11 @@ export function groundLighting(world: WorldState) {
   const irr = landIrradiance(world), air = srgbRgbToLinear(hazeOf(world))
   const nearby = nearGroundAlbedo(world), view = world.place3
   const albedo = view?.kind === 'outside' && view.land ? outsideGroundAlbedo(world, view.land, view.frame) : nearby
-  // The directional colour is published only within the sky effect's altitude
-  // range. Blend it into the broad dome at each edge before shading architecture.
+  // Soften the afterglow's contribution to diffuse energy and directional bias
+  // at the edges of its altitude window before shading the walls.
   const glow = world.light.afterglow, weight = glow ? afterglowWeight(irr.sunAlt) : 1
   const lightWorld = glow && weight < 1 ? { ...world, light: { ...world.light, afterglow: {
-    ...glow, rgb: mixLight(rgbOf(world.light.palette.horizon), glow.rgb, weight),
+    ...glow, rgb: afterglowHorizon(world.light, irr.sunAlt),
   } } } : world
   const buildingIrr = lightWorld === world ? irr : landIrradiance(lightWorld)
   const visibleGround = .92

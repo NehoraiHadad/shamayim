@@ -3,7 +3,7 @@ import { AFTERGLOW } from '../../world/afterglow'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB } from '../../world/types'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
-import { rgbOf } from './tone'
+import { mixLight, rgbOf } from './tone'
 import type { RadianceLight } from './landIrradiance'
 
 // Cosine-weighted midpoint quadrature in sin(elevation) and azimuth from the sun.
@@ -47,6 +47,12 @@ function twilightIntegral(mid: RGB, top: RGB, horizon: RGB, fill: number, forwar
 export const afterglowWeight = (sunAlt: number) =>
   smoothstep(AFTERGLOW.to, AFTERGLOW.to + 2, sunAlt) * smoothstep(AFTERGLOW.from, AFTERGLOW.from - 2.3, sunAlt)
 
+/** Fade the cloud afterglow into the palette horizon in linear light, returning sRGB. */
+export function afterglowHorizon(light: RadianceLight, sunAlt: number): RGB {
+  const horizon = rgbOf(light.palette.horizon)
+  return light.afterglow ? mixLight(horizon, light.afterglow.rgb, afterglowWeight(sunAlt)) : horizon
+}
+
 export const DAY_CLOUD_DHI_GAIN = 1.25
 
 export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): { rgb: RGB; amount: number; exposure: number; bias: number } {
@@ -74,8 +80,8 @@ export function diffuseSky(light: RadianceLight, sunAlt: number, tau: number): {
   // to the twilight stills. None of these weights attenuates the independent direct beam.
   const scattered = cloudScatter(cloud, aerosol)
   const forward = BASE_FORWARD * lowScatter(cloud, aerosol)
-  // Retain the original luminance and directional meters while taking
-  // chromaticity from the same cosine integral as the reflected sky.
+  // Retain the original luminance and directional meters. Diffuse chromaticity
+  // integrates the broad sky with a horizon-coloured lobe; reflections use a receiver-specific lobe.
   const broad = mid.map((m, i) => m + (top[i] - m) * DOME.zenith) as [number, number, number]
   const broadY = linearLuminance(broad)
   const integrated = broad.map((c, i) => c + scattered * yHorizon + forward * DOME.forward * glow[i]) as [number, number, number]
