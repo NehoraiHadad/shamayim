@@ -70,3 +70,20 @@ it('keeps a short tether when a tenth of a pixel of fabric or beyond touches the
     expect([next.x, next.y]).toEqual([spot.x, spot.y])
   }
 })
+
+it.each([
+  // A low row beside the tall row's end: the badge steps aside and needs no leader at any width.
+  { end: 172, top: 67, shifted: true },
+  // Clear at 375 px, but 520 px opens the sideways gap until a leader is drawn there too: nothing is won, it stays centred.
+  { end: 186, top: 60, shifted: false },
+])('counts a leader as its own length where a roof ends at $end', ({ end, top, shifted }) => {
+  const dot = { x: 180, y: 86 }
+  const spot = besideDot(dot, heightText(812), [
+    { left: 0, right: end, top, bottom: 128 }, { left: end, right: 375, top: 78, bottom: 128 },
+  ])!
+  const y = shifted ? 78 : top
+  const badge = heightLabelBox({ ...spot, text: heightText(812), below: false, backed: true }, 375)
+  expect(spot.x - dot.x).toBe(shifted ? 13 : 0)
+  expect(badge.y + badge.h).toBeLessThanOrEqual(y)
+  expect(badge.y + badge.h).toBeGreaterThan(y - 1)
+})

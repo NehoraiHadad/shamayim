@@ -130,6 +130,9 @@ it.each(places)('$id preserves the fabric and keeps its badge clear across viewp
       expect(overlay.leader).toBeNull()
     }
 
+    // A spot without a leader, over open ground or sky, is a few px farther off the dot's column at both.
+    if (['beit-shean', 'yagur'].includes(id)) expect(overlay.leader).toBeNull()
+
     if (loadedPlace.place.settlementType !== 'city') {
       const fabric = placed.flatMap(b => b.kind === 'box' && !b.beyond ? [{
         left: b.x - b.w / 2 - (b.roof === 'tile' ? .5 : 0), right: b.x + b.w / 2 + (b.roof === 'tile' ? .5 : 0),
