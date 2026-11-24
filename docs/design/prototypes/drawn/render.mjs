@@ -46,7 +46,7 @@ try {
     const moment = { ...parseMoment(text), style: as === 'real' ? 'real' : 'drawn' }
     const { context, page } = await openPage(browser, server.url, dpr, { treeRoot: tree })
     page.on('pageerror', (err) => console.error('page:', err.message))
-    page.on('console', (m) => { if (m.type() === 'error' || m.text().startsWith('[proto]')) console.error(m.text()) })
+    page.on('console', (m) => { if (m.type() === 'error') console.error(m.text()) })
     await loadScene(page, sceneUrl(server.url, { ...moment, overlay: true, paint: 'main' }))
     const file = path.join(outDir, `${momentName(moment)}${as === 'drawn' ? '-v1' : ''}.png`)
     fs.writeFileSync(file, await page.screenshot({ clip: CLIP }))

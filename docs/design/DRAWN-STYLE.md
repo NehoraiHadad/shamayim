@@ -11,10 +11,10 @@ is comes from the same model as `real`. Only the edges, the number of inks and t
 
 | Rule | What it says |
 |---|---|
-| Line | One carved key line, 0.5 to 1 px, its width stepping as a knife's does, in the local ink's own dark. It runs where one thing stands before another: cloud tops, crests, bodies, crowns, shore. Never round a cloud's foot. It thins and fades with distance. |
+| Line | One carved key line, 0.5 to 1 px, its width stepping as a knife's does, in the local ink's own dark, as strong as the model's light and shade stand apart (Oklab): fog and dust lose it. It runs where one thing stands before another: cloud tops, crests, bodies, crowns, shore. Never round a cloud's foot. It thins and fades with distance. |
 | Shape | Four words: the **billow** (a run of round bumps of many sizes over a level foot: cloud, crown, tower), the **wipe** (sky, sea, deck roll, hill: ink graded one way), the **pot** (a patch of ground of one ink), the **body** (three inks inside a key line). |
-| Values | Inks, not blends: lit, local, shade, foot. Between two of them only a wipe, always along one direction (down a cloud, down a wall, up a sky). Every cap's light stands on the shade of the one behind it, so mass reads without blur. |
-| Colour | One rule, `pigment`: Oklab lightness is the model's, chroma up to ×1.5 and at most 0.15, a light turned warm, a shade cool, both fading with the light; `papered` lets a day's lights through to cream paper. No colour is picked by hand for a place or an hour. |
+| Values | Inks, not blends: lit, local, half, shade, foot, each lying flat and wiped into the next. A cloud mass is one such wash of the model's own light; caps of uneven size stand on it where it is busy and fade to nothing at their foot, and quiet areas have none. How heavy a cloud is comes from where the model's body lies between its light and shade: a heavy one goes down to its foot ink, a light one never does. |
+| Colour | One rule, `pigment`: Oklab lightness is the model's, chroma up to ×1.5 and at most 0.15, a light turned warm, a shade cool only as far as the model's own is and less where the light itself is coloured; `papered` lets a day's lights through to cream paper. No colour is picked by hand for a place or an hour. |
 | Edge | Crisp: contours of the model's own field, its tops turned into billows, its base pressed level (cloud begins at one height). |
 | Texture | The cut only: level grain in the sky, slope cuts on ground, wave cuts on water, parallel cuts of rain, a few level cuts under a cloud. No noise, no mottle, no soft wash. |
 | Distance | Fewer inks, fewer cuts, thinner line, nearer the model's own air: near clouds in caps, far ones in low arches, the last ones in a row. Near ground 6 pots, the middle 4, the far 3. |
@@ -60,13 +60,18 @@ Mean difference against `real` of the same model, of 255 (whole picture; land = 
 The base is `ac4262e8` with foundations' clouds and town patches, so both styles show foundations' newer model. Rain, dusk, dawn, broken, fog and dust were
 also drawn with the same code (`more-weather-concept-only.png`).
 
+Second set (after the manager's five points; the first is kept in `drawn/concept-b-first/`): caps vary in size and leave quiet areas, a mass
+is one wipe of the model's own light with caps on it; a storm is dark and stands on its underside; nothing is see-through; fog and
+dust lose the line; fields and slope cuts show; town walls sit in the light. The table above is of this second set.
+
 Known weak points of the concept:
-- **Fog and dust** are the weakest: clouds stay crisp behind the veil (`mist` is still the shared painter, the sheet does not take the veil), a cool shade turns
-  blue in dust, and a closed deck's holes have a hard plain edge. To solve in phase 2: the shade's turn goes toward the sky's own ambient, never past it, and
-  line and inks fade by the model's veil over the cloud.
+- **Dust** is the weakest: the brown blocks at the left edge are the model's own fault (they are in `real` too), and the orange
+  patches low in the wall are the model's tone. `mist` is still the shared painter and the sheet does not take the veil.
+- **Fog's towns** keep more line than its clouds do: the town painter does not take the veil yet.
 - **Crisp where `real` is half clear**: the storm's low haze and some faint far clouds are gone or firm. A sheet's opacity is not kept yet.
+- **Broken cloud at dawn and dusk** has little shade, for the light itself is coloured: the caps read by their line more than by value.
+- The storm's right-hand towers stand on a hard dark slab; its sides keep the model's own straight column.
 - The large clouds keep the model's own outlines (Tel Aviv's arm, Rosh Pina's column): a crisp edge shows a model fault more than a soft one. Foundations' 1d.
-- The storm is bluer and lighter than in `real`; its pale far towers look like glass against the row behind them.
 - Vegetation is the smallest gain: `real` crowns were already cut shapes.
 - Birds, aircraft, smoke, near rain, snow, mist, rays and bow are still shared.
 
@@ -79,10 +84,10 @@ Own files in `src/scene/paint/drawn/`, one line each in `drawn/painters.ts`. Not
 | `sky` | One wipe of ink through the model's stops, level grain, the glow wiped out round the light | `sky.ts`, `skyBase.ts` | stops, glow, arch (to do) |
 | `bodies` | Sun: paper disc, a thin ring (gone when veiled). Moon: shared disc and phase | `bodies.ts` | disc, veil |
 | `stars`, `planets`, `twinkle`, `milkyWay` | Shared; the Milky Way as a band of fine cuts (plan) | | |
-| `cloudSheet`, broken | Billowed blocks with caps, feet wiped up from the level base, key line on tops; far rows as arches | `sheet.ts`, `billow.ts`, `base.ts`, `lobes.ts`, `farRows.ts`, `contour.ts` | alpha, tone, city, row spacing |
+| `cloudSheet`, broken | Billowed blocks with caps, feet wiped up from the level base, key line on tops; far rows as arches | `sheet.ts`, `inks.ts`, `wash.ts`, `lobes.ts`, `caps.ts`, `feet.ts`, `billow.ts`, `carve.ts`, `base.ts`, `farRows.ts`, `contour.ts` | alpha, tone, city, row spacing |
 | `cloudSheet`, closed | Rolls closing to the horizon, each with a hanging scalloped foot, lower where the model is darker; here and there a line | `deck.ts` | tone, row spacing |
 | `cloudSheet`, high | The same at 0.4; fine level cuts instead of caps (plan) | `sheet.ts` | alpha |
-| `cloudCells` | The model's column as one billowed block, caps lit from the light's side, dark level base | `cells.ts` | `towerMass` |
+| `cloudCells` | The model's column as one billowed block, caps lit from the light's side, dark level base | `cells.ts` (inks, wash, caps, feet as the sheet) | `towerMass` |
 | `shafts` | A graded pane and many fine parallel slanted cuts in ink and bare paper | `rain.ts` | shaft, lean, alpha |
 | `fall` | Rain: carved strokes of two lengths, near bold, far fine. Snow: bare-paper flecks of three sizes (plan) | new | drops, flakes |
 | `mist`, `edge`, `landDust` | Level wipes one behind another, their tops let go, in the model's veil colour; they lift line and ink behind them (plan) | `painters.ts` (`edge`) | density, heights |
@@ -124,7 +129,7 @@ From an independent review of the prototype (20 findings; the rest are already f
 Cold sky within about 25 % of `real`. CI on main `fcd96b26` (worker, CPU x4, 2.75 dpr), ms: `real` sky haifa 271, tel-aviv 271, shadmot 245; the thunder batch
 373, 401, 364; land batch 181, 174, 185.
 
-Prototype, local, one cold paint of each kind, ms, `real` | concept (tel-aviv, rosh-pina, storm, night):
+Measured on the first set; the second adds a raster wash and a flood fill, so it must be measured again on CI. Prototype, local, one cold paint of each kind, ms, `real` | concept (tel-aviv, rosh-pina, storm, night):
 
 | Kind | `real` | concept |
 |---|---|---|

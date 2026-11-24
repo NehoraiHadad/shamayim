@@ -18,7 +18,7 @@ export interface CloudInks { lit: RGB; local: RGB; half: RGB; shade: RGB; foot: 
 /** How far apart (Oklab) light and shade are without and with a full line, and what hue counts in it against value. */
 const APART = [0.02, 0.15] as const, HUE = 1.2
 /** The b a shade must be cooler by for a full turn; the chroma of a light that is coloured, and what it takes of the turn. */
-const COOLER = 0.02, COLOURED = [0.02, 0.07] as const, HELD = 0.75
+const COOLER = 0.02, COLOURED = [0.02, 0.07] as const, HELD = 0.5
 /** Where a body must lie between its light and its shade for the cloud to be heavy; what that takes from its foot. */
 const HEAVY = [0.15, 0.55] as const, WEIGHT = 0.06
 const GAIN = 1.5

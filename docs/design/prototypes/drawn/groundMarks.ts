@@ -35,7 +35,7 @@ export function groundLines(ctx: Ctx2D, desc: LayerOf<'plane'>): void {
 const DENSITY = { near: 18, far: 8, back: 1.5 } as const
 const LONG = [3, 20] as const, WIDE = [0.35, 0.6] as const, LIGHT = 0.06, DARK = -0.13, DARKS = 0.78, SEED = 5501
 /** Cuts stand in hatches, more on darker ground: a hatch's most, the px between its cuts, what a step of value does, its least. */
-const HATCH = 4, BESIDE = 1.9, BY_VALUE = 7, LEAST = 0.3, PROBES = 8
+const HATCH = 4, BESIDE = 1.9, BY_VALUE = 7, LEAST = 0.6, PROBES = 8
 /** A field's edge (px), how much darker than the ground, how strong. */
 const FIELD = { wide: 0.6, dark: -0.17, alpha: 0.7, stride: 9 } as const
 
