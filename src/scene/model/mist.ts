@@ -70,7 +70,7 @@ export function mistLayers(world: WorldState, box: SceneBox): LayerOf<'mist'>[] 
   const nearMed = median(xs.map((x) => crestAt(world.terrain.near.points, x)))
   const farMed = world.terrain.far.points.length ? median(xs.map((x) => crestAt(world.terrain.far.points, x))) : nearMed - 20
   const dark = world.night.dark
-  const sky = skyAt(world, box)
+  const sky = skyAt(world, box, true)
   const rgb = mixRgb(mixRgb(sky(3), hazeOf(world), 0.35), WHITE, 0.3 * (1 - dark) * (1 - 0.5 * coinOf(world.air)))
   const period = whole(240, box.dpr)
   const across = world.wind.across

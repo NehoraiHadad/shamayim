@@ -31,7 +31,7 @@ function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: Pre
   if (!found) return []
   const { cells: banks, z, speed } = found
   const out: LayerDesc[] = []
-  const sky = skyAt(world, box)
+  const sky = skyAt(world, box, true)
   const horizonSky = sky(2)
   const dark = world.night.dark
   const drift = Math.abs(speed) > 0.01 ? { speed, period: geom.period } : {}

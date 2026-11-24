@@ -1,8 +1,10 @@
 import { smoothstep } from '../../domain/smoothstep'
 import type { WorldState } from '../../world/types'
 import { physicalHazeOf } from './landVeil'
-import { exposeDust, skyColours } from './skyColour'
-import { labOf, mixLight, mixRgb, rgbOfLab } from './tone'
+import { skyColours } from './skyColour'
+import { mixLight, mixRgb } from './tone'
+import { filterAt, skyGradeOf } from './skyGrade'
+import { SKY_FILTER_MID } from './skyFilter'
 import type { Band, RGB, SceneBox } from './types'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
@@ -13,27 +15,21 @@ const WHITE: RGB = [1, 1, 1]
  * half way down to the horizon, the horizon colour at eye level (the land's own horizon, offset by `box.landTop`) and
  * below it.
  */
-export function skyStops(world: WorldState, box: SceneBox, colours = skyColours(world), physical = false): [number, RGB][] {
-  const horizon = clamp01((box.landTop + world.relief.horizonY) / box.skyHeight)
+export function skyStops(world: WorldState, box: SceneBox, colours = skyColours(world)): [number, RGB][] {
+  const eyeLevel = (box.landTop + world.relief.horizonY) / box.skyHeight
+  const horizon = colours.bandWeight ? Math.max(0, eyeLevel) : clamp01(eyeLevel)
   // By night inside a town its lit air is over every side, less and less up to the zenith (the mid stop stands ~30° up).
-  const { top, mid, horizon: ground } = physical ? colours.physical : colours
-  const middle = horizon * 0.55
-  if (physical || colours.exposure === 1) return [[0, top], [middle, mid], [horizon, ground], [1, ground]]
-  // Piecewise-linear sampling of a cubic shoulder. Sixteen intervals keep the
-  // interpolation error below one byte even for a full-range smoothstep.
-  const count = 16
-  const ease = smoothstep(0, 1 / 255, 1 - colours.exposure)
-  const segment = (a: number, b: number, from: RGB, to: RGB): [number, RGB][] => {
-    const start = labOf(from), end = labOf(to)
-    return Array.from({ length: count }, (_, i) => {
-      if (!i) return [a, from]
-      const t = i / count
-      const w = t + ease * (smoothstep(0, 1, t) - t)
-      return [a + (b - a) * t, rgbOfLab({ l: start.l + (end.l - start.l) * w,
-        a: start.a + (end.a - start.a) * w, b: start.b + (end.b - start.b) * w })]
-    })
-  }
-  return [...segment(0, middle, top, mid), ...segment(middle, horizon, mid, ground), [horizon, ground], [1, ground]]
+  const { top, mid, horizon: ground } = colours
+  const middle = horizon * SKY_FILTER_MID
+  if (!colours.bandWeight) return [[0, top], [middle, mid], [horizon, ground], [1, ground]]
+  // Eighths across the shoulders with half steps at the ends to resolve the
+  // flatter tangent where adjacent segments meet.
+  const rows = [0, 1 / 16, 1 / 8, 1 / 4, 3 / 8, 1 / 2, 5 / 8, 3 / 4, 7 / 8, 15 / 16]
+  const ease = smoothstep(0, 1, colours.bandWeight)
+  const segment = (a: number, b: number, from: RGB, to: RGB): [number, RGB][] =>
+    rows.map(t => [a + (b - a) * t, mixRgb(from, to, t + ease * (smoothstep(0, 1, t) - t))])
+  const stops: [number, RGB][] = [...segment(0, middle, top, mid), ...segment(middle, horizon, mid, ground), [horizon, ground]]
+  return [...stops.filter(([at]) => at < 1), [1, stopAt(stops, 1)]]
 }
 
 /** The gradient's colour at a fraction of the sky's height. */
@@ -47,11 +43,16 @@ export function stopAt(stops: readonly [number, RGB][], at: number): RGB {
 
 /**
  * The sky's colour at an altitude (deg above eye level) as the gradient draws it: what still water mirrors at the same
- * angle below the horizon.
+ * angle below the horizon. Pass physical for light or for an object painted behind the grade.
  */
-export function skyAt(world: WorldState, box: SceneBox): (altitude: number) => RGB {
+export function skyAt(world: WorldState, box: SceneBox, physical = false): (altitude: number) => RGB {
   const stops = skyStops(world, box)
-  return (altitude) => stopAt(stops, clamp01((box.landTop + world.relief.y(Math.max(0, altitude))) / Math.max(1, box.skyHeight)))
+  const grade = physical ? null : skyGradeOf(world, box)
+  return (altitude) => {
+    const y = box.landTop + world.relief.y(Math.max(0, altitude))
+    const rgb = stopAt(stops, clamp01(y / Math.max(1, box.skyHeight)))
+    return filterAt(grade, y, rgb)
+  }
 }
 
 /** Height (px) of the haze band over the horizon. */
@@ -68,7 +69,6 @@ export function horizonBand(world: WorldState, box: SceneBox, colours = skyColou
   if (alpha < 0.02) return null
   const white = 0.12 * (1 - dark)
   const base = mixRgb(physicalHazeOf(world), WHITE, white)
-  const rgb = colours.bandWeight ? exposeDust(mixRgb(base, mixLight(colours.physical.horizon, WHITE, white),
-    colours.bandWeight), colours.exposure) : base
+  const rgb = colours.bandWeight ? mixRgb(base, mixLight(colours.horizon, WHITE, white), colours.bandWeight) : base
   return { y: box.landTop + world.relief.horizonY, h: BAND_H, rgb, alpha }
 }

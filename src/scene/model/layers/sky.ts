@@ -34,6 +34,7 @@ export interface FallingCloud { id: string; x: number; y: number; w: number; h: 
 
 export type SkyLayers =
   | LayerBase & { kind: 'sky'; stops: [number, RGB][]; glow: Glow[]; arch: Arch | null; band: Band | null }
+  | LayerBase & { kind: 'skyFilter'; horizon: number; stops: [number, RGB][] }
   | LayerBase & { kind: 'stars'; stars: Star[]; through: number }
   /**
    * The sun or the moon round its disc; `part` (C9): `aureole`, the sun's aureole alone, laid over the clouds. (A disc laid

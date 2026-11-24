@@ -1,14 +1,13 @@
 import { projectCell } from '../../world/field/project'
 import type { WorldState } from '../../world/types'
 import { acrossSpeed, pxPerRadAt } from './advect'
-import { cloudTransmission } from './cloudDust'
+import { cloudTransmission, dustVeilWeight } from './cloudDust'
 import { MIN_TOWER_SHARE } from './cloudSprite'
 import type { CloudLight } from './cloudLight'
 import { sheetZ } from './cloudSheet'
 import { hideBehind, leanOf, oneStormEach, type Beyond, type Standing } from './towerStorms'
-import { colourKey, layerKey, skyBoxKey } from './keys'
+import { layerKey, skyBoxKey } from './keys'
 import type { SkyGeom } from './sky'
-import { exposeDust, skyColours } from './skyColour'
 import { towerAnvil } from './towerHeads'
 import { towerSpriteOf } from './towerSprite'
 import type { LayerOf, RGB, SceneBox } from './types'
@@ -90,17 +89,10 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
   placed.sort((a, b) => b.km - a.km)
   const top = Math.max(0, Math.floor(Math.min(...placed.map((c) => c.y - c.sprite.tall)) - 12))
   const bottom = Math.min(box.skyHeight, Math.ceil(Math.max(...placed.map((c) => c.y + c.sprite.under)) + 8))
-  const { exposure, bandWeight, cloudWhite } = skyColours(world)
-  const shareStep = bandWeight ? 1 / 255 : 0.05
-  const tone = bandWeight ? colourKey : legacyTone
-  const shareKey = (share: number) => bandWeight ? `dust:${share <= MIN_TOWER_SHARE ? 0 : q(share, shareStep)}` : q(share, shareStep)
+  const bandWeight = dustVeilWeight(world, 0)
   const drawn = placed.map(({ sprite, x, y, speed, through }) => {
     // Occlusion was resolved with undimmed cloud cover. Dust attenuates the remaining sprite.
     if (through < 1) sprite.share *= through
-    sprite.body = exposeDust(sprite.body, exposure)
-    sprite.shade = exposeDust(sprite.shade, exposure)
-    sprite.lit = exposeDust(sprite.lit, exposure)
-    if (cloudWhite !== undefined) sprite.cloudWhite = cloudWhite
     return { sprite, x, y, speed }
   })
   if (bandWeight && drawn.every(({ sprite }) => sprite.share <= MIN_TOWER_SHARE)) return null
@@ -108,9 +100,8 @@ export function towerLayerOf(world: WorldState, box: SceneBox, geom: SkyGeom, sn
     kind: 'cloudCells', id: 'cloudCells.tower', lattice: 'tower', surface: 'sky', z: sheetZ.tower, soft: true, cells: drawn,
     bounds: { x: 0, y: top, w: geom.width, h: Math.max(1, bottom - top) },
     key: layerKey('cloudCells', skyBoxKey(box, true), drawn.map(({ sprite: s, x, y }) => [s.seed, q(x), q(y), q(s.w), q(s.under), q(s.bowl ?? 0),
-      q(s.tall), tone(s.body), tone(s.shade), tone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05),
-      shareKey(s.share), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)]),
-      ...(cloudWhite === undefined ? [] : [q(cloudWhite, 1 / 255)])),
+      q(s.tall), legacyTone(s.body), legacyTone(s.shade), legacyTone(s.lit), q(s.litA, 0.05), q(s.silver, 0.05), q(s.glow, 0.05),
+      s.share <= MIN_TOWER_SHARE ? 'hidden' : q(s.share, 0.05), q(s.anvil ?? 0, 0.05), q(s.lean, 0.1)])),
   }
 }
 

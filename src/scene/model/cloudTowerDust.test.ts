@@ -5,7 +5,6 @@ import { projectCell } from '../../world/field/project'
 import { buildWorld } from '../../world/world'
 import { inDust, sheetThrough } from './cloudDust'
 import { cloudLayersOf } from './cloudLayers'
-import { skyColours } from './skyColour'
 import { labOf } from './tone'
 
 it('attenuates tower shares with the same below-base transmission as sheet rows', async () => {
@@ -40,7 +39,7 @@ it('attenuates tower shares with the same below-base transmission as sheet rows'
       const actual = labOf(sprite.shade)
       expect(actual.a).toBeCloseTo(expected.a, 5)
       expect(actual.b).toBeCloseTo(expected.b, 5)
-      expect(actual.l).toBeCloseTo(expected.l * skyColours(world).exposure, 5)
+      expect(actual.l).toBeCloseTo(expected.l, 5)
       const through = sheetThrough(world.air, cell.baseKm, [projectCell(cell).aSide], world.bodies.sun.altitude)?.[0] ?? 1
       if (through === 1) continue
       // Sheet rows store transmission to the nearest hundredth.

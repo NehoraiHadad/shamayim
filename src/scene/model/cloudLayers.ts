@@ -7,8 +7,8 @@ import { sunlitTone } from './cloudSunlit'
 import { cityLit } from './cityLight'
 import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
+import { skyBoxKey } from './keys'
 import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
-import { skyColours } from './skyColour'
 import { mixRgb, scaleLight } from './tone'
 import { lowSheetRgb, type Beyond } from './towerStorms'
 import type { LayerOf, SceneBox } from './types'
@@ -21,6 +21,18 @@ import type { LayerOf, SceneBox } from './types'
 
 export type CloudLayerDesc = LayerOf<'cloudSheet'> | LayerOf<'cloudCells'>
 
+const cloudMemo = new WeakMap<WorldState, { box: string; layers: CloudLayerDesc[] }>()
+
+/** Reuse the physical cloud descriptors between the scene stack and its contrast solver. */
+export function cloudLayersForSky(world: WorldState, box: SceneBox, geom?: SkyGeom): CloudLayerDesc[] {
+  const key = skyBoxKey(box).join(',')
+  const previous = cloudMemo.get(world)
+  if (previous?.box === key) return previous.layers
+  const layers = cloudLayersOf(world, box, geom)
+  cloudMemo.set(world, { box: key, layers })
+  return layers
+}
+
 /** How much of the field's rain falls from this level, 0–1 (the rate eases it in; mid and low share it). */
 function rainWeightAt(world: WorldState, level: CloudLevel, rains: boolean): number {
   const rain = world.cloudField?.field.rain
@@ -29,9 +41,9 @@ function rainWeightAt(world: WorldState, level: CloudLevel, rains: boolean): num
   return smoothstep(0, 0.2, rain.rate) * (level === 'mid' ? midWeight : level === 'low' ? 1 - midWeight : 0)
 }
 
-export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): CloudLayerDesc[] {
-  const sky = skyColours(world)
-  const stops = skyStops(world, box, sky, true)
+export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box),
+  geometry?: readonly CloudLayerDesc[]): CloudLayerDesc[] {
+  const stops = skyStops(world, box)
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
   const { altitude } = world.bodies.sun
@@ -75,8 +87,13 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       light: light?.sun ? light.strength * light.above : 0,
     }
     // By night a deck over the towns gives their light back from its base (an overcast city night is not black).
-    const sheet = cloudSheetOf(world, geom, snapshot, colours, cityLit(world, level, fieldLayer.cover))
-    if (level === 'low') beyond = { rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover, sheet }
+    const existing = geometry?.find((desc): desc is LayerOf<'cloudSheet'> => desc.kind === 'cloudSheet' && desc.lattice === level)
+    // A control for the same deck needs new swatches, but the extinction-free
+    // geometry and opacity are already in its raster. Skip a second ray pass.
+    const sheet = geometry
+      ? existing && { ...existing, body, shade: colours.shade, lit: colours.lit, through: undefined }
+      : cloudSheetOf(world, geom, snapshot, colours, cityLit(world, level, fieldLayer.cover))
+    if (level === 'low') beyond = { rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover, sheet: sheet ?? null }
     if (sheet) out.push(sheet)
   }
   return out

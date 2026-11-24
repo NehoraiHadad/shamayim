@@ -4,7 +4,6 @@ import { smoothstep } from '../../world/ridgeLighting'
 import type { RGB, WorldState } from '../../world/types'
 import { dustSky } from './cloudDust'
 import { nearGroundAlbedo } from './landColour'
-import { exposeDust, skyColours } from './skyColour'
 import {
   FLAT_NORMAL, linearLuminance, linearRgbToSrgb, litLandRgb, srgbRgbToLinear, unitChroma, WET_REFLECTANCE_DROP,
 } from './landRadiance'
@@ -60,18 +59,7 @@ export function physicalHazeOf(world: WorldState): RGB {
   return rgb
 }
 
-const displayHazeCache = new WeakMap<WorldState, RGB>()
-
-/** Tone-map the path-scattered light. Surface irradiance is computed independently. */
-export function hazeOf(world: WorldState): RGB {
-  const { exposure } = skyColours(world)
-  if (exposure === 1) return physicalHazeOf(world)
-  const hit = displayHazeCache.get(world)
-  if (hit) return hit
-  const rgb = exposeDust(physicalHazeOf(world), exposure)
-  displayHazeCache.set(world, rgb)
-  return rgb
-}
+export const hazeOf = physicalHazeOf
 
 /** The illustrated palette retains the original aerial contrast floor. */
 export const illustratedHazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2

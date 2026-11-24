@@ -10,9 +10,8 @@ import { gridFor, sheetFootprint, solarTexel } from './cloudSheetGrid'
 import { CITY_RGB, type CityOnBase } from './cityLight'
 import { sheetCity } from './cloudSheetCity'
 import { sheetThrough } from './cloudDust'
-import { colourKey, layerKey } from './keys'
+import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
-import { exposeDust, skyColours } from './skyColour'
 import type { LayerOf, RGB } from './types'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
 import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
@@ -136,20 +135,16 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
   const through = sheetThrough(world.air, layer.baseKm, altitudes, world.bodies.sun.altitude)
   // A 1/64 step keeps the maximum change in drawn low-light weight below 2% and fits the key's hundredths.
   const paintDaylight = Math.round(daylit * 64) / 64
-  const { exposure, cloudWhite } = skyColours(world)
-  const body = exposeDust(colours.body, exposure), shade = exposeDust(colours.shade, exposure), lit = exposeDust(colours.lit, exposure)
-  const palette = cloudWhite === undefined ? [body, shade, lit] : [body, shade, lit].map(colourKey)
   const sheet: LayerOf<'cloudSheet'> = {
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
-    xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
+    xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body: colours.body, shade: colours.shade, lit: colours.lit,
     ...(through && { through }),
-    ...(cloudWhite !== undefined && { cloudWhite }),
     ...(paintDaylight && { daylit: paintDaylight }),
     ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
-    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, ...palette, ...(through ? [through] : []),
-      ...(paintDaylight ? [paintDaylight] : []), ...(cloudWhite === undefined ? [] : [Math.round(cloudWhite * 255)])),
+    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, colours.body, colours.shade, colours.lit, ...(through ? [through] : []),
+      ...(paintDaylight ? [paintDaylight] : [])),
   }
   sheetCache.set(snapshot, { world, key, sheet })
   return sheet

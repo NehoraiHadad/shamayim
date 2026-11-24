@@ -32,8 +32,6 @@ export interface CloudSprite {
   body: RGB
   shade: RGB
   lit: RGB
-  /** Display white seen through the dust, for highlights mixed toward white. */
-  cloudWhite?: number
   /** How strongly the lit side catches the light (0–1). */
   litA: number
   /** Unit vector toward the light (sprite px), or null with no direct light (the sky's alone, from above). */
@@ -51,4 +49,3 @@ export interface CloudSprite {
   /** The axis of a cirrus streak on screen (rad, 0 = across), the direction the wind combs its fibres. */
   axis?: number
 }
-

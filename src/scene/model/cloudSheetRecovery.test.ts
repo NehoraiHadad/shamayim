@@ -6,7 +6,7 @@ import { buildWorld } from '../../world/world'
 import { cloudLayersOf } from './cloudLayers'
 import type { LayerOf } from './types'
 
-it('raises the darkest opaque texels around the Haifa 16:30 smudge', async () => {
+it('reduces the local tone contrast of the Haifa 16:30 smudge', async () => {
   stubPublicFetch()
   try {
     const haifa = (await loadPlaces(SCENE_PLACES.filter(({ id }) => id === 'haifa'))).get('haifa')!
@@ -20,15 +20,12 @@ it('raises the darkest opaque texels around the Haifa 16:30 smudge', async () =>
       const raw = sheet({ ...world })
       expect(corrected.genus).toBe('sc')
       expect(raw.alpha).toEqual(corrected.alpha)
-      // The reviewed patch is at scene (175, 115). Include surrounding texels because raster pixels interpolate rows.
-      const opaquePatch = corrected.tone.flatMap((_, i) =>
-        Math.abs(corrected.xs[i % corrected.xs.length] - 175) <= 12
-        && Math.abs(corrected.ys[Math.floor(i / corrected.xs.length)] - 115) <= 12
-        && corrected.alpha[i] >= 0.9 ? [i] : [])
-      expect(opaquePatch.length).toBeGreaterThan(0)
-      const minimum = (layer: LayerOf<'cloudSheet'>) => Math.min(...opaquePatch.map((i) => layer.tone[i]))
-      // Require at least one tone code in the sheet raster fingerprint.
-      expect(minimum(corrected) - minimum(raw)).toBeGreaterThanOrEqual(1 / 255)
+      const before = patchContrast(raw), after = patchContrast(corrected)
+      console.info('Haifa 16:30 patch minus ring (tone, alpha)', { raw: before, corrected: after })
+      expect(Math.abs(before.tone)).toBeGreaterThan(2 / 255)
+      // Require a tenth of the local tone contrast to disappear.
+      expect(Math.abs(after.tone)).toBeLessThan(0.9 * Math.abs(before.tone))
+      expect(after.alpha).toBe(before.alpha)
     } finally {
       recovery.mockRestore()
     }
@@ -36,3 +33,25 @@ it('raises the darkest opaque texels around the Haifa 16:30 smudge', async () =>
     vi.unstubAllGlobals()
   }
 }, 30_000)
+
+function patchContrast({ xs, ys, tone, alpha }: LayerOf<'cloudSheet'>) {
+  const patch = { area: 0, tone: 0, alpha: 0 }, ring = { area: 0, tone: 0, alpha: 0 }
+  for (const [row, y] of ys.entries()) {
+    // Grid rows crowd near the horizon. Weight by each row's midpoint-to-midpoint height.
+    const area = ((ys[row + 1] ?? y) - (ys[row - 1] ?? y)) / 2
+    for (const [column, x] of xs.entries()) {
+      // The stain spans about 60 px in the reference. Sample its immediate surroundings
+      // out to 45 px, halfway from the quoted edge to another stain-width from centre.
+      const radius = Math.hypot(x - 175, y - 115)
+      if (radius >= 45) continue
+      const region = radius < 30 ? patch : ring
+      const index = row * xs.length + column
+      region.area += area
+      region.tone += tone[index] * area
+      region.alpha += alpha[index] * area
+    }
+  }
+  expect(patch.area).toBeGreaterThan(0)
+  expect(ring.area).toBeGreaterThan(0)
+  return { tone: patch.tone / patch.area - ring.tone / ring.area, alpha: patch.alpha / patch.area - ring.alpha / ring.area }
+}

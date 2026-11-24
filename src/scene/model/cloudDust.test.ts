@@ -3,16 +3,16 @@ import { SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import type { LocalTime } from '../../domain/types'
 import { ratio } from '../../theme/contrast'
-import { DUST_VEIL } from '../../theme/skyAir'
 import { dustVeilPotential, skyLight } from '../../theme/skyLight'
 import { airOf } from '../../world/air'
 import { makeWorldBuilder, shownAir } from '../../world/world'
 import { luminanceOf } from './cloudChromaticity'
-import { dustSky, inDust } from './cloudDust'
+import { inDust } from './cloudDust'
 import { cloudLayersOf } from './cloudLayers'
 import { horizonBand, skyStops, stopAt } from './sky'
-import { skyColours } from './skyColour'
-import { hexOf, labOf, rgbOf } from './tone'
+import { filterAt, skyGradeOf } from './skyGrade'
+import { SKY_FILTER_MID } from './skyFilter'
+import { hexOf, labOf } from './tone'
 import type { LayerOf, RGB } from './types'
 
 const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -47,21 +47,20 @@ it('keeps the dusty sky tan and brightens toward its horizon band', () => {
   const { sky, world } = frame('2026-11-17T12:00', DUST)
   const band = horizonBand(world, box)
   expect(band).not.toBeNull()
-  const colours = [sky[0], sky.at(-1)!, band!.rgb]
-  const veiled = dustSky(world)!
-  const exposed = skyColours(world)
-  const buff = labOf(rgbOf(DUST_VEIL))
-  console.info('Ramon noon dust, OKLab', { top: labOf(exposed.top), buff })
-  for (const [i, rgb] of [exposed.top, exposed.mid].entries()) {
-    const before = labOf(veiled[i]), after = labOf(rgb)
-    expect(after.l / before.l).toBeCloseTo(exposed.exposure, 6)
-    expect(exposed.exposure).toBeLessThan(1)
-    expect(after.a).toBeCloseTo(before.a, 6)
-    expect(after.b).toBeCloseTo(before.b, 6)
-    expect(Math.hypot(after.a, after.b)).toBeGreaterThan(0.75 * Math.hypot(buff.a, buff.b))
-  }
+  const grade = skyGradeOf(world, box)!
+  const top = filterAt(grade, 0, sky[0])
+  const colours = [top, sky.at(-1)!, band!.rgb]
+  const mid = filterAt(grade, SKY_FILTER_MID * grade.horizon,
+    stopAt(skyStops(world, box), SKY_FILTER_MID * grade.horizon / box.skyHeight))
+  console.info('Ramon noon dust', { k: grade.k,
+    top: [hexOf(top), labOf(top)], mid: [hexOf(mid), labOf(mid)], horizon: [hexOf(colours[1]), labOf(colours[1])] })
+  const { a, b } = labOf(top)
+  expect(Math.atan2(b, a) * 180 / Math.PI).toBeGreaterThanOrEqual(60)
+  expect(Math.atan2(b, a) * 180 / Math.PI).toBeLessThanOrEqual(72)
+  expect(Math.hypot(a, b)).toBeGreaterThanOrEqual(0.035)
+  expect(Math.hypot(a, b)).toBeLessThanOrEqual(0.06)
   expect(luminanceOf(colours[1])).toBeGreaterThan(luminanceOf(colours[0]))
-  for (const rgb of colours) {
+  for (const rgb of colours.slice(1)) {
     const { a, b } = labOf(rgb)
     const hue = (Math.atan2(b, a) * 180) / Math.PI
     expect(hue).toBeGreaterThan(70)
@@ -89,9 +88,13 @@ it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anc
       visibilitySource: shown.visibilitySource, forcedVisibility: true })
     for (let altitude = -10; altitude <= 80; altitude++) {
       const palette = skyLight({ altitude, pm10, air, cloudCover: 0, wet: 0, rising: false })
-      const colours = skyColours({ ...world, air, light: { ...world.light, palette },
-        bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } } })
-      for (const [i, bg] of [colours.top, colours.mid].entries()) {
+      const state = { ...world, clouds: [], cloudField: undefined, air, light: { ...world.light, palette },
+        bodies: { ...world.bodies, sun: { ...world.bodies.sun, altitude } } }
+      const grade = skyGradeOf(state, box)
+      const middle = SKY_FILTER_MID * (box.landTop + state.relief.horizonY)
+      const stops = skyStops(state, box)
+      const anchors = [0, middle].map(y => filterAt(grade, y, stopAt(stops, y / box.skyHeight)))
+      for (const [i, bg] of anchors.entries()) {
         for (const ink of i === 0 ? [palette.ink] : [palette.ink, '#E8F9FF']) {
           const actual = ratio(ink, hexOf(bg))
           if (actual < 4.6) throw new Error(`Contrast ${actual} at PM10 ${pm10}, ${visibilityKm} km, ${altitude}°, stop ${i}`)

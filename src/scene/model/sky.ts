@@ -83,7 +83,7 @@ export function skyArch(world: WorldState, box: SceneBox, geom = skyGeom(world, 
 /**
  * The sky's base: the gradient from the light's palette (`theme/skyLight.ts`), the glows of the sun, the twilight and the
  * moon, Earth's shadow, and the haze band at the horizon. One layer, repainted only when one of these changes (the app
- * lays it as the sky canvas's CSS background, see `paint/shared/sky/skyBackground.ts`).
+ * lays it as the sky canvas's CSS background unless a grade needs the base in the bitmap).
  */
 export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | null {
   if (box.skyHeight <= 0 || box.width <= 0) return null
@@ -97,7 +97,7 @@ export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | nul
   return {
     kind: 'sky', id: 'sky', surface: 'sky', z: 0, soft: true,
     bounds: { x: 0, y: 0, w: geom.width, h: box.skyHeight },
-    key: layerKey('sky', skyBoxKey(box, true), stops.map(([at, rgb]) => [at, colourKey(rgb)]),
+    key: layerKey('sky', skyBoxKey(box, true), stops.map(([at, rgb]) => [colours.bandWeight ? at * box.skyHeight : at, colourKey(rgb)]),
       band && [band.y, band.h, colourKey(band.rgb), Math.round(band.alpha * 255)],
       glow.map((g) => [r1(g.x), r1(g.y), r1(g.r), g.ry ?? 0, colourKey(g.rgb), Math.round(g.alpha * 255)]),
       arch && [r1(arch.x), r1(arch.shadow), r1(arch.belt), Math.round(arch.alpha * 255)]),
