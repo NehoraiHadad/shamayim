@@ -1,6 +1,6 @@
 import type { Box, RGB, Streak } from '../../../model/types'
 import type { Ctx2D } from '../../shared/base/hand'
-import { paintStreaks, type Trace } from '../../shared/land/water'
+import { paintStreaks, running, type Trace } from '../../shared/land/water'
 
 /*
  * Waves on water, a train of them from each of the model's own strokes (its place, strength and drift; as many as the wind
@@ -17,8 +17,6 @@ const HIGH = [0.45, 1.4] as const, STEEP = 0.16, BREAK = 0.3, PIECE = 0.82
 const TRAIN = [0, -1, 1], APART = [0.9, 4.2] as const, ASKEW = 0.42
 /** How far a slick takes a stroke's strength down. */
 const SLICK = 0.7
-/** No wave fainter is laid. */
-const FAINT = 0.04
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const depthAt = ({ top, bottom }: Water, y: number) => Math.min(1, Math.max(0, (y - top) / Math.max(1, bottom - top)))
@@ -52,12 +50,17 @@ const wave = (water: Water, by: number, train: readonly number[]): Trace => (ctx
   }
 }
 
+/** What a ripple keeps of its strength where its cycle ends. */
+const LEFT = 0.3
+
+/** The ripples at this point of the loop, each from nothing to nothing: a train is seen where a hair's jump is not. */
+export function rising(streaks: readonly Streak[], t: number, drift: number, offset: number): Streak[] {
+  return running(streaks, t, drift, offset).map((s, i) => ({ ...s, alpha: Math.max(0, (s.alpha - LEFT * streaks[i].alpha) / (1 - LEFT)) }))
+}
+
 /** Waves of one face; `other` is the face beneath it (its ink and its share of the strength). */
 export function layWaves(ctx: Ctx2D, water: Water, streaks: readonly Streak[], face: RGB, other: readonly [RGB, number], hair: number, strength: number): void {
-  const at = (share: number) => streaks.map((s) => {
-    const alpha = Math.min(0.75, s.alpha * strength * share * gust(s.x, s.y))
-    return { ...s, alpha: alpha > FAINT ? alpha : 0 }
-  })
+  const at = (share: number) => streaks.map((s) => ({ ...s, alpha: Math.min(0.75, s.alpha * strength * share * gust(s.x, s.y)) }))
   paintStreaks(ctx, at(other[1]), other[0], hair, wave(water, 0.8, [0]))
   paintStreaks(ctx, at(1), face, hair, wave(water, 0, TRAIN))
 }

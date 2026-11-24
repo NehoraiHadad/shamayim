@@ -13,19 +13,31 @@ interface Stand { x: number; y: number; tx: number; ty: number; nx: number; ny: 
 
 /** The coast's points every few px; not where the sea runs along the picture's own edge. */
 function along({ coast, points, top, bottom }: SeaDesc, step: number): Stand[] {
-  const cx = points.reduce((sum, [x]) => sum + x, 0) / points.length, cy = points.reduce((sum, [, y]) => sum + y, 0) / points.length
   const xs = points.map(([x]) => x), ends = [Math.min(...xs), Math.max(...xs)]
   const out: Stand[] = []
   for (let i = 1; i < coast.length; i++) {
     const [ax, ay] = coast[i - 1], [bx, by] = coast[i], long = Math.hypot(bx - ax, by - ay)
     if (long < 1e-3 || ends.some((x) => Math.abs(ax - x) < 0.5 && Math.abs(bx - x) < 0.5)) continue
-    const tx = (bx - ax) / long, ty = (by - ay) / long, side = -ty * (cx - ax) + tx * (cy - ay) < 0 ? -1 : 1
+    const tx = (bx - ax) / long, ty = (by - ay) / long
+    const side = within(points, (ax + bx) / 2 - ty * OFF, (ay + by) / 2 + tx * OFF) ? 1 : -1
     for (let n = 0, many = Math.ceil(long / step); n < many; n++) {
       const u = n / many, y = ay + (by - ay) * u
       out.push({ x: ax + (bx - ax) * u, y, tx, ty, nx: -ty * side, ny: tx * side, near: Math.min(1, Math.max(0, (y - top) / Math.max(1, bottom - top))) })
     }
   }
   return out
+}
+
+/** How far off the coast it is seen on which side the sea lies (px). */
+const OFF = 0.3
+
+function within(points: readonly Pt[], x: number, y: number): boolean {
+  let inside = false
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [ax, ay] = points[i], [bx, by] = points[j]
+    if (ay > y !== by > y && x < ax + ((y - ay) / (by - ay)) * (bx - ax)) inside = !inside
+  }
+  return inside
 }
 
 /** A ribbon from `from` to `to` px off the coast (toward the sea), by how near it is. */

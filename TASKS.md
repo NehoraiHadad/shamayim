@@ -1300,4 +1300,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             enters; closed decks' and veils' tone not premultiplied; lamp bits in their keys; tower octave switch at 70 px; towers' crowns not
             capped in dust; a twilight body keeps a faint ring. Perf over main d0195813: scrub latency, animation and memory flat;
             first paint dearer (firstShown +5..37 %, 21-86 ms once; cold sky and land +19..29 %, over the +15 % cap), thunder batch sky +20..38 %: the manager's call
+      - [~] E, trees and the sea (`claude/real-sea`): leaf-clump crowns with lit tops, the town's round trees too; waves in perspective gathered
+            in gusts, shallows, broken foam, a hazy far edge; lakes' wavelets (`paint/real/foliage.ts`, `paint/real/sea/`). Dropped: a lit side
+            on canopy crowns (no canopy lamp), the `water` lamp, own palms. Written down: discs over Ein Gedi (likely the `orchard` glyph), the
+            town tree's lean formula twice, dashed foam on Haifa's spit, bodies over the sea without its grain, the sea's light key
+            without the sparks' places (as on main). Codex review: 5 findings, 3 fixed
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)

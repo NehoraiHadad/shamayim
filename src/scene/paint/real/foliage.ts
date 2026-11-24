@@ -35,7 +35,11 @@ export function foliage(brush: ReceiverBrush, { x, y, rx, ry }: CrownAt, seed: n
     const path = brush.path(), edge = rng(own)
     for (const c of clumps) {
       const at = edge() * 6.28
-      if (c.high < least) continue
+      if (c.high < least) {
+        // Its corners' own numbers go by, so every clump keeps its form in every layer.
+        for (let n = 0; n < corners; n++) edge()
+        continue
+      }
       const w = c.k * rx, h = c.k * ry
       for (let n = 0; n < corners; n++) {
         const a = at + n / corners * Math.PI * 2, k = size * (1 + BREAK * (edge() * 2 - 1))

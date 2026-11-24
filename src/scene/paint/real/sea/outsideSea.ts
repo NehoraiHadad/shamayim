@@ -1,9 +1,9 @@
 import type { SeaDesc, Shine } from '../../../model/types'
 import { css, mix, outline, type Ctx2D } from '../../shared/base/hand'
-import { glintCore, paintStreaks, running, twinkling } from '../../shared/land/water'
+import { glintCore, paintStreaks, twinkling } from '../../shared/land/water'
 import { laySea } from '../../shared/town/outsideGround'
 import { layShallows, layShore } from './shore'
-import { layWaves, sparkle, type Water } from './waves'
+import { layWaves, rising, sparkle, type Water } from './waves'
 
 /** A coastal place's sea: the model's body, its far edge lying into the air, waves, the light's path over them, and the shore. */
 
@@ -23,7 +23,7 @@ export function paintRealSea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number, ha
   outline(ctx, s.points)
   ctx.clip()
   layShallows(ctx, s)
-  layWaves(ctx, water, running(s.ripples, t, s.drift ?? 0, 0), mix(s.light, hz.rgb, LOW_SKY), [s.dark, TROUGH], hair, STRONG * day)
+  layWaves(ctx, water, rising(s.ripples, t, s.drift ?? 0, 0), mix(s.light, hz.rgb, LOW_SKY), [s.dark, TROUGH], hair, STRONG * day)
   const deep = Math.min(AIR_DEEP, (s.bottom - s.top) * AIR_SHARE), air = ctx.createLinearGradient(0, s.top, 0, s.top + deep)
   air.addColorStop(0, css(hz.rgb, AIR * day))
   air.addColorStop(1, css(hz.rgb, 0))

@@ -25,7 +25,7 @@ export function paintTree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, l: numbe
     layer([mix(t.green, t.shade, 0.4)], 0.96, UNDER)
     layer([t.green], 0.9, BODY)
   }
-  if (l) layer([t.greenLit], LIT * Math.abs(l), { ...TOPS, across: -Math.sign(l) * ACROSS })
+  for (const side of [-1, 1]) layer([t.greenLit], LIT * Math.max(0, -side * l), { ...TOPS, across: side * ACROSS })
   layer([t.greenLit], EVEN * (1 - Math.abs(l)), TOPS)
   ctx.restore()
 }
