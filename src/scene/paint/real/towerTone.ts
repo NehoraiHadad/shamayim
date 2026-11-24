@@ -33,24 +33,21 @@ const SILVER = 0.6
 
 export function towerTone(s: CloudSprite, shape: TowerShape): (x: number, y: number, here: TowerPoint) => Readonly<RGB> {
   const [tx, ty] = s.toward ?? [0, -1], beam = s.toward ? Math.min(1, s.litA) : 0
-  const { light, w, h, k, x0, y0 } = lightIn(s, shape, tx, ty), tone = cloudTone(s, beam)
+  const { light, w, h, k, x0, y0 } = lightIn(s, shape, tx, ty, beam), tone = cloudTone(s, 1)
   const under = mix(s.shade, s.lit, 0.6 * s.glow), out = new Float32Array(3), c: [number, number, number] = [0, 0, 0]
   const point = cloudPoint(), round = SKY_RELIEF + (1 - SKY_RELIEF) * beam, step = STEP * s.w
-  point.own = 1
   point.near = KEEP + (1 - KEEP) * smoothstep(NEAR[0], NEAR[1], s.w)
   return (x, y, here) => {
     const up = Math.min(1, Math.max(0, -y / s.tall)), over = smoothstep(0, 0.7, up), gx = (x - x0) * k - 0.5, gy = (y - y0) * k - 0.5
     const at = (grid: Float32Array) => gridAt(grid, w, h, gx, gy)
     const facing = LUMP * (here.bump - shape.relief(x + tx * step, y + ty * step)) + HEAD * (here.side * tx - here.rise * ty)
     point.tone = FOOT_TONE + (TOP_TONE - FOOT_TONE) * over
-    point.sun = at(light.sun)
-    point.sky = at(light.sky) * (0.4 + 0.6 * over)
-    point.deep = at(light.deep)
-    point.base = Math.max(at(light.base), 1 - smoothstep(0, 0.16, up))
+    point.light = at(light.light)
+    point.shade = at(light.shade)
     point.relief = -facing * round
     point.thick = here.a
     tone(point, out)
-    const shaded = BASE * (1 - smoothstep(0, 1, (shape.depth - y) / (shape.depth + CLIMB * s.tall))), silver = SILVER * s.silver * (1 - point.deep) * over
+    const shaded = BASE * (1 - smoothstep(0, 1, (shape.depth - y) / (shape.depth + CLIMB * s.tall))), silver = SILVER * s.silver * Math.max(0, here.side * tx - here.rise * ty) ** 2
     for (let n = 0; n < 3; n++) {
       const based = out[n] + (under[n] - out[n]) * shaded
       c[n] = based + (s.lit[n] - based) * silver
@@ -60,16 +57,20 @@ export function towerTone(s: CloudSprite, shape: TowerShape): (x: number, y: num
 }
 
 /** The light through the body, on a coarse grid over it (sprite px from (x0, y0), `k` cells a px). */
-function lightIn(s: CloudSprite, shape: TowerShape, tx: number, ty: number) {
+function lightIn(s: CloudSprite, shape: TowerShape, tx: number, ty: number, beam: number) {
   const x0 = -shape.reach, y0 = -s.tall - 0.25 * s.w, wide = 2 * shape.reach, high = shape.depth - y0
   const k = Math.min(CELL, Math.sqrt(CELLS / (wide * high))), w = Math.max(3, Math.ceil(wide * k)), h = Math.max(3, Math.ceil(high * k))
   const thick = new Float32Array(w * h), scale = new Float32Array(h).fill(Math.min(1, Math.max(0.1, s.w / WIDE)))
+  const foot = { sky: new Float32Array(h), base: new Float32Array(h) }
   for (let j = 0, n = 0; j < h; j++) {
+    const up = Math.max(0, -(y0 + (j + 0.5) / k) / s.tall)
+    foot.sky[j] = 0.4 + 0.6 * smoothstep(0, 0.7, up)
+    foot.base[j] = 1 - smoothstep(0, 0.16, up)
     for (let i = 0; i < w; i++, n++) {
       const here = shape.at(x0 + (i + 0.5) / k, y0 + (j + 0.5) / k)
       if (here) thick[n] = here.a * Math.min(1, Math.max(CREASE, 0.8 + here.bump))
     }
   }
   const far = 1e4
-  return { light: cloudLight({ w, h, k, thick, scale }, { x: w / 2 + tx * far, y: h / 2 + ty * far }), w, h, k, x0, y0 }
+  return { light: cloudLight({ w, h, k, thick, scale }, { x: w / 2 + tx * far, y: h / 2 + ty * far }, beam, foot), w, h, k, x0, y0 }
 }

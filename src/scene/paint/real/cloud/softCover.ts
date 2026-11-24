@@ -20,7 +20,7 @@ export function softCover(desc: LayerOf<'cloudSheet'>, soft: number) {
   })
   const rows = Math.max(2, Math.ceil(span / ROW) + 1), { buf, spacing } = resampleRows(texels, cols, ys, rows)
   const wide = Math.max(...spacing), colPx = (xs[cols - 1] - xs[0]) / (cols - 1), rowPx = span / (rows - 1)
-  const radius = spacing.map((s) => (soft * s) / wide)
+  const radius = spacing.map((s) => soft * Math.sqrt(s / wide))
   soften(buf, cols, rows, radius.map((r) => r / colPx), radius.map((r) => (SOFT_DOWN * r) / rowPx))
   return { buf, cols, rows, scale: rowScale(spacing.map((s) => Math.sqrt(s / wide))) }
 }

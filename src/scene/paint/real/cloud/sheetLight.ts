@@ -19,10 +19,10 @@ function halved(full: Float32Array, w: number, h: number, hw: number, hh: number
 }
 
 /** Writes the light on a sheet's pixel into a point. Worked out at half the raster's size. `from`: the light's place, raster px. */
-export function sheetLight(field: SheetField, from: { x: number; y: number }) {
+export function sheetLight(field: SheetField, from: { x: number; y: number }, beam: number) {
   const { w, h } = field, hw = Math.ceil(w / 2), hh = Math.ceil(h / 2)
   const thick = halved(field.thick, w, h, hw, hh), scale = Float32Array.from({ length: hh }, (_, j) => field.scale[Math.min(h - 1, 2 * j)])
-  const { sun, sky, base, deep } = cloudLight({ w: hw, h: hh, k: RASTER / 2, thick, scale }, { x: from.x / 2, y: from.y / 2 })
+  const { light, shade } = cloudLight({ w: hw, h: hh, k: RASTER / 2, thick, scale }, { x: from.x / 2, y: from.y / 2 }, beam)
   const relief = reliefOf(field, thick, hw, hh, from)
   return (i: number, j: number, p: number, point: CloudPoint) => {
     const x = Math.min(hw - 1.001, Math.max(0, i / 2 - 0.25)), y = Math.min(hh - 1.001, Math.max(0, j / 2 - 0.25))
@@ -31,10 +31,8 @@ export function sheetLight(field: SheetField, from: { x: number; y: number }) {
       const top = g[n] + (g[n + 1] - g[n]) * tx
       return top + (g[m] + (g[m + 1] - g[m]) * tx - top) * ty
     }
-    point.sun = at(sun)
-    point.sky = at(sky)
-    point.base = at(base)
-    point.deep = at(deep)
+    point.light = at(light)
+    point.shade = at(shade)
     point.relief = at(relief)
     point.thick = field.thick[p]
     point.wall = field.wall[p]

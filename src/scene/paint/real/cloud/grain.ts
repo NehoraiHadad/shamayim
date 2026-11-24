@@ -10,9 +10,9 @@ import { noiseAt, placeOf, puffTile, swellTile, wispTile } from './noise'
 /** How far a soft cover is spread (px overhead); how far the noise carries its edge; the noise tile's width (px) and its
  *  stretch across; the puffs' part in the noise (the rest wisps); the rim's softness; how much the noise thins it. */
 export interface Make { soft: number; carry: number; tile: number; along: number; puff: number; rim: number; thin: number }
-export const HEAP: Make = { soft: 8, carry: 0.95, tile: 230, along: 1.1, puff: 0.62, rim: 0.56, thin: 0.3 }
-const FLEECE: Make = { soft: 8, carry: 1.15, tile: 170, along: 1.15, puff: 0.6, rim: 0.34, thin: 0.34 }
-const DECK: Make = { soft: 7, carry: 1, tile: 210, along: 1.4, puff: 0.5, rim: 0.44, thin: 0.12 }
+const HEAP: Make = { soft: 10, carry: 0.95, tile: 230, along: 1.1, puff: 0.62, rim: 0.82, thin: 0.3 }
+const FLEECE: Make = { soft: 10, carry: 1.15, tile: 170, along: 1.15, puff: 0.6, rim: 0.74, thin: 0.34 }
+const DECK: Make = { soft: 10, carry: 1, tile: 210, along: 1.4, puff: 0.5, rim: 0.74, thin: 0.2 }
 /** A high veil has no edge to carry: the grain only combs it. */
 const VEIL: Make = { soft: 6, carry: 0, tile: 300, along: 3, puff: 0, rim: 1, thin: 0 }
 
@@ -29,6 +29,8 @@ export function makeOf({ lattice, genus }: LayerOf<'cloudSheet'>, open: number):
 const BIAS = 0.06
 /** A cloud's heads, big and small: the noise's rate, how far toward the light a slope is taken (tile widths), its part. */
 const HEADS = [[0.62, 0.1, 0.8], [1.35, 0.07, 0.36]] as const
+/** The fine torn edge over the broad one: its rate and its part; how much of a core's thickness the noise takes, for the light in it. */
+const FINE_RATE = 2.7, FINE = 0.7, HOLLOW = 0.5
 /** From this cover to this the inside is whole: no noise lets the sky through it. */
 const WHOLE = [0.6, 0.95] as const
 
@@ -60,7 +62,9 @@ export function cloudGrain(make: Make, seed: number) {
     wisp: (x: number, y: number, bend: number) => read(wisps, x, y, 1, bend * 0.22, bend * 0.16),
     /** The whole noise, over its `wisp`. */
     noise: (x: number, y: number, bend: number, wisp: number) =>
-      make.puff ? wisp + (read(puffs, x, y, 1.1, bend * 0.1 + 0.2, -bend * 0.08) - wisp) * make.puff : wisp,
+      wisp + (read(puffs, x, y, 1.1, bend * 0.1 + 0.2, -bend * 0.08) - wisp) * make.puff,
+    /** The fine noise of a rim, about 0. */
+    fine: (x: number, y: number, bend: number) => FINE * (read(wisps, x, y, FINE_RATE, bend * 0.3, bend * 0.2) - 0.5),
     /** How far the heads face away from the light at (ux, uy): a slope that rises toward it is a head's far side. */
     relief(x: number, y: number, ux: number, uy: number, bend: number) {
       let sum = 0
@@ -79,12 +83,12 @@ const edgeOf = (make: Make, a: number, noise: number, flat: number) =>
 
 /** How thick a soft cover `a` is there (0–1); `flat` 0–1: an underside, cut straight by the level it condenses at. */
 export function thickOf(make: Make, a: number, noise: number, flat: number): number {
-  return Math.min(1, Math.max(0, edgeOf(make, a, noise, flat))) * (1 - make.thin * (0.25 + 0.75 * openOf(a)) * (1 - noise))
+  return Math.min(1, Math.max(0, edgeOf(make, a, noise, flat))) * (1 - Math.max(HOLLOW, make.thin * openOf(a)) * (1 - noise))
 }
 
-/** The drawn cover there. Here crisp, there soft (`wisp`): no cloud has one edge all round. */
+/** The drawn cover there: `noise` with its fine one. Here crisp, there soft (`wisp`): no cloud has one edge all round. */
 export function coverOf(make: Make, a: number, noise: number, wisp: number, flat: number): number {
   const rim = make.rim * (0.55 + 0.9 * wisp) * (1 - 0.35 * flat)
-  const drawn = smoothstep(0, 1, Math.max(0, edgeOf(make, a, noise, flat) - BIAS) / rim), hollow = 1 - noise
+  const drawn = smoothstep(0, 1, Math.max(0, edgeOf(make, a, noise, flat) - BIAS) / rim), hollow = Math.max(0, 1 - noise)
   return drawn * (1 - make.thin * 0.75 * openOf(a) * hollow * Math.sqrt(hollow))
 }

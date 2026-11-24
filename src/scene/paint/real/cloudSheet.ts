@@ -40,9 +40,8 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
 function colour(data: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, field: SheetField): void {
   const { w, h, alpha, open } = field, { city } = desc
   const { x, y, beam } = lampLight(desc.lamp)
-  const light = open ? sheetLight(field, { x: (x - desc.xs[0]) * RASTER, y: (y - desc.ys[0]) * RASTER }) : null
-  const tone = cloudTone(desc, beam), point = cloudPoint(), rgb = new Float32Array(3), core = 1 + open * (CORE - 1)
-  point.own = open
+  const light = open ? sheetLight(field, { x: (x - desc.xs[0]) * RASTER, y: (y - desc.ys[0]) * RASTER }, beam) : null
+  const tone = cloudTone(desc, open), point = cloudPoint(), rgb = new Float32Array(3), core = 1 + open * (CORE - 1)
   for (let j = 0, p = 0; j < h; j++) {
     point.near = KEEP + (1 - KEEP) * smoothstep(0, FAR, 1 - j / h)
     for (let i = 0; i < w; i++, p++) {

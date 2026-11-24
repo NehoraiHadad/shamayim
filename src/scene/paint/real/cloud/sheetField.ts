@@ -20,7 +20,7 @@ const WALL = 11, WALL_COVER = 0.8
 /** A sheet with up to this share of open sky is a deck with holes; from that one on, heaps with sides of their own. */
 const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.05
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
-const LEAST = 0.012, COMBED = 2.6
+const LEAST = 0.012, COMBED = 1.6
 
 export interface SheetField {
   w: number; h: number
@@ -73,7 +73,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       }
       // An underside: cloud over it, open air under it.
       const flat = Math.min(1, Math.max(0, STEP * (across(n + over + 3) - across(n + under + 3)))), noise = grain.noise(x, y, bend, wisp)
-      alpha[p] = here + open * (coverOf(make, a, noise, wisp, flat) - here)
+      alpha[p] = here + open * (coverOf(make, a, noise + grain.fine(x, y, bend), wisp, flat) - here)
       field.thick[p] = thickOf(make, a, noise, flat)
       field.flat[p] = flat * holed
       field.wall[p] = wall
