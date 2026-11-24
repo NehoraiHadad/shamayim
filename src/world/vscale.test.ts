@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NEAR_DROP, outsideProject } from '../data/city/outsideView'
+import { settlementOf } from '../data/village/settlementOf'
 import type { LocalTime } from '../domain/types'
 import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
@@ -71,6 +72,9 @@ describe('at every harness place', () => {
       expect(s, id).toBeGreaterThanOrEqual(VSCALE.min)
       expect(s, id).toBeLessThanOrEqual(VSCALE.max)
       const near0 = outsideProject(view.frame, 0, 0).near
+      // A village's rows lie on their own frame (lay.test.ts).
+      const { place, cover, city } = loaded.get(id)!
+      if (settlementOf(place, { tile: null, cover: cover ?? null, raster: city?.raster })) continue
       // Every row's foot (off the floor) by its depth and its ground's height on the one scale, above the dot and below.
       const rows = view.skyline.boxes.filter((b) => b.dx !== undefined && b.foot < 108 - 1e-6).map((b) => {
         const h = heightNear!(b.dx!, b.dy!) ?? h0
