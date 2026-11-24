@@ -12,7 +12,7 @@ import { noiseAt, placeOf, puffTile, swellTile, wispTile } from './noise'
 export interface Make { soft: number; carry: number; tile: number; along: number; puff: number; rim: number; thin: number }
 const HEAP: Make = { soft: 14, carry: 1, tile: 230, along: 1.1, puff: 0.62, rim: 1, thin: 0.3 }
 const FLEECE: Make = { soft: 13, carry: 1.15, tile: 170, along: 1.15, puff: 0.6, rim: 0.95, thin: 0.34 }
-const DECK: Make = { soft: 14, carry: 1, tile: 210, along: 1.25, puff: 0.5, rim: 0.95, thin: 0.2 }
+const DECK: Make = { soft: 14, carry: 1, tile: 210, along: 1.25, puff: 0.5, rim: 1, thin: 0.2 }
 /** A high veil has no edge to carry: the grain only combs it. */
 const VEIL: Make = { soft: 6, carry: 0, tile: 300, along: 3, puff: 0, rim: 1, thin: 0 }
 
@@ -30,7 +30,7 @@ const BIAS = 0.06
 /** A cloud's heads, big and small: the noise's rate, how far toward the light a slope is taken (tile widths), its part. */
 const HEADS = [[0.62, 0.1, 0.8], [1.35, 0.07, 0.36]] as const
 /** The fine torn edge over the broad one: its rate and its part; how much of a core's thickness the noise takes, for the light in it. */
-const FINE_RATE = 2.7, FINE = 0.4, HOLLOW = 0.5
+const FINE_RATE = 2.7, FINE = 0.4, HOLLOW = 0.38
 /** From this cover to this the inside is whole: no noise lets the sky through it. */
 const WHOLE = [0.6, 0.95] as const
 
