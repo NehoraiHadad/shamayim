@@ -32,7 +32,7 @@ export function pigment(rgb: RGB, turn = 0, gain = GAIN): RGB {
   })
 }
 
-/** The gain of a colour that is the sky's or the air's: the sky is in the hand's pigment already (`DRAWN_GRADE`). */
+/** The gain of a colour that is the sky's or the air's: the sky is in the hand's pigment already (`DRAWN_GRADE`), what it is mixed with is not. */
 const SKIED = 1.1
 
 /** A model colour with the sky or its air in it, as the hand paints it: `air` the share of it. */

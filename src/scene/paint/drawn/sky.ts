@@ -7,7 +7,7 @@ import { kept } from './kit/kept'
 
 /*
  * The sky as one inked block: the model's gradient, band, glows and arch as they are, and the plank's grain through them:
- * level lines that waver a little, some of paper and some of ink, scattered so that a row keeps its own colour. One set of
+ * level lines that waver a little, some of paper and some of ink, scattered and faint, so that a row keeps its own colour. One set of
  * lines for both forms of the base: an image over the CSS one, a path over the canvas one. Pure: the desc alone.
  */
 
@@ -15,8 +15,8 @@ import { kept } from './kit/kept'
 const LINES = 0.45, LONG = [24, 130] as const, THIN = [0.35, 0.8] as const, PAPER = 0.5
 /** The rings' slow wave: its height (px) and frequency (1/px), and its seed and the lines' own. */
 const WAVE = 9, FREQ = [0.004, 0.012] as const, WAVES = 311, SEED = 4177
-/** A line's strength over the ink; how far (px) under the eye's level the last one lies. */
-const INKS = [{ rgb: [1, 1, 1], alpha: 0.03 }, { rgb: [0, 0, 0], alpha: 0.03 }] as const, UNDER = 8
+/** A line's strength over the ink (the paper's the less: it shows by night); how far (px) under the eye's level the last one lies. */
+const INKS = [{ rgb: [1, 1, 1], alpha: 0.02 }, { rgb: [0, 0, 0], alpha: 0.03 }] as const, UNDER = 8
 
 /** The grain's lines of paper and of ink, as path data. */
 interface Grain { paths: readonly [string, string]; image: string }

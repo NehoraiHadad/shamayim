@@ -4,7 +4,7 @@ import { paintVegFields, paintVegRows, paintVegStrata } from '../shared/land/lan
 import { preparePlaneTexels } from '../shared/land/planeTexel'
 import { mapInk, receiverBrush } from '../shared/land/receiverBrush'
 import { vegetationLight } from '../shared/land/vegetationLight'
-import { calm, skied } from './kit/palette'
+import { calm, pigment } from './kit/palette'
 import { groundKey } from './land/crest'
 import { inkAt, printGround } from './land/groundInk'
 import { groundDabs, groundFields, groundLines } from './land/groundMarks'
@@ -34,7 +34,7 @@ export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     groundDabs(brush, desc, t, at)
     groundKey(targets, brush, desc, t, at)
   } else for (const target of targets) {
-    target.fillStyle = css(skied(desc.fill))
+    target.fillStyle = css(pigment(desc.fill))
     target.fillRect(bounds.x, bounds.y, bounds.w, bounds.h)
   }
   for (const target of targets) {
