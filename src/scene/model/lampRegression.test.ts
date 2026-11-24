@@ -1,0 +1,115 @@
+import { afterAll, beforeAll, expect, it, vi } from 'vitest'
+import { moonPosition } from '../../astro/moon'
+import { sunPosition } from '../../astro/sun'
+import { utcOf } from '../../astro/utc'
+import { addMinutes } from '../../domain/time'
+import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
+import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
+import { cloudLight } from '../../world/lightCloud'
+import { smoothstep } from '../../world/ridgeLighting'
+import { solarBeam } from '../../world/sceneLight'
+import { buildWorld } from '../../world/world'
+import { bodyLayers } from './bodies'
+import { sceneModel } from './index'
+import { byteKey, layerKey } from './keys'
+import { lampOf, lampPlace, withLamp } from './lamp'
+import { landIrradiance } from './landIrradiance'
+import { planeGeomOf } from './planeGeometry'
+import { planeLayer } from './planes'
+import { skyGeom } from './sky'
+import type { Lamp, LayerDesc, SceneBox } from './types'
+
+const BOX: SceneBox = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
+const DAY = '2026-11-17T00:00'
+const KINDS = ['cloudSheet', 'plane', 'water'] as const
+let haifa: LoadedPlace
+let beitShean: LoadedPlace
+beforeAll(async () => {
+  stubPublicFetch()
+  const places = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter(p => ['haifa', 'beit-shean'].includes(p.id)))
+  haifa = places.get('haifa')!
+  beitShean = places.get('beit-shean')!
+}, 120_000)
+afterAll(() => vi.unstubAllGlobals())
+
+it.each(['sun', 'moon'] as const)('registers the unquantised %s direction against the bodies descriptors', (body: Lamp['body']) => {
+  const start = body === 'sun' ? DAY : '2026-11-23T00:00'
+  const input = { ...worldInput(haifa, start), forcedLayers: { low: 0, mid: 0, high: 0 } }
+  const { timezone, lat, lon } = input.place
+  const position = body === 'sun' ? sunPosition : moonPosition
+  for (const target of [30, 5, 0]) {
+    const minute = Array.from({ length: 1440 }, (_, i) => i).find(i => {
+      const instant = utcOf(addMinutes(start, i), timezone)
+      const { altitude } = position(instant, lat, lon)
+      return altitude >= target && altitude < target + 0.3
+        && (body === 'sun' || sunPosition(instant, lat, lon).altitude < -5)
+    })
+    expect(minute, `${body} at ${target}°`).toBeDefined()
+    const world = buildWorld({ ...input, selected: addMinutes(start, minute!) })
+    const disc = bodyLayers(world, BOX).find(layer => layer.id === `bodies.${body}`)?.[body]
+    expect(disc).toBeTruthy()
+    const { altitude, azimuth } = world.bodies[body]
+    const place = lampPlace(skyGeom(world, BOX), body, azimuth, altitude)
+    expect(Math.hypot(place.x - disc!.x, place.y - disc!.y)).toBeLessThanOrEqual(1)
+  }
+})
+
+it('leaves the datum-only water descriptor and both keys untouched', () => {
+  const world = buildWorld(worldInput(beitShean, '2026-11-17T12:00'))
+  expect(world.labels.height.below).toBe(true)
+  expect(world.water.spans).toHaveLength(0)
+  const layers = sceneModel(world, BOX).layers
+  const at = layers.findIndex(layer => layer.kind === 'water' && layer.datum && !layer.bands.length)
+  expect(at).toBeGreaterThanOrEqual(0)
+  const datum = withLamp(layers, world, BOX, ['water'])[at]
+  expect(lampOf(world, BOX)).toBeDefined()
+  expect(datum).toBe(layers[at])
+  expect(datum).not.toHaveProperty('lamp')
+})
+
+it('preserves the exact original plane light key in broken cloud', () => {
+  const input = worldInput(haifa, '2026-11-17T12:00')
+  const dayDni = 7.62 * (1 / 5.65)
+  const refBeam = solarBeam(38, { visibilityKm: 30, dustWeight: 0 }).strength
+  // Select the first broken deck that exposes the multiplication-order regression in binary64.
+  for (const low of [0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65]) {
+    const world = buildWorld({ ...input, forcedLayers: { low, mid: 0, high: 0 } })
+    const alt = world.bodies.sun.altitude
+    const { strength } = solarBeam(alt, world.air)
+    const field = world.cloudField?.field
+    expect(field).toBeDefined()
+    const open = cloudLight({ low: 0, mid: 0, high: 0 }, field).open
+    const openVisible = open * smoothstep(-0.265, 0.265, alt)
+    const oldBeam = dayDni * openVisible * Math.min(1.15, strength / refBeam)
+    if (oldBeam === openVisible * (dayDni * Math.min(1.15, strength / refBeam))) continue
+    const irr = landIrradiance(world)
+    const eSun = irr.cSun.map(channel => channel * (oldBeam * irr.wetFactor))
+    const near = world.terrain.near
+    const plane = planeLayer(world, BOX, 'near', near, [])!
+    const { grid, hazeLin, snow, snowSeam } = plane.light.litField
+    const geom = planeGeomOf(world, 'near', near, BOX.landHeight)
+    const expected = layerKey('plane.light', geom.geomKey, byteKey(grid),
+      JSON.stringify([eSun, irr.eMoonVec, irr.eSkyVec, hazeLin, irr.yHorizon, snow, snowSeam]))
+    expect(plane.light.litField.eSun).toEqual(eSun)
+    expect(plane.light.key).toBe(layerKey(expected, plane.key))
+    return
+  }
+  throw new Error('Broken-cloud fixture did not expose the irradiance rounding difference')
+})
+
+it('serialises the stored quantum into the right cache part', () => {
+  const world = buildWorld({ ...worldInput(haifa, '2026-11-17T12:00'), forcedLayers: { low: 1, mid: 0, high: 0 } })
+  const base = sceneModel(world, BOX).layers
+  const frame = (azimuth: number) => withLamp(base, {
+    ...world, bodies: { ...world.bodies, sun: { ...world.bodies.sun, azimuth } },
+  }, BOX, KINDS)
+  const keys = ({ key, light }: LayerDesc) => [key, light?.key]
+  const a = frame(181), b = frame(181.1), c = frame(183)
+  for (const [i, layer] of a.entries()) if ('lamp' in layer) {
+    expect(b[i]).toHaveProperty('lamp', layer.lamp)
+    expect(keys(b[i])).toEqual(keys(layer))
+    expect(c[i]).not.toHaveProperty('lamp', layer.lamp)
+    expect(keys(c[i])).not.toEqual(keys(layer))
+    if (layer.kind !== 'cloudSheet') expect([layer.key, b[i].key, c[i].key]).toEqual(Array(3).fill(base[i].key))
+  }
+})
