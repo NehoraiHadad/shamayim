@@ -46,7 +46,7 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
     traceTop(key, tops[i])
   })
   ctx.save()
-  ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * t.line * (FAR + (1 - FAR) * near)))
+  ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * ctx.globalAlpha * t.line * (FAR + (1 - FAR) * near)))
   ctx.lineWidth = LINE
   ctx.stroke(key)
   const wash = blockOf(read, cut, light, opaque, env), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')

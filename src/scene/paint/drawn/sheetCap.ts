@@ -18,9 +18,9 @@ export interface Spot { x: number; y: number; half: number; weight: number; seed
 const SIZE = 1.7, LEAST = 3.5, MOST = 24
 export const DRAWN = 2.6
 /** Where a lattice's places are heads (its half pitch against the size): they come in over, let go over. */
-export const HEADS = [0.88, 1.2, 1.75, 2.4] as const
+export const HEADS = [0.75, 1, 1.5, 2] as const
 /** A head's least and most size against its half pitch, and how seldom it is large; the share of places kept, and what eases it. */
-const SIZES = [0.95, 1.8] as const, SELDOM = 1.4, KEPT = 0.85, STAYS = 0.15
+const SIZES = [1, 2] as const, SELDOM = 1.4, KEPT = 0.95, STAYS = 0.15
 /** How far in (of the size) heads come; where in its mass (its side) one has gone. */
 const INTO = [0.2, 1.2] as const, SUNK = [-1.1, -0.7] as const
 /** The most a head may be at the edge (of the size), and what that grows with each px in from it: none stands off its mass. */

@@ -11,14 +11,16 @@ import { nearAt, type Cut, type Eased } from './sheetEdge'
 /** Where a lattice's places are a rim's (its half pitch against the size): they come in over, let go over. */
 export const RIMS = [0.26, 0.36, 0.52, 0.72] as const
 /** How far from the edge (of the size) a place still stands on it. */
-const BAND = 0.8
+const BAND = 1
 /** A cap's least and most size (of the size), how seldom it is large, and what its group leaves a small one. */
-export const OUT = [0.3, 1] as const
-const SELDOM = 1.3, GROUP = 0.25
+export const OUT = [0.3, 1.4] as const
+const SELDOM = 1.5, GROUP = 0.2
+/** The most a cap may be in a mass with nothing this far (of the size) in, and what it grows with each px of it: none is larger than its mass. */
+const THIN = 0.3, DEPTH = 0.9
 /** How far in (of itself) a cap stands, at a top and at a foot, and how the edge faces (its way out, down) over that. */
 const SET = [0.25, 0.64] as const, DOWN = [-0.2, 0.75] as const
 /** How far (px) the way out is read over, and how clear it must be; the turn (rad) its own light goes over. */
-const OUTWARD = 6, CLEAR = [0.3, 0.8] as const, TURNS = [0.9, 1.5] as const, SWAY = 0.3
+const OUTWARD = 6, CLEAR = [0.3, 0.8] as const, TURNS = [0.7, 1.2] as const, SWAY = 0.3
 /** How near (`nearAt`) feet are scalloped: far ones are level. */
 const LEVEL = [0.25, 0.6] as const
 
@@ -34,7 +36,8 @@ export function rimAt({ f }: Eased, cut: Cut, { x: px, y: py, half, weight, seed
   if (!clear) return null
   const nx = dx / d, ny = dy / d, down = smoothstep(DOWN[0], DOWN[1], ny)
   const bold = random() ** SELDOM * (GROUP + (1 - GROUP) * group()), level = 1 - down * (1 - smoothstep(LEVEL[0], LEVEL[1], nearAt(f, from.gy)))
-  const r = size * (OUT[0] + (OUT[1] - OUT[0]) * bold) * there * clear * level * (1 - off * off)
+  const most = THIN * size + DEPTH * Math.max(0, inside(px + nx * (away - size), py + ny * (away - size)))
+  const r = Math.min(most, size * (OUT[0] + (OUT[1] - OUT[0]) * bold)) * there * clear * level * (1 - off * off)
   if (r <= DRAWN) return null
   const turn = Math.atan2(nx, -ny), into = away - (SET[0] + (SET[1] - SET[0]) * down) * r, x = px + nx * into, y = py + ny * into
   return { x, y, r, ...onGrid(f, x, y), side: cut.sideAt(x, y), seed, tilt: turn + SWAY * (random() - 0.5), lit: 1 - smoothstep(TURNS[0], TURNS[1], Math.abs(turn)) }
