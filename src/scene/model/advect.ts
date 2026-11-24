@@ -39,10 +39,12 @@ export function pxPerRadAt(azimuthAt: (x: number) => number, x: number): number 
   return turn ? 180 / Math.PI / turn : 0
 }
 
-/** A sheet laid moving with its wind from the minute's start (`from`, a phase): bands down its rows, each at its speed. */
-export function carriedSheet(sheet: LayerOf<'cloudSheet'>, from: number): LayerOf<'cloudSheet'> {
-  const { ys, speeds } = sheet
-  return carried(sheet, from, ys[0], ys[ys.length - 1], rowValues(ys, speeds))
+/** A sheet laid moving with its wind from the minute's start (`from`, a phase): bands down its rows, each at its speed, and what of it
+ *  is under eye level (`below` px) at its last row's. */
+export function carriedSheet(given: LayerOf<'cloudSheet'>, from: number, below = 0): LayerOf<'cloudSheet'> {
+  const { ys, speeds, bounds } = given
+  const sheet = below > 0 ? { ...given, below, bounds: { ...bounds, h: bounds.h + below } } : given
+  return carried(sheet, from, ys[0], ys[ys.length - 1] + Math.max(0, below), rowValues(ys, speeds))
 }
 
 /** Towers carried as one: the median of their speeds (a tower spans many bands; per band it would shear). */

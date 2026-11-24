@@ -3,7 +3,7 @@ import { hashId, seeded } from '../../data/landmarks/hash'
 import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { layerKey, skyBoxKey } from './keys'
-import { crestOf } from './life'
+import { crestOf } from './crest'
 import { skyGeom, type SkyGeom } from './sky'
 import type { LayerOf, PlanetDot, Pt, RGB, SceneBox, Star } from './types'
 
