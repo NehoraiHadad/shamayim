@@ -4,20 +4,23 @@ import { halfDepthLightOf } from '../../world/halfDepthLight'
 import { aerosolDepth } from '../../world/sceneLight'
 import type { RGB, WorldState } from '../../world/types'
 import { buildingSurroundings } from './buildingLight'
+import { metalHorizon } from './buildingGround'
 import { illustratedTonesAt, type IllustratedTones } from './illustratedTones'
 import { linearRgbToSrgb, shadeLinearRgb } from './landRadiance'
 import { skyReflection } from './landSkyIrradiance'
 import { aerialFor, hazeAt } from './landVeil'
 import { mixLight } from './tone'
 
-const GOLD_F0: RGB = [1, .75, .28]
+// Linear RGB gold at normal incidence, the Gold row of Epic Games' measured metal base colours.
+// https://dev.epicgames.com/documentation/en-us/unreal-engine/physically-based-materials-in-unreal-engine
+const GOLD_F0: RGB = [1, .766, .336]
 const SILVER_F0: RGB = [.89, .91, .92]
 
 /** Rough conductor in the camera frame. V is toward the eye, so R = 2(N·V)N − V. */
 export function metalLight(world: WorldState, km: number, f0: RGB = GOLD_F0) {
   const { irr, ground, air } = buildingSurroundings(world)
   const tau = .099 + aerosolDepth(world.air)[1], haze = hazeAt(world, km)
-  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec)
+  const skyAt = skyReflection(world.light, irr.sunAlt, tau, irr.eSkyVec, metalHorizon(world), 5.7)
   const sunHorizontal = Math.hypot(irr.sunDir.across, irr.sunDir.ahead) || 1
   return (n: Normal): RGB => {
     const nv = Math.max(0, -n[1]), r: Normal = [2 * nv * n[0], 1 + 2 * nv * n[1], 2 * nv * n[2]]
