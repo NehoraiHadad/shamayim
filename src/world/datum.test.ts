@@ -7,7 +7,7 @@ import { DATUM_PLACES, SCENE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
 import { datumOfRow, datumOnLand, OPEN_REACH } from './datum'
 import { groundAt as lineAt } from './sceneLight'
-import { LABEL_H, LABEL_PX, textWidth } from './layout'
+import { LETTER_H, letterWidth } from './layout'
 import type { WorldState } from './types'
 import { buildWorld } from './world'
 
@@ -91,9 +91,9 @@ describe('the datum at every place below sea level', () => {
       expect(note.left + note.width / 2, id).toBeLessThanOrEqual(line!.x2 + 1e-9)
       expect(line!.segments.some((seg) => seg.x1 === line!.x1 && seg.x2 === line!.x2), id).toBe(true)
       const { height } = world.labels
-      const w = textWidth(height.text, LABEL_PX)
+      const w = letterWidth(height.text)
       const crosses = line!.segments.some((seg) => height.x + w / 2 > seg.x1 && height.x - w / 2 < seg.x2
-        && height.y - 2.5 < line!.y + 1 && height.y + LABEL_H + 2.5 > line!.y - 1)
+        && height.y < line!.y + 1 && height.y + LETTER_H > line!.y - 1)
       expect(crosses, id).toBe(false)
       // Only where land crosses it, or a short way past the dot fading out: never on to the frame's edge.
       for (const seg of line!.segments) {

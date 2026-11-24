@@ -2,21 +2,20 @@
 import { SCENE_W } from '../../world/sceneBox'
 import { sceneClearance } from '../../world/sceneClearance'
 import type { WorldState } from '../../world/types'
+import { heightItem } from './heightItem'
 import type { Box, OverlayItem, SceneBox } from './types'
 
 /**
- * The HTML overlay and the zones the drawing keeps clear (land px): the height label, the notes on the land (the
- * "פני הים" datum, the water's names) and the village dot, where the place's layout puts them (`world.labels`, laid out
+ * The HTML overlay (the place's height with its tick and dot, the notes on the land: the "פני הים" datum, the water's
+ * names) and the zones the drawing keeps clear (land px: the dot, the notes), where the place's layout puts them (`world.labels`, laid out
  * by the world with its marks and portrait since C4, `world/place.ts`), x scaled from the reference width.
  */
 export function layoutOf(world: WorldState, box: SceneBox): { overlay: OverlayItem[]; clear: Box[] } {
   const sx = box.width / SCENE_W
-  const { height, notes } = world.labels
-  const dot = world.place3.dot
+  const { labels, place3: { dot } } = world
   const overlay: OverlayItem[] = [
-    { kind: 'dot', x: dot.x * sx, y: dot.y },
-    { kind: 'height', text: height.text, x: height.x * sx, y: height.y, below: height.below, ...(height.backed ? { backed: true } : {}) },
-    ...notes.map((note): OverlayItem => ({ kind: note.kind, text: note.text, x: note.left * sx, y: note.top })),
+    heightItem(world, box.width),
+    ...labels.notes.map((note): OverlayItem => ({ kind: note.kind, text: note.text, x: note.left * sx, y: note.top })),
   ]
-  return { overlay, clear: sceneClearance(world.labels, dot, box.width) }
+  return { overlay, clear: sceneClearance(labels, dot, box.width) }
 }

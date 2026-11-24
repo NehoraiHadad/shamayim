@@ -90,13 +90,13 @@ describe.each(SCENE_PLACES)('marks: $id', ({ id }) => {
     }
   })
 
-  it('keeps the far marks out of the height label', () => {
+  it('keeps the far marks out of the first note', () => {
     const world = worldAt(id)
     const model = sceneModel(world, BOX)
     const [, ...text] = model.clear
     for (const glyph of layerOf(world, 'marks')?.glyphs ?? []) {
       const box = { x: glyph.x - glyph.w / 2, y: glyph.base - glyph.h * glyph.scale, w: glyph.w, h: glyph.h * glyph.scale }
-      for (const zone of text.slice(0, 1)) expect(overlap(box, zone), `${glyph.kind} under the label`).toBe(false)
+      for (const zone of text.slice(0, 1)) expect(overlap(box, zone), `${glyph.kind} under the note`).toBe(false)
     }
   })
 

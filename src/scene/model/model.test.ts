@@ -3,9 +3,9 @@ import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
 import { heightText } from '../../text/isolate'
-import { DOT_R, LABEL_PX, textWidth } from '../../world/layout'
+import { LABEL_PX, textWidth } from '../../world/layout'
 import { markBox } from '../../world/markGeometry'
-import { BACKING_PAD } from '../../world/place'
+import { heightLabelBox, hits } from '../../world/sceneClearance'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { compositeOrder } from '../compose/compositeOrder'
 import { layersOn, sceneModel } from '.'
@@ -30,33 +30,19 @@ it('measures the height label without its bidi isolates', () => {
 })
 
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
-  it('places the dot and the notes, the height label clear of the marks', () => {
+  it('places the height, its dot and the notes, the height clear of the marks', () => {
     const place = loaded.get(id)!
     const input = worldInput(place, TIMES[1])
     const world = buildWorld(input)
     const below = input.forecast.elevation < 0
     const { overlay } = sceneModel(world, BOX)
-    // The height label (stage C4; C9: beside the dot, level with it, on its backing, for every place seen from outside):
-    // the world's own layout, clear of the marks the canvas draws.
+    // The height over the roofs in the dot's column, its tick and dot (`heightMark.test.ts`), clear of the marks.
     const height = overlay.find((item) => item.kind === 'height')!
-    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y, backed: true })
-    const w = textWidth(world.labels.height.text, LABEL_PX)
-    const dot = world.place3.dot
-    expect(Math.abs(height.y + LABEL_PX / 2 - dot.y), 'level with the dot').toBeLessThanOrEqual(15.5)
-    // Beside it: its backing 2 px off the dot's ring, or a few px farther out where a mark stands there.
-    const gap = Math.abs(height.x - dot.x) - (DOT_R + 2 + BACKING_PAD + w / 2)
-    expect(gap, 'beside the dot').toBeGreaterThan(-0.01)
-    expect(gap, 'beside the dot').toBeLessThan(14.01)
-    // Where the dot is ringed by marks (Tel Aviv: Azrieli, the Reading chimney, a church) no spot beside it is
-    // free: the label takes the one that covers least, one mark at most, on its backing.
-    const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => {
-      const box = markBox(mark)
-      return !(box.right <= height.x - w / 2 - BACKING_PAD || box.left >= height.x + w / 2 + BACKING_PAD
-        || box.bottom <= height.y - BACKING_PAD || box.top >= height.y + LABEL_PX + BACKING_PAD)
-    })
-    expect(covered.length, covered.map((m) => m.id).join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
-    expect(overlay.find((item) => item.kind === 'dot')).toEqual({ kind: 'dot',
-      x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: world.place3.dot.y })
+    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y, tick: world.labels.height.tick,
+      spot: { x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: world.place3.dot.y } })
+    const letters = heightLabelBox(world.labels.height, BOX.width)
+    const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => hits([letters], markBox(mark).left, markBox(mark).top, markBox(mark).right, markBox(mark).bottom))
+    expect(covered.map((m) => m.id)).toEqual([])
     // The datum only below sea level (the SVG scene's rule); the water's names on their water (C9, `notesOnWater`:
     // outside.test.ts).
     expect(overlay.filter((item) => item.kind === 'datum'))
