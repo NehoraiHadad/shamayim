@@ -18,6 +18,8 @@ import { rollForward } from '../domain/now'
 import type { Forecast, LocalTime } from '../domain/types'
 import { layersOn, sceneModel } from '../scene/model'
 import { hideLayers } from './hideLayers'
+import { loadFootprints, protoWorld } from './v2b/protoWorld'
+import type { Footprint } from './v2b/types'
 import { glideAt, strikes } from '../scene/model/anim'
 import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
@@ -116,7 +118,7 @@ interface Harness {
   lay(phase: number): void
 }
 type HarnessWindow = Window & { __sceneReady?: boolean; __sceneError?: string; __scene?: Harness; __world?: WorldState
-  __sceneStill?: boolean }
+  __sceneStill?: boolean; __v2b?: object }
 const win = window as HarnessWindow
 // Under reduced motion (the runners' stills) the harness lays every frame itself: no loop, not even the arrival's.
 win.__sceneStill = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -159,7 +161,7 @@ function landMoment(asked: string | null): { status: 'loading' | 'offline' | nul
   return { status: null, clock: null }
 }
 
-function Scene({ input: given }: { input: WorldInput }) {
+function Scene({ input: given, footprints }: { input: WorldInput; footprints: Footprint[] }) {
   const params = new URLSearchParams(location.search)
   const overlay = params.get('overlay') === '1'
   const [build] = useState(makeWorldBuilder)
@@ -168,7 +170,10 @@ function Scene({ input: given }: { input: WorldInput }) {
     [given, moment])
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
-  const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
+  const built = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
+  const mode = params.get('proto')
+  const proto = useMemo(() => mode === 'a' || mode === 'b' ? protoWorld(built, input, mode, footprints) : null, [built, input, mode, footprints])
+  const world = proto?.world ?? built
   const style = forcedStyle() ?? DEFAULT_STYLE
   const model = useMemo(() => SCENE_STATS.time('modelCold', () =>
     hideLayers(sceneModel(world, box, moment.clock, undefined, STYLES[style].light), params.get('hide'))), [world, box, moment, style])
@@ -210,6 +215,7 @@ function Scene({ input: given }: { input: WorldInput }) {
 
   useEffect(() => {
     win.__world = world
+    win.__v2b = proto?.report
     win.__scene = {
       scrub(at) {
         const t0 = performance.now()
@@ -238,7 +244,7 @@ function Scene({ input: given }: { input: WorldInput }) {
       get offThread() { return Boolean(skySurface.current?.remote && landSurface.current?.remote) },
       lay,
     }
-  }, [world, build, input, box, landSurface, moment, lay, style])
+  }, [world, build, input, box, landSurface, moment, lay, style, proto])
 
   // The labels wait for the land as the app's do (`useLandClock`): an arriving still shows them once it has settled.
   const labelsShown = !moment.clock?.reveal || (Number(params.get('phase')) || 0) >= ARRIVAL.land.at + ARRIVAL.land.dur * 0.6 + 0.3
@@ -249,7 +255,7 @@ function Scene({ input: given }: { input: WorldInput }) {
       <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr, style }} onReady={onSky} surfaceRef={skySurface} />
       <div style={{ position: 'absolute', left: 0, top: box.landTop, width: box.width, height: box.landHeight, color: 'var(--ink)' }}>
         <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}
+        {overlay && <SceneOverlay items={proto ? model.overlay.map(item => item.kind === 'dot' ? { ...item, y: proto.dot.y } : item) : model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}
       </div>
     </div>
   )
@@ -289,17 +295,19 @@ function WearStill({ input, garments }: { input: WorldInput; garments: string[] 
 
 export function SceneHarness() {
   const [input, setInput] = useState<WorldInput | null>(null)
+  const [footprints, setFootprints] = useState<Footprint[]>([])
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const place = harnessPlace(params)
     const at = (params.get('at') ?? '2026-11-17T12:00') as LocalTime
     if (!place) { win.__sceneError = `unknown place ${params.get('place')}`; return }
-    loadInput(place, at, params.get('weather') ?? '').then(setInput, (err: unknown) => {
+    const extra = params.get('proto') === 'b' ? loadFootprints(place.id).then(setFootprints) : Promise.resolve()
+    extra.then(() => loadInput(place, at, params.get('weather') ?? '')).then(setInput, (err: unknown) => {
       win.__sceneError = String(err)
       console.error(err)
     })
   }, [])
   const wear = new URLSearchParams(location.search).get('wear')
   if (input && wear) return <WearStill input={input} garments={wear.split(',')} />
-  return input ? <Scene input={input} /> : null
+  return input ? <Scene input={input} footprints={footprints} /> : null
 }

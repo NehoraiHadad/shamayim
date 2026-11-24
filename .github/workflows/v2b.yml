@@ -1,0 +1,59 @@
+name: V2b prototype
+
+# Temporary, on the prototype's branch only: footprints, sizes for every place, stills and measures. Never merged.
+on:
+  push:
+    branches: [claude/found-v2b]
+
+concurrency:
+  group: v2b
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+
+jobs:
+  stills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: pip install overturemaps pyarrow shapely scipy numpy pillow
+      - id: data
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/overture
+          key: overture-buildings-1
+      - name: Overture buildings
+        if: steps.data.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/overture"
+          overturemaps download --bbox=34.2,29.4,35.95,33.45 -f geoparquet --type=building -o "$RUNNER_TEMP/overture/building.parquet"
+          ls -la "$RUNNER_TEMP/overture"
+      - run: python -I scripts/v2b/places.py "$RUNNER_TEMP/overture/building.parquet" public/v2b
+      - run: node scripts/v2b/stills.mjs v2b-out/stills karmei-tzur nahalal
+      - run: python -I scripts/v2b/compose.py v2b-out/stills v2b-out/sheets karmei-tzur nahalal
+      - run: node scripts/v2b/measure.mjs v2b-out/stills public/v2b karmei-tzur nahalal | tee v2b-out/measure.txt
+      - name: Sizes for every place
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          python -I scripts/v2b/allPlaces.py "$RUNNER_TEMP/overture/building.parquet" public/data/city/bounds.json v2b-out/all | tee v2b-out/all.txt
+          node scripts/v2b/decode.mjs v2b-out/all public/v2b | tee v2b-out/decode.txt
+      - run: cp -r public/v2b v2b-out/footprints
+        if: ${{ !cancelled() }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2b-${{ github.sha }}
+          path: v2b-out/
+          retention-days: 14
