@@ -9,6 +9,9 @@ import { paintOutsideLand, paintOutsideSea } from '../shared/town/outsideGround'
 import { stripPhase } from '../shared/town/stripPhase'
 import { paintPass } from '../shared/base/paintPass'
 import { paintTower } from './outsideTower'
+import { paintFoldedWindows } from './town/foldedWindows'
+import { nightLight, paintStreetLight, paintWindowBloom } from './town/nightTown'
+import { paintNightWater } from './town/nightWater'
 
 /*
  * The place seen from outside (stage C5, variant B) in the enriched hand.
@@ -23,14 +26,15 @@ import { paintTower } from './outsideTower'
  * the true sun lit, the other in shade; haze in the tones (by row); a mass is many boxes, each its own plaster, its roof
  * edge catching the sky. ORDER: the coastal sea (wash down the band, ripples, the shore, the light's path) → the cast
  * shadows of towers and marks → the bodies back to front (beyond the place, then the place by where it stands) → the
- * grain over all → lamps and halos (windows lit by night, aviation lights), which no grain dulls.
+ * grain over all → lamps and halos (windows lit by night, aviation lights), which no grain dulls. By night the town's own
+ * light with them (`town/nightTown`): on the street behind each nearer body, round the windows, down the sea.
  * Screen px. Pure: randomness only from the items' seeds.
  */
 
 /** The place seen from outside, back to front. */
 export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
   const { shine: s, tiers } = desc
-  const lateralLight = glyphLight(s)
+  const lateralLight = glyphLight(s), night = nightLight(desc)
   paintPass(ctx, 'background', () => {
     if (desc.land) paintOutsideLand(ctx, desc.land, s)
     if (desc.sea) paintOutsideSea(ctx, desc.sea, s, stripPhase(desc, env))
@@ -50,7 +54,13 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
       paintPass(ctx, 'background', () => tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
+    if (night) {
+      paintFoldedWindows(ctx, item, tiers, s)
+      paintStreetLight(ctx, env, item, night)
+    }
   }
   paintPass(ctx, 'background', () => grain(ctx, env, 13, 1 - .4 * s.night))
+  if (night && desc.sea) paintNightWater(ctx, desc.sea, desc.items, night, stripPhase(desc, env))
+  if (night) paintWindowBloom(ctx, env, lamps, night)
   drawLamps(ctx, lamps, 1 / env.scale)
 }
