@@ -23,8 +23,11 @@ beforeAll(async () => {
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 
-const worldAt = (at: string, forced: WorldInput['forced'] = null) =>
-  buildWorld({ ...worldInput(haifa, at as LocalTime, at as LocalTime), forced })
+/** With the place's own ground (m), as the scene's harness gives it. */
+function worldAt(at: string, forced: WorldInput['forced'] = null) {
+  const input = worldInput(haifa, at as LocalTime, at as LocalTime)
+  return buildWorld({ ...input, forecast: { ...input.forecast, elevation: 63 }, forced })
+}
 
 /** How much of what is behind it a disc's middle hides, as it is painted. */
 function painted(world: WorldState, id: 'bodies.sun' | 'bodies.moon' | 'bodies.aureole', clouds: LayerDesc[] = cloudLayersOf(world, BOX)) {
