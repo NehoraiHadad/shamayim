@@ -17,9 +17,9 @@ const failures = []
 const band = (v, lo, hi, name) => assert.ok(v >= lo && v <= hi, `${name} ${v?.toFixed(3)} outside [${lo}, ${hi}]`)
 const rasterBand = ([min, max], lo, hi, label) => assert.ok(max >= lo && min <= hi,
   `${label} [${min.toFixed(3)}, ${max.toFixed(3)}] misses [${lo}, ${hi}] with 4 sRGB levels of tolerance`)
-// The light's hue on shaded walls, their own colour divided out, against sky + ground bounce: the painted ground is the bounce's
-// stand-in, and the walls see a little less of the sky (.82) than of the ground (.92).
-const WALL_LIGHT = [.95, 1.05]
+// The light's hue on shaded walls, their own colour divided out, against half the sky's dome and half the place's own ground:
+// obstructed walls see .82 of that sky and .92 of that ground, so they lie under 1 (.973-.984 at the five places), never bluer.
+const WALL_LIGHT = [.95, 1.02]
 let canopy = false, water = false
 
 try {
