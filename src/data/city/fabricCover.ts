@@ -16,6 +16,8 @@ export const LEAST_SHOWN_PX = 2.2
 
 /** The bodies in front are looked up by columns this wide (px). */
 const COLUMN = 8
+/** The bounds of what shows are taken only this far (px) from the limit, so their rounding never decides. */
+const SLACK = 1e-6
 const NONE: OutsideBox[] = []
 
 const rise = (body: OutsideBox, roof: number) => Math.min(1, Math.max(0, Math.min(roof, body.foot) - body.top))
@@ -41,49 +43,27 @@ export function shownWidth(body: OutsideBox, front: readonly OutsideBox[]) {
   return shown
 }
 
-/** The roofs that stand all across strips of this many px, up to so many a strip: what stands in front, at the least. */
-const STRIP = .5, HELD = 4
+/** By strips of this many px, the highest roof that stands all across each: what stands in front, at the least. */
+const STRIP = .5
 
 class Strips {
-  private readonly from: number
-  private readonly near: Float64Array
-  private readonly top: Float64Array
-  private readonly held: Uint8Array
+  private readonly roofs = new Map<number, OutsideBox>()
 
-  constructor(blocks: readonly FabricSite[]) {
-    let left = 0, right = 0
-    for (const { body } of blocks) { left = Math.min(left, body.x - body.w / 2); right = Math.max(right, body.x + body.w / 2) }
-    this.from = Math.floor(left / STRIP)
-    const strips = Math.ceil(right / STRIP) - this.from + 1
-    this.near = new Float64Array(strips * HELD)
-    this.top = new Float64Array(strips * HELD)
-    this.held = new Uint8Array(strips)
-  }
-
-  add({ x, w, near, top }: OutsideBox) {
-    const to = Math.floor((x + w / 2) / STRIP) - this.from
-    for (let s = Math.ceil((x - w / 2) / STRIP) - this.from; s < to; s++) {
-      const end = s * HELD + this.held[s]
-      let at = end, hidden = false
-      for (let i = s * HELD; i < end && !hidden; i++) {
-        hidden = this.near[i] >= near && this.top[i] <= top
-        if (this.near[i] <= near && this.top[i] >= top) at = i
-      }
-      if (hidden || at === (s + 1) * HELD) continue
-      this.near[at] = near
-      this.top[at] = top
-      if (at === end) this.held[s]++
+  add(body: OutsideBox) {
+    const to = Math.floor((body.x + body.w / 2) / STRIP)
+    for (let s = Math.ceil((body.x - body.w / 2) / STRIP); s < to; s++) {
+      const held = this.roofs.get(s)
+      if (!held || body.top < held.top) this.roofs.set(s, body)
     }
   }
 
-  /** At least what shows of `body` over them, counted no further than `LEAST_SHOWN_PX`. */
+  /** No more than this shows of `body` over them, counted no further than `LEAST_SHOWN_PX`. */
   mostShown(body: OutsideBox) {
-    const left = body.x - body.w / 2, right = body.x + body.w / 2, { near, foot } = body
+    const left = body.x - body.w / 2, right = body.x + body.w / 2
     let shown = 0
     for (let s = Math.floor(left / STRIP); s * STRIP < right && shown < LEAST_SHOWN_PX; s++) {
-      const at = (s - this.from) * HELD, end = at + this.held[s - this.from]
-      let roof = foot
-      for (let i = at; i < end; i++) if (this.near[i] >= near && this.top[i] < roof) roof = this.top[i]
+      const held = this.roofs.get(s)
+      const roof = held && held.near >= body.near ? held.top : body.foot
       shown += (Math.min(right, (s + 1) * STRIP) - Math.max(left, s * STRIP)) * rise(body, roof)
     }
     return shown
@@ -115,14 +95,29 @@ class Columns {
   }
 }
 
+/** No less than this shows of `body` over `front`: what each takes of it, as if none stood before another. */
+function leastShown(body: OutsideBox, front: readonly OutsideBox[]) {
+  const left = body.x - body.w / 2, right = body.x + body.w / 2, whole = rise(body, body.foot)
+  let shown = body.w * whole
+  for (const f of front) shown -= (Math.min(right, f.x + f.w / 2) - Math.max(left, f.x - f.w / 2)) * (whole - rise(body, f.top))
+  return shown
+}
+
+/** Whether `LEAST_SHOWN_PX` of `body` show over `front`: measured only where the least that can show is less. */
+const shows = (body: OutsideBox, front: readonly OutsideBox[]) =>
+  leastShown(body, front) > LEAST_SHOWN_PX + SLACK || shownWidth(body, front) >= LEAST_SHOWN_PX
+
 /** The bodies painted last first: by a number of their place and their turn (an order of numbers alone), then exactly. */
 function paintedLastFirst(blocks: readonly FabricSite[]) {
+  const turn = new Float64Array(blocks.length)
   let low = Infinity, high = -Infinity
-  const y = Float64Array.from(blocks, ({ body }) => rowY(body))
-  for (const at of y) { low = Math.min(low, at); high = Math.max(high, at) }
+  for (const { body } of blocks) { const y = rowY(body); low = Math.min(low, y); high = Math.max(high, y) }
   const step = high > low ? 2 ** 32 / (high - low) : 0
-  const turn = y.map((at, i) => Math.floor((high - at) * step) * 2 ** 20 + i).sort()
-  return Array.from(turn, n => blocks[n % 2 ** 20]).sort((a, b) => frontFirst(a.body, b.body))
+  for (let i = 0; i < blocks.length; i++) turn[i] = Math.floor((high - rowY(blocks[i].body)) * step) * 2 ** 20 + i
+  turn.sort()
+  const order: FabricSite[] = []
+  for (const n of turn) order.push(blocks[n % 2 ** 20])
+  return order.sort((a, b) => frontFirst(a.body, b.body))
 }
 
 /**
@@ -130,10 +125,10 @@ function paintedLastFirst(blocks: readonly FabricSite[]) {
  * less than `LEAST_SHOWN_PX` of it to be seen. Most are hidden whole strips wide, so only the rest are measured.
  */
 export function shownBlocks(blocks: readonly FabricSite[]): OutsideBox[] {
-  const shown: OutsideBox[] = [], strips = new Strips(blocks), columns = new Columns()
+  const shown: OutsideBox[] = [], strips = new Strips(), columns = new Columns()
   for (const { box, body } of paintedLastFirst(blocks)) {
     if (body.w > box.w) {
-      if (strips.mostShown(body) < LEAST_SHOWN_PX - 1e-6 || shownWidth(body, columns.over(body)) < LEAST_SHOWN_PX) continue
+      if (strips.mostShown(body) < LEAST_SHOWN_PX - SLACK || !shows(body, columns.over(body))) continue
       strips.add(body)
       columns.add(body)
     }

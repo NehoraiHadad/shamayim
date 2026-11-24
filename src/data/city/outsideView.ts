@@ -390,11 +390,10 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     const siteW = Math.max(w, legible)
     const foot = lieBaseY(lie, ground, x, near, floor, siteW, cell.dx, cell.dy)
     const siteH = pxOf(look, siteM, k), bodyH = heightM === siteM ? siteH : pxOf(look, heightM, k)
-    const box: OutsideBox = { x, w: siteW, top: foot - Math.max(1, siteH), foot, near, kind, heightM: siteM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
     const mapped = look ? Math.min(planPx(look, frame, cell.frontM ?? 0, k), bodyH) : 0
     const bodyW = look ? fabricFrontage(w, house, mapped, heightM, HOUSE_TOP_M) : w
-    const body = bodyW === siteW && heightM === siteM ? box
-      : { x, w: bodyW, top: foot - Math.max(1, bodyH), foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
+    const body: OutsideBox = { x, w: bodyW, top: foot - Math.max(1, bodyH), foot, near, kind, heightM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
+    const box = bodyW === siteW && bodyH === siteH ? body : { x, w: siteW, top: foot - Math.max(1, siteH), foot, near }
     sites.push({ box, slotW: w < legible ? legible : 0, body })
   }
   const standing = standingSites(sites)

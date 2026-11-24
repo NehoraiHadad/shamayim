@@ -1,10 +1,13 @@
 import { shownBlocks } from './fabricCover'
 import type { OutsideBox } from './outsideView'
 
+/** Where a site stands: what the slots and the mass ask of it. */
+export type SiteBox = Pick<OutsideBox, 'x' | 'w' | 'top' | 'foot' | 'near'>
+
 /** A built cell on the screen. */
 export interface FabricSite {
   /** The box the place's sites are laid out by: its cell's own width, or the legible house's where that is wider. */
-  box: OutsideBox
+  box: SiteBox
   /** The legible house's width where the cell is narrower than it: one such house stands in a slot of that size. */
   slotW: number
   /** What stands there: its true roof, on the frontage its own height needs. */

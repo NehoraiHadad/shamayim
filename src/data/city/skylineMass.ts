@@ -1,9 +1,9 @@
-import type { OutsideBox } from './outsideView'
+import type { SiteBox } from './fabricSlots'
 
 /** Near to far: a box whose top is under the nearer boxes' tops all across it is hidden. */
-export function visible(boxes: readonly OutsideBox[], width: number): OutsideBox[] {
+export function visible<B extends SiteBox>(boxes: readonly B[], width: number): B[] {
   const cover = new Float64Array(Math.ceil(width) + 8).fill(Infinity)
-  const kept: OutsideBox[] = []
+  const kept: B[] = []
   for (const box of [...boxes].sort((a, b) => b.near - a.near)) {
     const from = Math.max(0, Math.floor(box.x - box.w / 2)), to = Math.min(cover.length, Math.ceil(box.x + box.w / 2))
     let shows = false
@@ -17,9 +17,9 @@ export function visible(boxes: readonly OutsideBox[], width: number): OutsideBox
 
 /** The mass's top at x (the highest box over it), boxes bucketed by the px columns they span (the same answer, faster). */
 export class MassIndex {
-  private columns = new Map<number, OutsideBox[]>()
-  constructor(boxes: readonly OutsideBox[]) { for (const box of boxes) this.add(box) }
-  add(box: OutsideBox) {
+  private columns = new Map<number, SiteBox[]>()
+  constructor(boxes: readonly SiteBox[]) { for (const box of boxes) this.add(box) }
+  add(box: SiteBox) {
     for (let px = Math.floor(box.x - box.w / 2); px <= Math.floor(box.x + box.w / 2); px++) {
       const list = this.columns.get(px)
       if (list) list.push(box)
