@@ -29,8 +29,10 @@ landmarks and non-own worship).
       other fame-1 marks capped at 2×. Seated marks stay on visible town feet and never use panorama ridge evidence.
       Restored dot/sheet checks for famous fitting, with sheet clearance retained by the receiver. Measured frame
       drift, re-rendered the stills, refreshed the background audit and `AUDIT-table.md` After; counts/factor bins are in `REPORT.md` Round 7.
-- [ ] Obtain a recorded panorama for the production Karmei Tzur coordinate through the project's fixture workflow,
-      then review these rules against that terrain. The current still is explicitly flat 100 m.
+- [x] Obtain a recorded panorama for the production Karmei Tzur coordinate (and four more small settlements) through
+      the fixture workflow: `src/test/fixtures/scene` via `scripts/fixtures/recordPanoramas.ts`, run on Actions.
+- [ ] Review the settlement rules against that terrain. Stage V1 measured them (label over the town, dot erasing
+      houses, beyond-town blocks, house size and frame); the fixes are not started. Unit tests still use flat 100 m.
 - [x] Landmark-size decision: shared 6–16 CSS px policy, land aerial perspective plus far-city contrast and lamp
       transmission; owned portraits unchanged. Verified at 375/1280 and DPR 1/2, with mutation guards and a refreshed
       full audit. Histograms: `REPORT.md`, Landmark size. Stills: `stills/landmark-size/README.md` (Dafna, Karmei Tzur,
