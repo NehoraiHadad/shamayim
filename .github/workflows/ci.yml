@@ -1,7 +1,8 @@
 name: CI
 
 # Scratch branch, never merged: the real style's S0 (baseline and stability). One dispatch:
-#   gh workflow run ci.yml --ref claude/real-meas-base -f head=<sha of main>
+#   S0 again: gh workflow run ci.yml --ref claude/real-meas-base -f head=<sha of main>
+#   A slice:  … -f full=false -f base=<sha of main> -f head=<sha of the slice>   (pair, stills, drawn identity base/head)
 # `same` pairs put one commit under both names; `pair` puts `base` and `head`. Every log names the commit it ran.
 on:
   workflow_dispatch:
@@ -9,6 +10,7 @@ on:
       head: { description: 'The main we measure', required: false, default: '5fb0d856c11dea903ea26e0080582e94b8d0026d' }
       base: { description: 'The commit named beside it', required: false, default: 'b0181337609bf8cc71e2afefa975017395b96615' }
       concept: { description: 'The prototype laid over head', required: false, default: 'claude/real-style-13639d' }
+      full: { description: 'S0: with the same-commit pairs and the prototype', required: false, type: boolean, default: true }
 
 env:
   PLAYWRIGHT_BROWSERS_PATH: /home/runner/pw
@@ -21,7 +23,9 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      matrix: { pair: [same, pair], machine: [1, 2] }
+      matrix:
+        pair: ${{ fromJSON(inputs.full && '["same","pair"]' || '["pair"]') }}
+        machine: [1, 2]
     steps:
       - uses: actions/checkout@v5
         with: { path: tools }
@@ -52,6 +56,7 @@ jobs:
         with: { name: s0-table, path: s0-table.md, retention-days: 30 }
 
   layers:
+    if: inputs.full
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -102,11 +107,11 @@ jobs:
         with: { fetch-depth: 0, path: src }
       - uses: actions/setup-node@v5
         with: { node-version-file: tools/.nvmrc }
-      - run: bash tools/s0/trees.sh "${{ inputs.head }}" "${{ inputs.head }}"
+      - run: bash tools/s0/trees.sh "${{ inputs.full && inputs.head || inputs.base }}" "${{ inputs.head }}"
       - working-directory: b
         run: |
           set=$(node -e "import('./e2e/stillSet.mjs').then(m => console.log(m.STILL_SET.join(' ')))")
-          node e2e/styleIdentity.mjs ../a ci-identity $set $EXTRA --dpr=2 --shard=${{ matrix.shard }}/8
+          node e2e/styleIdentity.mjs ../a ci-identity $set $EXTRA --dpr=2 ${{ !inputs.full && '--styles=drawn' || '' }} --shard=${{ matrix.shard }}/8
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: 'identity-${{ matrix.shard }}', path: b/ci-identity/, retention-days: 30 }
