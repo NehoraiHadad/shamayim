@@ -1,7 +1,7 @@
 import { NORMALS, type Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
 import { groundLighting } from './buildingGround'
-import { FLAT_ROOF, PALE_METAL, PANEL, STONE, TILE, receiverMaterial } from './buildingMaterial'
+import { PALE_METAL, PANEL, STONE, TILE, receiverMaterial } from './buildingMaterial'
 import { incidence } from './buildingIncidence'
 import { exposedColors, facadeTwilight } from './buildingExposure'
 import { hazeAt } from './landVeil'
@@ -130,7 +130,7 @@ function makeBuildingFaces(set: ReturnType<typeof worldReceivers>, km: number, i
   detail: boolean): BuildingFaces {
   const tone = set.toneAt(km)
   const tint = set.toneAt(km, true)
-  const { stone, glass, facing: { normals, leftWidth, rightWidth } } = receiverMaterial(id)
+  const { stone, roof, glass, facing: { normals, leftWidth, rightWidth } } = receiverMaterial(id)
   const [front, left, right] = normals
   const unresolved = set.unresolved(km, stone)
   const tileBase = tiled ? set.unresolvedTile(km) : undefined
@@ -145,7 +145,7 @@ function makeBuildingFaces(set: ReturnType<typeof worldReceivers>, km: number, i
     const wall = tint(stone, rgb.wall)
     return plain ? flat(wall) : { wall, foot: tint(stone, rgb.foot), eave: tint(stone, rgb.eave) }
   }
-  return { front: face(front), left: face(left), right: face(right), top: tone(id < 0 ? stone : FLAT_ROOF, set.topLight),
+  return { front: face(front), left: face(left), right: face(right), top: tone(roof, set.topLight),
     recess: plain ? unresolved : tint(stone, set.face(front).recess), unresolved, leftWidth, rightWidth,
     ...(glass ? { band: tint(PALE_METAL, set.sky(front, stone, set.face(front).wall, true)) } : {}),
     ...(tileBase ? { tile: set.tiles(km, normals), tileBase } : {}),

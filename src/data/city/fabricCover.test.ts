@@ -1,0 +1,93 @@
+import { expect, it } from 'vitest'
+import { seeded } from '../landmarks/hash'
+import { LEAST_SHOWN_PX, shownBlocks, shownWidth } from './fabricCover'
+import { composeBodies, type FabricSite } from './fabricSlots'
+import { outsideFrame, outsideProject, outsideSkyline, type FabricCell, type OutsideBox } from './outsideView'
+import { visible } from './skylineMass'
+
+const body = (x: number, w: number, h: number, near = .5, foot = 100, seed = 1): OutsideBox =>
+  ({ x, w, foot, top: foot - h, near, kind: 'mass', heightM: 25, seed })
+const widened = (box: OutsideBox): FabricSite => ({ box: { ...box, w: 1 }, slotW: 0, body: box })
+/** The px of a body over another's roof and beside it. */
+const shownArea = (rear: OutsideBox, front: OutsideBox) => {
+  const from = Math.max(rear.x - rear.w / 2, front.x - front.w / 2), to = Math.min(rear.x + rear.w / 2, front.x + front.w / 2)
+  const over = Math.max(0, to - from), h = rear.foot - rear.top
+  return (rear.w - over) * h + over * Math.max(0, front.top - rear.top)
+}
+
+it('keeps a taller block behind a lower one, however their fronts line up', () => {
+  for (const w of [9, 9.3, 12, 30]) {
+    const front = body(100, w, 10, .5), rear = body(101.52, 9, 20, .49, 99.8, 2)
+    expect(shownBlocks([rear, front])).toEqual(new Set([front, rear]))
+  }
+})
+
+it('leaves a block out once less than a px of it shows, beside a wall or over a roof', () => {
+  const front = body(100, 9, 10), behind = (w: number, h: number) => shownBlocks([front, body(100, w, h, .4, 99.9, 2)]).size
+  expect(behind(9, 9.9)).toBe(1)
+  expect(behind(9.9, 5)).toBe(1)
+  expect(behind(10.1, 5)).toBe(2)
+  expect(behind(9, 9.9 + .9 / 9)).toBe(1)
+  expect(behind(9, 9.9 + 1.1 / 9)).toBe(2)
+})
+
+it('shows no less when what stands in front is narrower, lower or fewer', () => {
+  const rear = body(100, 9, 14)
+  const at = (w: number, h: number) => shownWidth(rear, [body(102, w, h)])
+  for (let i = 1; i < 120; i++) {
+    expect(at(.1 * i, 10)).toBeLessThanOrEqual(at(.1 * (i - 1), 10) + 1e-9)
+    expect(at(6, .2 * i)).toBeLessThanOrEqual(at(6, .2 * (i - 1)) + 1e-9)
+  }
+  const pair = [body(98, 5, 10), body(102, 5, 12)]
+  expect(shownWidth(rear, pair)).toBeLessThanOrEqual(Math.min(...pair.map(f => shownWidth(rear, [f]))))
+})
+
+it('never jumps by more than the sliver as a frontage grows through the cutoff', () => {
+  const rear = body(102, 8, 16, .4, 99.9, 2), step = .1
+  const areas = Array.from({ length: 160 }, (_, i) => {
+    const front = body(100, 2 + i * step, 10)
+    return (2 + i * step) * 10 + (shownBlocks([front, rear]).has(rear) ? shownArea(rear, front) : 0)
+  })
+  const low = { ...rear, top: rear.foot - 9 }
+  const beside = Array.from({ length: 160 }, (_, i) => {
+    const front = body(100, 2 + i * step, 10)
+    return (2 + i * step) * 10 + (shownBlocks([front, low]).has(low) ? shownArea(low, front) : 0)
+  })
+  for (const [all, h] of [[areas, 16], [beside, 9]] as const) {
+    for (let i = 1; i < all.length; i++) expect(Math.abs(all[i] - all[i - 1])).toBeLessThan(LEAST_SHOWN_PX * h + step * 10)
+  }
+  expect(shownBlocks([body(100, 18, 10), low]).size).toBe(1)
+  expect(shownBlocks([body(100, 18, 10), rear]).size).toBe(2)
+})
+
+it('draws the same bodies whatever order the same set comes in, level and equally near ones too', () => {
+  const random = seeded(7)
+  const set = Array.from({ length: 60 }, (_, i) => {
+    const row = Math.floor(random() * 4)
+    return widened(body(Math.round(random() * 60), 4 + 8 * random(), 6 + 10 * random(), .2 * row, 100 + 2 * row, i + 1))
+  })
+  const drawn = (sites: readonly FabricSite[]) => visible(composeBodies(sites, 12.5), 375)
+  const first = drawn(set)
+  expect(first.length).toBeLessThan(set.length)
+  for (let i = 0; i < 8; i++) {
+    const shuffled = set.map(site => ({ site, u: random() })).sort((a, b) => a.u - b.u).map(({ site }) => site)
+    expect(drawn(shuffled)).toEqual(first)
+  }
+})
+
+it('hides a house behind a widened block only where none of it shows', () => {
+  const frame = outsideFrame(undefined, 3, 195, 390, true)
+  const look = { house: { w: 3 }, plan: 3 / 13, px: (heightM: number, k: number) => .5 * heightM * k / frame.k }
+  const block: FabricCell = { dx: 0, dy: .1, wKm: .01, heightM: 25, frontM: 45, seed: 1 }
+  const houseAt = (dx: number): FabricCell => ({ dx, dy: 0, wKm: .01, heightM: 7.7, seed: 2 })
+  const boxes = (dx: number) => outsideSkyline({ place: { lat: 32, lon: 35 }, towers: [], landmarks: [], frame, ground: () => 100,
+    floor: 120, width: 390, look, fabric: [houseAt(dx), block] }).boxes
+  const front = boxes(0).find(b => b.seed === 1)!
+  expect(front.w).toBeGreaterThan(9)
+  for (let dx = 0; dx < .6; dx += .01) {
+    const house = boxes(dx).find(b => b.seed === 2)
+    const beyond = Math.abs(outsideProject(frame, dx, 0).x - front.x) + look.house.w / 2 - front.w / 2
+    if (!house) expect(beyond).toBeLessThan(1)
+    if (beyond <= 0) expect(house).toBeUndefined()
+  }
+})

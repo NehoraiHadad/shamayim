@@ -1,77 +1,62 @@
-import { beforeAll, describe, expect, it } from 'vitest'
-import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
-import { DATUM_PLACES, SCENE_PLACES } from '../test/scenePlaces'
-import { addMinutes } from '../domain/time'
-import { sceneModel } from '../scene/model'
-import { landTopOf } from '../scene/model/life'
-import { rayStrengths } from '../scene/model/rays'
-import { skyGeom } from '../scene/model/sky'
-import { buildWorld } from './world'
-import { DISC_PX, EDGE_SOFT } from './livingLight'
+import { expect, it } from 'vitest'
+import { outsideFrame, type OutsideBox, type OutsideTower } from '../data/city/outsideView'
+import { drawnSkyline } from './drawnSkyline'
+import { outsideBodies } from './outsideBodies'
+import { SCENE_W } from './sceneBox'
+import { sceneClearance } from './sceneClearance'
+import type { OutsideView, WorldLabels } from './types'
 
-/*
- * The owner's report of 2026-11-20: a low sun drawn over the near hill and the town. The rule: everything in the sky is
- * hidden by the land and structures drawn in front of it, and the light judges the sun on that same drawn line, so the
- * disc sinks behind the drawn land as the light goes, at every place.
- */
+const LAND = 100, TOP = 60
+const frame = outsideFrame(undefined, 3, SCENE_W / 2, SCENE_W, true)
+const block = (over: Partial<OutsideBox> = {}): OutsideBox =>
+  ({ x: 100, w: 20, top: TOP, foot: LAND, near: .8, kind: 'mass', heightM: 40, seed: 1, dx: 0, dy: 1, ...over })
+const tower = (over: Partial<OutsideTower> = {}): OutsideTower => ({ x: 100, baseY: LAND, w: 20, h: LAND - TOP, near: .8, heightM: 90, seed: 2,
+  famous: false, lod: 'silhouette', crown: 0, dx: 0, dy: 1, ...over })
+const view = (boxes: OutsideBox[], towers: OutsideTower[]) => ({ kind: 'outside', dot: { x: 300, y: LAND }, frame, baseKm: 0,
+  skyline: { boxes, towers }, beyond: [], beyondTowns: [], trees: [], land: null }) as unknown as OutsideView
+const note = (left: number, width: number): WorldLabels => ({ height: { text: '1', below: false, x: 350, y: 10 },
+  notes: [{ kind: 'note', text: 'a', left, top: TOP - 20, width, height: 80 }] }) as unknown as WorldLabels
+const drawn = { nearPoints: [[0, LAND], [SCENE_W, LAND]], farPoints: [] } as unknown as Parameters<typeof drawnSkyline>[0]
 
-const BOX = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 1 }
-let places: Map<string, LoadedPlace>
-beforeAll(async () => {
-  stubPublicFetch()
-  places = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES])
-}, 120_000)
+/** The model's own top at x: the bodies it draws, over the land. */
+function modelTop(place: OutsideView, labels: WorldLabels, x: number, width = SCENE_W) {
+  const sx = width / SCENE_W
+  const { boxes, towers } = outsideBodies(place, sceneClearance(labels, place.dot, width), sx)
+  const tops = [...boxes.map(b => ({ ...b, top: b.box.top })), ...towers.map(t => ({ ...t, top: t.tower.baseY - t.tower.h }))]
+    .filter(b => Math.abs(b.x - x * sx) <= b.w / 2).map(b => b.top)
+  return Math.min(LAND, ...tops)
+}
+const skylineTop = (place: OutsideView, labels: WorldLabels, x: number, width = SCENE_W) =>
+  drawnSkyline(drawn, place, [], null, Object.assign(() => LAND, { peak: LAND }), labels, width)(x / SCENE_W)
+const agree = (place: OutsideView, labels: WorldLabels, spans: [number, number][], width = SCENE_W) => {
+  for (let x = 80; x <= 120; x++) {
+    expect(skylineTop(place, labels, x, width)).toBe(modelTop(place, labels, x, width))
+    expect(skylineTop(place, labels, x, width)).toBe(spans.some(([from, to]) => x >= from && x <= to) ? TOP : LAND)
+  }
+}
 
-describe('the sun and moon set behind the land as drawn', () => {
-  it('judges the sun up or behind the land on the drawn land\'s top at sunrise and sunset, at all 12 places', { timeout: 240_000 }, () => {
-    let behind = 0, over = 0
-    for (const [id, p] of places) {
-      const day = worldInput(p, '2026-11-17T12:00').forecast.days.find((d) => d.date === '2026-11-17')!
-      for (const [base, from, to] of [[day.sunrise, -10, 50], [day.sunset, -100, 20]] as const) {
-        const seen: boolean[] = []
-        for (let m = from; m <= to; m += 10) {
-          const at = addMinutes(base, m)
-          const world = buildWorld(worldInput(p, at))
-          const model = sceneModel(world, BOX)
-          const geom = skyGeom(world, BOX)
-          const top = landTopOf(world, BOX, geom, model.layers.filter((l) => l.surface === 'land'))
-          const sun = world.bodies.sun
-          // The disc's top (where the world places the sun) against what the model draws in front of it.
-          const x = geom.left + sun.x * geom.s, y = BOX.landTop + sun.y
-          if (Math.abs(top(x) - y) > 1.5) expect(sun.overLand, `${id} ${at}: disc ${y.toFixed(1)}, land ${top(x).toFixed(1)}`).toBe(y < top(x))
-          // The light agrees: no disc over the land from a sun behind it; its light and glare go with the share of its disc
-          // still over the land (the living light: under half once its middle is behind, none once all of it is).
-          if (!sun.overLand) {
-            expect(sun.visible!, `${id} ${at}`).toBeLessThan(0.5)
-            expect(world.light.shares.sun, `${id} ${at}`).toBeLessThanOrEqual(sun.visible! + 1e-9)
-            expect(rayStrengths(world).corona).toBeLessThanOrEqual(sun.visible! + 1e-9)
-          }
-          if (sun.clearance! < -(DISC_PX + EDGE_SOFT)) {
-            expect(world.light.source, `${id} ${at}`).not.toBe('sun')
-            expect(rayStrengths(world).corona).toBe(0)
-          }
-          expect(model.layers.some((l) => l.id.startsWith('bodies.') && l.surface === 'land'), `${id} ${at}`).toBe(false)
-          seen.push(sun.overLand)
-          if (sun.overLand) over++
-          else behind++
-        }
-        // Each edge of the day goes from behind the land to over it (or back), once.
-        expect(new Set(seen).size, `${id} ${base}`).toBe(2)
-      }
-    }
-    expect(behind).toBeGreaterThan(20)
-    expect(over).toBeGreaterThan(20)
-  })
+it('lets the sun past the side of a block the text takes', () => {
+  agree(view([block()], []), note(107, 40), [[90, 106]])
+  expect(skylineTop(view([block()], []), note(107, 40), 109)).toBe(LAND)
+})
 
-  it('hides the moon by the same line', () => {
-    const p = places.get('jerusalem')!
-    for (const at of ['2026-11-17T09:00', '2026-11-17T14:00', '2026-11-17T20:00'] as const) {
-      const world = buildWorld(worldInput(p, at))
-      const geom = skyGeom(world, BOX)
-      const top = landTopOf(world, BOX, geom, sceneModel(world, BOX).layers.filter((l) => l.surface === 'land'))
-      const moon = world.bodies.moon
-      const x = geom.left + moon.x * geom.s, y = BOX.landTop + moon.y
-      if (Math.abs(top(x) - y) > 1.5) expect(moon.overLand, at).toBe(y < top(x))
-    }
-  })
+it('lets the sun past the side of a tower the text takes', () => {
+  agree(view([], [tower()]), note(107, 40), [[90, 106]])
+})
+
+it('lets the sun past a block cut back for a mapped stack, which hides it itself', () => {
+  const stack = tower({ x: 109, w: 2, near: .2, dy: -1, baseY: LAND - 10, h: LAND - 10 - TOP, industrial: true })
+  const place = view([block()], [stack])
+  agree(place, note(300, 10), [[90, 106], [108, 110]])
+  expect(skylineTop(place, note(300, 10), 107)).toBe(LAND)
+})
+
+it('drops from the line what the text leaves no room for, and keeps the rest whole', () => {
+  agree(view([block({ heightM: 7 })], []), note(107, 40), [])
+  agree(view([block()], []), note(60, 100), [])
+  agree(view([block()], []), note(300, 10), [[90, 110]])
+})
+
+it('agrees at any width of the screen', () => {
+  agree(view([block()], []), note(107, 40), [[90, 106]], 2 * SCENE_W)
 })

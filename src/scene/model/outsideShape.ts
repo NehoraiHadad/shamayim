@@ -7,7 +7,7 @@ import { outsideBodies, roofM } from '../../world/outsideBodies'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
 import { receiversUsed } from './buildingUsage'
-import { receiverId } from './buildingMaterial'
+import { COLLECTORS_TO_M, receiverId } from './buildingMaterial'
 import { landBehind } from './landBehind'
 import { massAt, type DrawnMass } from './markOcclusion'
 import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
@@ -93,7 +93,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
     own.push({ y: rowY(b), item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
-      seed, receiver: receiverId(seed, false, false, roof || N('salt') < 0 ? seed : seed ^ [WALL_DRAW, 0x9e3779b9, 0x2545f491, 0x1b873593, 0x7f4a7c15, 0x6a09e667][N('salt')]),
+      seed, receiver: receiverId(seed, false, false, roof || N('salt') < 0 ? seed : seed ^ [WALL_DRAW, 0x9e3779b9, 0x2545f491, 0x1b873593, 0x7f4a7c15, 0x6a09e667][N('salt')], !roof && heightM <= COLLECTORS_TO_M),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }

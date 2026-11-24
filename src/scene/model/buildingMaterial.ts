@@ -1,3 +1,4 @@
+import { N } from '../../data/city/tune.tmp'
 import { seeded } from '../../data/landmarks/hash'
 import type { Normal } from '../../world/livingLight'
 import type { RGB } from '../../world/types'
@@ -13,8 +14,16 @@ export const WALL_ALBEDOS: readonly RGB[] = Y.map((y, i) => {
 export const TILE = srgbRgbToLinear([.43, .275, .185])
 // Flat concrete/membrane roofs share an albedo independent of the plaster bins.
 export const FLAT_ROOF: RGB = [.55, .532, .494]
-export const LEAF = srgbRgbToLinear([.19, .28, .21])
 export const PANEL = srgbRgbToLinear([.11, .17, .30])
+/**
+ * The roof of a block of flats as seen whole: the same roof under its solar collectors, one to a flat (the building code's
+ * rule up to `COLLECTORS_TO_M`), which the drawing has no room to show one by one: 2.2 m² of dark panel to each 100 m² of
+ * every storey, at five storeys.
+ */
+const COLLECTORS = N('coll')
+export const COLLECTORS_TO_M = 27
+export const BLOCK_ROOF = FLAT_ROOF.map((y, i) => y * (1 - COLLECTORS) + PANEL[i] * COLLECTORS) as unknown as RGB
+export const LEAF = srgbRgbToLinear([.19, .28, .21])
 export const STACK_CONCRETE: RGB = [.24, .235, .22]
 export const SOOT = srgbRgbToLinear([.25, .22, .20])
 export const STONE = WALL_ALBEDOS[6]
@@ -39,15 +48,20 @@ export function materialBin(seed: number): number {
   return Math.floor(seeded(seed)() * WALL_ALBEDOS.length)
 }
 
-/** A body's wall and facing, each by its own draw: `material` where the seed's own plaster draw is already spent. */
-export function receiverId(seed: number, glass = false, industrial = false, material = seed): number {
-  const id = (materialBin(material) * FACINGS.length + facingBin(seed)) * 2 + Number(glass)
+/**
+ * A body's wall and facing, each by its own draw: `material` where the seed's own plaster draw is already spent; `block`
+ * where its roof is a block of flats' (`BLOCK_ROOF`).
+ */
+export function receiverId(seed: number, glass = false, industrial = false, material = seed, block = false): number {
+  const wall = materialBin(material) + (block ? WALL_ALBEDOS.length : 0)
+  const id = (wall * FACINGS.length + facingBin(seed)) * 2 + Number(glass)
   return industrial ? -1 - id : id
 }
 
 export function receiverMaterial(id: number) {
   const industrial = id < 0, code = industrial ? -1 - id : id
-  const bin = Math.floor(code / 2)
-  const stone = industrial ? STACK_CONCRETE : WALL_ALBEDOS[Math.floor(bin / FACINGS.length)]
-  return { stone, glass: !industrial && code % 2 === 1, facing: FACINGS[bin % FACINGS.length] }
+  const bin = Math.floor(code / 2), wall = Math.floor(bin / FACINGS.length)
+  const stone = industrial ? STACK_CONCRETE : WALL_ALBEDOS[wall % WALL_ALBEDOS.length]
+  const roof = industrial ? stone : wall < WALL_ALBEDOS.length ? FLAT_ROOF : BLOCK_ROOF
+  return { stone, roof, glass: !industrial && code % 2 === 1, facing: FACINGS[bin % FACINGS.length] }
 }

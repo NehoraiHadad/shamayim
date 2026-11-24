@@ -9,19 +9,20 @@ const site = (x: number, foot: number, near: number, heightM: number, siteW: num
 
 it('leaves every house of a low-rise row on its site', () => {
   const row = [100, 101.5, 103, 104.5].map((x, i) => site(x, 100 + .1 * i, .5 + .01 * i, 7.7, 5, 5))
-  expect(composeBodies(row, 5, HOUSE_TOP_M)).toEqual(row.map(s => s.body))
+  expect(composeBodies(row, HOUSE_TOP_M)).toEqual(row.map(s => s.body))
 })
 
-it('lets a widened block take only the blocks on the ground it covers', () => {
-  const near = site(100, 100, .8, 25, 1, 9), covered = site(101, 99, .7, 25, 1, 9)
-  const beside = site(103, 100, .75, 25, 1, 9), rowBehind = site(100, 94, .4, 25, 1, 9), house = site(101, 99.5, .78, 7.7, 5, 5)
-  expect(composeBodies([covered, near, beside, rowBehind, house], 5, HOUSE_TOP_M))
-    .toEqual([near.body, beside.body, rowBehind.body, house.body])
+it('leaves out only blocks drawn wider than their sites, behind another such block', () => {
+  const front = site(100, 100, .8, 25, 1, 9), hidden = site(100.2, 99, .7, 25, 1, 8)
+  const own = site(100, 99.2, .72, 25, 8, 8), house = site(100, 99.5, .78, 7.7, 5, 5)
+  expect(composeBodies([hidden, house, own, front], HOUSE_TOP_M)).toEqual([house.body, own.body, front.body])
 })
 
-it('gives way to a block that stands at its own width', () => {
-  const own = site(100, 100, .5, 25, 9, 9), widened = site(101, 100, .8, 25, 1, 9)
-  expect(composeBodies([widened, own], 5, HOUSE_TOP_M)).toEqual([own.body])
+it('never lets a block at its own width, or a farther one, take a widened block', () => {
+  const widened = site(101, 99, .7, 25, 1, 6)
+  expect(composeBodies([widened, site(101, 100, .8, 40, 12, 12)], HOUSE_TOP_M)).toHaveLength(2)
+  // Painted over it by its foot, though it stands farther.
+  expect(composeBodies([widened, site(101, 100, .6, 40, 1, 12)], HOUSE_TOP_M)).toHaveLength(2)
 })
 
 it('keeps one legible house per slot, the one nearest its middle', () => {
