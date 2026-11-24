@@ -3,12 +3,16 @@ import type { WorldState } from '../../world/types'
 import { cityOnSky } from './cityLight'
 import { dustSky, dustVeilWeight } from './cloudDust'
 import { SKY_FILTER_MID } from './skyFilter'
+import { gradeSky } from './skyTone'
 import { mixRgb, rgbOf } from './tone'
 import type { RGB, SceneBox } from './types'
 
 type Stops = { top: RGB; mid: RGB; horizon: RGB }
+
+/** The town's light on each, then the hand's grade, once: the dust filter and the ink's samples read the graded colours. */
 function withCity(world: WorldState, [t, m, h]: readonly [RGB, RGB, RGB]): Stops {
-  return { top: cityOnSky(world, t, 90), mid: cityOnSky(world, m, 30), horizon: cityOnSky(world, h, 0) }
+  const at = (rgb: RGB, altitude: number) => gradeSky(world, cityOnSky(world, rgb, altitude))
+  return { top: at(t, 90), mid: at(m, 30), horizon: at(h, 0) }
 }
 
 /** The same display palette before adding the scene's visible dust veil. */

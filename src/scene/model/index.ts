@@ -18,6 +18,7 @@ import { flashLayersOf } from './flash'
 import { shimmerLayerOf } from './shimmer'
 import { skyGeom, skyLayer } from './sky'
 import { skyFilterLayer } from './skyGrade'
+import { gradedWorld, withGradeKey } from './skyTone'
 import { starsLayer } from './stars'
 import { PLAIN_LIGHT, type StyleLight } from './styleLight'
 import { birdLayers } from './birds'
@@ -44,10 +45,16 @@ export type * from './types'
  * the wet ground's sheen); C8: while the land is not known, a mist in its place with a ridge line forming (`loading.ts`),
  * and the land's arrival timed by the shell's `clock` (no clock: the land shown as it is, the mist from phase 0).
  *
- * `light` is the painting hand's own light of the buildings, a value (`styleLight.ts`): the model knows no hand.
+ * `light` is the painting hand's own light of the buildings and grade of the sky, a value (`styleLight.ts`): the model knows no hand.
  */
 export function sceneModel(world: WorldState, box: SceneBox, clock: LandClock | null = null, life: LifeClock = LIFE_START,
   light: StyleLight = PLAIN_LIGHT): SceneModel {
+  const grade = light.sky?.grade
+  const model = shownModel(gradedWorld(world, grade), box, clock, life, light)
+  return { ...model, layers: withGradeKey(model.layers, grade) }
+}
+
+function shownModel(world: WorldState, box: SceneBox, clock: LandClock | null, life: LifeClock, light: StyleLight): SceneModel {
   if (world.terrain.status !== 'ready') return unknownModel(world, box, clock ?? { loadingAt: 0 }, life, light)
   const model = knownModel(world, box, life, light)
   return clock?.reveal ? { ...model, layers: arrivingLayers(world, box, model.layers, clock) } : model

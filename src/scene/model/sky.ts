@@ -6,6 +6,7 @@ import { skyGeom } from './skyGeom'
 import { horizonBand, skyStops } from './skyGradient'
 import { coversOf, skyColours } from './skyColour'
 import { skyGlows } from './skyGlows'
+import { gradeSky } from './skyTone'
 import type { Arch, LayerOf, SceneBox } from './types'
 
 export { coversOf, veilOf } from './skyColour'
@@ -25,7 +26,7 @@ export function skyArch(world: WorldState, box: SceneBox, geom = skyGeom(world, 
   const top = 1 + 1.1 * Math.max(0, -alt)
   const h = (deg: number) => geom.horizon - geom.y(deg)
   return { x: geom.x(world.bodies.sun.azimuth + 180), y: geom.horizon, rx: 0.75 * geom.width, shadow: h(top), belt: h(top + 9),
-    shadowRgb: [0.2, 0.24, 0.4], beltRgb: [0.62, 0.36, 0.45], alpha: on }
+    shadowRgb: gradeSky(world, [0.2, 0.24, 0.4]), beltRgb: gradeSky(world, [0.62, 0.36, 0.45]), alpha: on }
 }
 
 /**
@@ -48,7 +49,7 @@ export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | nul
     key: layerKey('sky', skyBoxKey(box, true), stops.map(([at, rgb]) => [colours.bandWeight ? at * box.skyHeight : at, colourKey(rgb)]),
       band && [band.y, band.h, colourKey(band.rgb), Math.round(band.alpha * 255)],
       glow.map((g) => [r1(g.x), r1(g.y), r1(g.r), g.ry ?? 0, colourKey(g.rgb), Math.round(g.alpha * 255)]),
-      arch && [r1(arch.x), r1(arch.shadow), r1(arch.belt), Math.round(arch.alpha * 255)]),
+      arch && [r1(arch.x), r1(arch.shadow), r1(arch.belt), colourKey(arch.shadowRgb), colourKey(arch.beltRgb), Math.round(arch.alpha * 255)]),
     stops, glow, arch, band,
   }
 }
