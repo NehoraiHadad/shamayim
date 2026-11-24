@@ -68,8 +68,11 @@ it('grades the arch, the sea\'s far edge and the mist in a land not known yet, a
   expect(skyArch(gradedWorld(dusk, A), BOX)).toEqual({ ...arch, shadowRgb: once(arch.shadowRgb), beltRgb: once(arch.beltRgb) })
 
   const far = (layers: LayerDesc[]) => ofKind(layers, 'water').flatMap(({ bands }) => bands.map(({ stops }) => stops[0][1]))
-  expect(far(sceneModel(noon, BOX).layers).length).toBeGreaterThan(0)
-  expect(far(modelOf(noon, A))).not.toEqual(far(sceneModel(noon, BOX).layers))
+  const coast = (layers: LayerDesc[]) => ofKind(layers, 'outside').flatMap(({ sea }) => (sea ? [sea.horizon.rgb] : []))
+  const plain = sceneModel(noon, BOX).layers, inked = modelOf(noon, A)
+  expect(far(plain).length * coast(plain).length).toBeGreaterThan(0)
+  far(inked).forEach((rgb, i) => expect(rgb).not.toEqual(far(plain)[i]))
+  expect(coast(inked)).not.toEqual(coast(plain))
 
   const loading = { ...noon, terrain: { ...noon.terrain, status: 'loading' as const } }
   const reveal = { loadingAt: 0, reveal: { at: 1, fromHorizonY: noon.relief.horizonY, guessed: true } }
@@ -109,6 +112,7 @@ it('keeps the hands\' bitmaps and memos apart, and the land\'s forms shared', ()
   })
   expect(sceneModel(world, BOX).layers).toEqual(plain)
   expect(modelOf(world, A)).toEqual(a)
-  const bodies = (layers: LayerDesc[]) => JSON.stringify([ofKind(layers, 'cloudSheet'), ofKind(layers, 'cloudCells')])
+  const bodies = (layers: LayerDesc[]) => JSON.stringify([...ofKind(layers, 'cloudSheet'), ...ofKind(layers, 'cloudCells')]
+    .map((layer) => ({ ...layer, key: '' })))
   expect(bodies(a)).not.toBe(bodies(b))
 })

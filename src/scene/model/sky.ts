@@ -151,7 +151,7 @@ export function skyLayer(world: WorldState, box: SceneBox): LayerOf<'sky'> | nul
     key: layerKey('sky', skyBoxKey(box, true), stops.map(([at, rgb]) => [at, colourKey(rgb)]),
       band && [band.y, band.h, colourKey(band.rgb), Math.round(band.alpha * 255)],
       glow.map((g) => [r1(g.x), r1(g.y), r1(g.r), g.ry ?? 0, colourKey(g.rgb), Math.round(g.alpha * 255)]),
-      arch && [r1(arch.x), r1(arch.shadow), r1(arch.belt), Math.round(arch.alpha * 255)]),
+      arch && [r1(arch.x), r1(arch.shadow), r1(arch.belt), colourKey(arch.shadowRgb), colourKey(arch.beltRgb), Math.round(arch.alpha * 255)]),
     stops, glow, arch, band,
   }
 }
