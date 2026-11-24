@@ -7,7 +7,8 @@
   font-size: var(--text-xl);
   line-height: 1.32;
   text-wrap: balance;
-  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.2);
+  /* The hour strip's halo: white words stay legible over the bright cloud tops. */
+  text-shadow: 0 0 10px var(--sky-mid), 0 0 3px var(--sky-mid), 0 1px 18px rgba(0, 0, 0, 0.2);
 }
 
 .rest {

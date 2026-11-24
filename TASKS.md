@@ -1356,4 +1356,4 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] B, E and F joined (`claude/real-join` over main 350efdbd), the owner's two fixes: main's mottle and paper back on the ground over the
             relief (the hook had left both out), the plants' own inks, fuller clumps and a stronger foot for the crowns
 - [~] 3. Vote: prepared and audited on `claude/vote-prep-04ce33` (contains `claude/style-vote` 25c252ba and main b76225e8);
-      last pass re-verified; waits for the owner's approval of the merge and the worker deploy (worker first)
+      headline gets the hour strip's halo over bright drawn clouds; last pass re-verified; waits for the owner's approval of the merge and the worker deploy (worker first)
