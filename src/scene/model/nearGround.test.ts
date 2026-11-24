@@ -9,7 +9,7 @@ import type { RGB, WorldState } from '../../world/types'
 import { buildWorld } from '../../world/world'
 import { materialAt } from '../paint/shared/land/planeMaterial'
 import { preparePlaneTexels } from '../paint/shared/land/planeTexel'
-import { COVER_WATER, sampleBandAtKm } from './landPalette'
+import { COVER_WATER, nonWaterLocalFallback, sampleBandAtKm } from './landPalette'
 import { linearRgbToSrgb, srgbRgbToLinear } from './landRadiance'
 import { TEXEL } from './planeBands'
 import { planeLayer } from './planes'
@@ -90,5 +90,35 @@ describe('the ground nearer than the first DEM ring', () => {
     for (let i = 0; i < land.rays.length; i += 5) for (const km of [0.7, 1, 3, 20]) {
       expect(sampleBandAtKm(land, i, km)).toEqual(sampleBandAtKm(copy, i, km))
     }
+  })
+
+  describe('its way into the rays', () => {
+    const haifa = () => buildWorld(worldInput(loaded.get('haifa')!, NOON)).land
+    const near = { albedo: [0.6, 0.5, 0.4] as RGB, source: 'near' }
+
+    it('holds a dry strip on a headland that has water on every ray and under the place', () => {
+      const land = haifa()
+      const sea = { ...land.own, cover: COVER_WATER }
+      const headland = { ...land, own: sea, local: land.local.map((p) => ({ ...p, sample: sea })),
+        rays: land.rays.map((ray) => ({ ...ray, near, bands: ray.bands.map((b) => ({ ...b, sample: sea })) })) }
+      expect(sampleBandAtKm(headland, 20, 0.3)).toEqual(near)
+      expect(sampleBandAtKm(headland, 20, 0.5).albedo[0]).toBeGreaterThan(sampleBandAtKm(headland, 20, 0.6).albedo[0])
+      expect(sampleBandAtKm(headland, 20, 0.7)).toEqual(nonWaterLocalFallback(headland))
+    })
+
+    it('mixes light, with no break of slope at either end', () => {
+      const land = haifa(), dark = { ...land.own, cover: 1, albedo: [0.1, 0.1, 0.1] as RGB }
+      const scene = { ...land, rays: land.rays.map((ray) => ({ ...ray, near, bands: ray.bands.map((b) => ({ ...b, sample: dark })) })) }
+      const part = (m: number) => {
+        const [at, from, to] = [sampleBandAtKm(scene, 20, m / 1000).albedo, dark.albedo, near.albedo].map((rgb) => srgbRgbToLinear(rgb)[0])
+        return (at - from) / (to - from)
+      }
+      expect(part(550)).toBeCloseTo(0.5, 6)
+      // A straight ramp moves 1/30 of the way in its first and last 10 m; an eased one under a tenth of that.
+      expect(part(FIRST_KM * 1000)).toBe(1)
+      expect(1 - part(410)).toBeLessThan(1 / 290)
+      expect(part(690)).toBeLessThan(1 / 290)
+      expect(part(700)).toBe(0)
+    })
   })
 })

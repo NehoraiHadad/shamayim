@@ -1,78 +1,133 @@
 import { describe, expect, it } from 'vitest'
-import { LAND_STEP } from '../data/land/grid'
+import { climatologyAt } from '../data/land/climatology'
+import { COVER_WATER, LAND_STEP } from '../data/land/grid'
 import type { LandCover } from '../data/land/landData'
-import { azimuthAt, SCENE_CAMERA } from '../domain/camera'
-import { SHADMOT, SHADMOT_TERRAIN, typedCover } from '../test/livingLandFixtures'
-import { LIVING_LAND_RAYS, livingLandOf, nearGroundAt } from './landLiving'
-import { M_PER_DEG } from './landRays'
-import type { LivingLandSample } from './landSample'
-import { FIRST_RING_M, nearGroundOf, type NearGround } from './nearGround'
+import type { LandData } from '../data/land/types'
+import { azimuthAt, SCENE_CAMERA, STORED_CAMERA } from '../domain/camera'
+import { makeFar, makeNear, SHADMOT, SHADMOT_TERRAIN, typedCover } from '../test/livingLandFixtures'
+import { LIVING_LAND_RAYS, livingLandOf, type LivingLand } from './landLiving'
+import { linearRgbToSrgb } from './landRadiometry'
+import { livingLandKey, M_PER_DEG } from './landRays'
+import { FIRST_RING_M, footprintOf, nearGroundOf, type GroundCell } from './nearGround'
+import type { RGB } from './types'
 
 const RAD = Math.PI / 180
 const CELL_M = LAND_STEP * M_PER_DEG
 /** Equator, mid-latitude, and where the grid's columns are narrower than half a cell. */
 const LATS = [0, 32.35, 62]
-const ground = (lat: number, read: (eastM: number, northM: number) => number) =>
-  nearGroundOf(lat, 35.0123, Math.cos(lat * RAD), (e, n) => ({ cover: read(e, n) }) as LivingLandSample)
-const areaOf = (lat: number, near: NearGround, azimuth: number) => {
-  const cosLat = Math.cos(lat * RAD)
-  return near(azimuth).reduce((sum, { weight }) => sum + weight, 0) * CELL_M * CELL_M * cosLat * Math.max(1, Math.round(1 / cosLat))
-}
-/** The share of the footprint whose cells read 1. */
-const shareOf = (near: NearGround, azimuth: number) => {
-  const shares = near(azimuth), total = shares.reduce((sum, { weight }) => sum + weight, 0)
-  return shares.reduce((sum, { sample, weight }) => sum + Number(sample.cover) * weight, 0) / total
-}
+const footprint = <Cell>(lat: number, read: (eastM: number, northM: number) => Cell) =>
+  footprintOf(lat, 35.0123, Math.cos(lat * RAD), read)
+const areaOf = (shares: readonly { weight: number }[]) => shares.reduce((sum, { weight }) => sum + weight, 0)
 
-describe('nearGroundOf', () => {
+describe('footprintOf', () => {
   it.each(LATS)('weighs the area of the circle from the eye to the first DEM ring at latitude %d', (lat) => {
-    const near = ground(lat, () => 1), circle = Math.PI * (FIRST_RING_M / 2) ** 2
-    for (let azimuth = 0; azimuth < 360; azimuth += 15) expect(areaOf(lat, near, azimuth) / circle).toBeCloseTo(1, 1)
-  })
-
-  it('reads each cell once, and none before a bearing asks', () => {
-    const read: string[] = []
-    const near = ground(32.35, (e, n) => read.push(`${e.toFixed(1)}:${n.toFixed(1)}`))
-    expect(read).toHaveLength(0)
-    const rays = Array.from({ length: LIVING_LAND_RAYS }, (_, i) => azimuthAt(i / (LIVING_LAND_RAYS - 1)))
-    for (let pass = 0; pass < 2; pass++) rays.forEach((azimuth) => near(azimuth))
-    expect(new Set(read).size).toBe(read.length)
+    const near = footprint(lat, () => 1), circle = Math.PI * (FIRST_RING_M / 2) ** 2
+    const cosLat = Math.cos(lat * RAD), cellM2 = CELL_M * CELL_M * cosLat * Math.max(1, Math.round(1 / cosLat))
+    for (let azimuth = 0; azimuth < 360; azimuth += 15) expect(areaOf(near(azimuth)) * cellM2 / circle).toBeCloseTo(1, 1)
   })
 
   it('turns no sharper between bearings than two circles that share the eye', () => {
     // Circles of radius R about centres 2R sin(d/2) apart differ by at most that shift over their width, 4 sin(d/2) / pi of
     // the area; one cell column of the rim is the grid's own error. The sharpest cover: town and wood either side of a line.
+    const gridError = CELL_M * CELL_M / (Math.PI * (FIRST_RING_M / 2) ** 2)
     for (const edge of [0, 45, 90, 130]) {
-      const near = ground(32.35, (e, n) => e * Math.cos(edge * RAD) - n * Math.sin(edge * RAD) > 0 ? 1 : 0)
-      const gridError = CELL_M * CELL_M / (Math.PI * (FIRST_RING_M / 2) ** 2)
+      const near = footprint(32.35, (e, n) => e * Math.cos(edge * RAD) - n * Math.sin(edge * RAD) > 0)
+      const townOn = (azimuth: number) => {
+        const shares = near(azimuth)
+        return areaOf(shares.filter(({ cell }) => cell)) / areaOf(shares)
+      }
       for (let azimuth = 0; azimuth < 360; azimuth += 2) {
-        const step = Math.abs(shareOf(near, azimuth + 2) - shareOf(near, azimuth))
-        expect(step).toBeLessThan((4 * Math.sin(RAD)) / Math.PI + gridError)
+        expect(Math.abs(townOn(azimuth + 2) - townOn(azimuth))).toBeLessThan((4 * Math.sin(RAD)) / Math.PI + gridError)
       }
     }
   })
 })
 
-describe('the land\'s near ground', () => {
-  const at = (data: Parameters<typeof livingLandOf>[0]['data']) => livingLandOf({ lat: SHADMOT.lat, lon: SHADMOT.lon,
-    elevationM: -175, shownDate: '2026-11-15', shownUtcDate: '2026-11-15', camera: SCENE_CAMERA, terrain: SHADMOT_TERRAIN, data })
+describe('nearGroundOf', () => {
+  const of = (...shares: [GroundCell, number][]) => nearGroundOf(shares.map(([cell, weight]) => ({ cell, weight })))
+  const wood: GroundCell = { rho: [0.02, 0.04, 0.02], source: 'wood' }, sand: GroundCell = { rho: [0.4, 0.3, 0.2], source: 'sand' }
 
-  it('costs the place load no cover reads, and one sample a class when first asked', () => {
-    let reads = 0
-    const town = typedCover(5, 'worldcover-2021:local-50m')
-    const cover: LandCover = { ...town, coverWithSourceAt: (lat, lon) => { reads++; return town.coverWithSourceAt!(lat, lon) } }
-    const land = at({ cover, near: null, far: null, weather: null })
-    const loaded = reads
-    expect(loaded).toBeLessThanOrEqual(1 + land.local.length + land.rays.length * land.distancesM.length)
-    const shares = nearGroundAt(land, land.rays[0].azimuth)!
-    expect(shares).toHaveLength(1)
-    const asked = reads
-    expect(asked).toBeGreaterThan(loaded)
-    nearGroundAt(land, land.rays[0].azimuth)
-    expect(reads).toBe(asked)
+  it('means the dry cells by area in linear light, and leaves water out', () => {
+    const expected = linearRgbToSrgb([0.4 * 0.75 + 0.02 * 0.25, 0.3 * 0.75 + 0.04 * 0.25, 0.2 * 0.75 + 0.02 * 0.25])
+    const near = of([sand, 6], [wood, 2], ['water', 30]) as { albedo: RGB; source: string }
+    near.albedo.forEach((v, k) => expect(v).toBeCloseTo(expected[k], 9))
+    expect(near.source).toBe('sand')
   })
 
-  it('is unknown where no cover is loaded', () => {
-    expect(nearGroundAt(at(null), 0)).toBeUndefined()
+  it('is open water, not unknown, where every cell is water', () => {
+    expect(of(['water', 12])).toBe('water')
+  })
+
+  it('is unknown where the unclassified ground is as large as the classified dry ground', () => {
+    expect(of([sand, 2], [null, 2], ['water', 8])).toBeUndefined()
+    expect(of([null, 5], ['water', 8])).toBeUndefined()
+    expect(of([sand, 3], [null, 2])).toMatchObject({ source: 'sand' })
+  })
+})
+
+describe('the land\'s near ground', () => {
+  const at = (data: LandData | null, lat = SHADMOT.lat, lon = SHADMOT.lon, camera = SCENE_CAMERA) => livingLandOf({ lat, lon,
+    elevationM: -175, shownDate: '2026-11-15', shownUtcDate: '2026-11-15', camera, terrain: SHADMOT_TERRAIN, data })
+  const only = (cover: LandCover): LandData => ({ cover, near: null, far: null, weather: null })
+  const coverOf = (classAt: (lat: number, lon: number) => number): LandCover => ({
+    coverAt: classAt,
+    coverWithSourceAt: (lat, lon) => {
+      const cover = classAt(lat, lon)
+      return cover > 0 ? { cover, source: 'worldcover-2021:local-50m' } : { cover: null, source: 'unknown' }
+    },
+  })
+  const nearOf = (land: LivingLand) => land.rays.map(({ near }) => near)
+
+  it('reads a cover cell of the footprints once for all the rays', () => {
+    const read: string[] = []
+    const near = footprint(32.35, (e, n) => read.push(`${e.toFixed(1)}:${n.toFixed(1)}`))
+    for (let i = 0; i < LIVING_LAND_RAYS; i++) near(azimuthAt(i / (LIVING_LAND_RAYS - 1)))
+    console.info('near ground cells read on a place load', read.length)
+    expect(new Set(read).size).toBe(read.length)
+    // The circles lie in the circle of twice the radius about the eye: no more cells than it and its rim hold.
+    expect(read.length).toBeLessThan(Math.PI * (FIRST_RING_M + CELL_M) ** 2 / (CELL_M * CELL_M * Math.cos(32.35 * RAD)))
+  })
+
+  it('is in the land: a clone has it, and one cell of another class is another key', () => {
+    const wood = at(only(coverOf(() => 1)))
+    expect(structuredClone(wood)).toEqual(wood)
+    expect(nearOf(wood).every((near) => typeof near === 'object')).toBe(true)
+    // One cell 200 m south: between the eye and the first ring, under no ray band and no point of the 3 x 3 grid.
+    const row = Math.floor((SHADMOT.lat - 200 / M_PER_DEG) / LAND_STEP), col = Math.floor(SHADMOT.lon / LAND_STEP)
+    const glade = at(only(coverOf((lat, lon) => Math.floor(lat / LAND_STEP) === row && Math.floor(lon / LAND_STEP) === col ? 6 : 1)))
+    expect(glade.rays.map(({ bands }) => bands)).toEqual(wood.rays.map(({ bands }) => bands))
+    expect(glade.local).toEqual(wood.local)
+    expect(livingLandKey(glade)).not.toBe(livingLandKey(wood))
+  })
+
+  it('gives a class one colour where the climate changes under the footprint, whichever bearing is asked first', () => {
+    const dry = (lon: number) => climatologyAt(31.2, lon, -175, 11, 3).rgb.join()
+    let [west, east] = [34, 36]
+    expect(dry(west)).not.toBe(dry(east))
+    for (let i = 0; i < 40; i++) {
+      const mid = (west + east) / 2
+      if (dry(mid) === dry(west)) west = mid
+      else east = mid
+    }
+    const grass = only(coverOf(() => 3))
+    for (const lon of [west, east]) {
+      const eastFirst = at(grass, 31.2, lon), westFirst = at(grass, 31.2, lon, STORED_CAMERA)
+      expect(eastFirst.rays[0].azimuth).toBeCloseTo(westFirst.rays.at(-1)!.azimuth, 6)
+      expect(nearOf(eastFirst)).toEqual(nearOf(westFirst).reverse())
+      expect(new Set(nearOf(eastFirst).map((near) => JSON.stringify(near))).size).toBe(1)
+    }
+  })
+
+  it('is unknown without the cover grid, whatever the satellites see, and water where the cover is all water', () => {
+    expect(nearOf(at(null)).every((near) => near === undefined)).toBe(true)
+    expect(nearOf(at({ ...only(typedCover(4, 'unknown')), cover: null, near: makeNear(), far: makeFar() })).every((near) => near === undefined)).toBe(true)
+    expect(nearOf(at(only(coverOf(() => 0)))).every((near) => near === undefined)).toBe(true)
+    expect(nearOf(at(only(coverOf(() => COVER_WATER)))).every((near) => near === 'water')).toBe(true)
+  })
+
+  it('takes the satellite\'s colour of each cell where the cover tells it is dry', () => {
+    const seen = at({ cover: typedCover(4, 'worldcover-2021:local-50m'), near: makeNear(), far: null, weather: null })
+    expect(nearOf(seen)).toEqual(nearOf(seen).map(() => ({ albedo: expect.any(Array), source: 's2:2026-11-15' })))
+    nearOf(seen).forEach((near) => (near as { albedo: RGB }).albedo.forEach((v, k) => expect(v).toBeCloseTo(seen.own.albedo[k], 9)))
   })
 })

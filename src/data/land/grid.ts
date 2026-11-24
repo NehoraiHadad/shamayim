@@ -9,6 +9,8 @@ export const LAND_STEP = 0.1 / LAND_N
 /** Land cover classes, in a stable order (the stored letters are 'a' + index). */
 export const COVER = ['none', 'tree', 'shrub', 'grass', 'crop', 'built', 'bare', 'snow', 'water', 'wetland', 'moss'] as const
 export type Cover = typeof COVER[number]
+/** Open water's class (left out of land albedo; water is painted by `water.ts`). */
+export const COVER_WATER = COVER.indexOf('water')
 
 /** WorldCover's codes to our classes. */
 export function coverOfWorldCover(code: number): number {

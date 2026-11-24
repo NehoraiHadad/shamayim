@@ -1,5 +1,5 @@
 import { RAY_DISTANCES } from '../data/terrain/panorama'
-import type { LivingLand, LivingLandSample } from './landLiving'
+import type { LandRayColumn, LivingLand, LivingLandSample } from './landLiving'
 
 /**
  * Panorama ray sampling rings and allocation-free FNV-1a cache key for `WorldState.land`.
@@ -39,6 +39,10 @@ export function livingLandKey(land: LivingLand): string {
     mixNum(s.dryness); mixStr(s.drynessSource); mixStr(s.drynessDate)
     mixNum(s.snow); mixStr(s.snowSource); mixStr(s.snowDate)
   }
+  const mixNear = (near: LandRayColumn['near']) => {
+    if (typeof near !== 'object') { mixStr(near ?? null); return }
+    mixNum(near.albedo[0]); mixNum(near.albedo[1]); mixNum(near.albedo[2]); mixStr(near.source)
+  }
   mixStr(land.date); mixStr(land.utcDate); mix(land.month)
   mixStr(land.farGain.source); mix(land.farGain.cells)
   mixNum(land.farGain.rgb[0]); mixNum(land.farGain.rgb[1]); mixNum(land.farGain.rgb[2])
@@ -46,6 +50,7 @@ export function livingLandKey(land: LivingLand): string {
   for (const pt of land.local) { mix(pt.eastM); mix(pt.northM); mixNum(pt.elevationM); mixSample(pt.sample) }
   for (const col of land.rays) {
     mixNum(col.x); mixNum(col.azimuth)
+    mixNear(col.near)
     for (const b of col.bands) { mix(b.distanceM); mixNum(b.elevationM); mixSample(b.sample) }
   }
   return (h >>> 0).toString(36)
