@@ -7,17 +7,24 @@ import type { FieldLayer } from '../../world/field/types'
 /*
  * The field's cells are discs; a cloud's outline is not. The sheet reads the field through a smooth noise of the layer's
  * own air (it drifts with the cells, and hands over with them at midnight), so a rim near enough to show its shape swells
- * and gives as a cloud's does, and so does the gap between two. A displacement with no mean keeps the cover.
+ * and gives as a cloud's does, and so does the gap between two.
+ *
+ * One cell may gain or lose ground by it, the layer does not: each place reads the field at a place its own noise chose,
+ * which is independent of the field, and a field that is the same everywhere on average covers as much there as here. So
+ * no Jacobian is due: the mean of what is read at any place is the field's own (`cloudSheetSeen.test.ts` holds it to 1 %).
  */
 
-/**
- * Lobes round a mean cell and how far they stand out, in its radii: an outline of perimeter dimension 1.35 (Lovejoy 1982)
- * has a spectrum of amplitudes m^-(2 - 1.35 + 1/2), here from a cell half as wide as it is long (a second harmonic of 1/3)
- * to its third. The finer lobes are the painters' own.
- */
-const LOBES = 3, DEPTH = (2 / LOBES) ** 1.15 / 3
-/** The sampler's coarse octave (2/3 of it, value noise of standard deviation .21) at a sinusoid's deviation (1/√2). */
-const PEAK = DEPTH * Math.SQRT1_2 / (0.21 * 2 / 3)
+/** Lovejoy's (1982) perimeter dimension of clouds, 1–1000 km: an outline with amplitudes m^-(2 - D + 1/2) at its m lobes. */
+const DIMENSION = 1.35
+/** Look. The outermost lobes drawn: two would be a mere oval, finer ones are the painters' own. */
+const LOBES = 3
+/** Look. How far the spectrum's first, two lobes, stands out in radii: a cell half as wide as it is long (1 - a over 1 + a). */
+const OVAL = 1 / 3
+const DEPTH = OVAL * (2 / LOBES) ** (2.5 - DIMENSION)
+/** Value noise's standard deviation: a uniform corner's, 1/√12, by the mean square weight of its four corners, (26/35)². */
+const VALUE_NOISE = Math.sqrt(1 / 12) * 26 / 35
+/** The sampler's coarse octave (2/3 of it) brought to the deviation of a sinusoid that deep (1/√2 of its peak). */
+const PEAK = DEPTH * Math.SQRT1_2 / (VALUE_NOISE * 2 / 3)
 
 const samplers = new Map<string, ReturnType<typeof createClumpSampler>>()
 

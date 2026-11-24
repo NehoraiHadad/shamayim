@@ -1,9 +1,7 @@
 import { expect, it } from 'vitest'
 import { SCENE_CAMERA } from '../../domain/camera'
-import { layerSnapshot } from '../../world/field/density'
-import { cellTauAt } from '../../world/field/footprint'
+import { loneCell } from '../../test/loneCell'
 import { groundRangeAt } from '../../world/field/project'
-import type { FieldCell, FieldLayer } from '../../world/field/types'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
 import { cloudSheetOf } from './cloudSheet'
@@ -21,23 +19,6 @@ const worldOf = (id: string) => ({
   relief: { y: (altitude: number) => terrainY(box.landHeight, altitude) },
 }) as WorldState
 const geom = skyGeom(worldOf('shape'), box)
-
-/** One cell of a layer, alone in the sky: its sheet is drawn at its base. */
-function lone(genus: 'ac' | 'cu', x: number, y: number, r: number, vKm: number, heightKm: number) {
-  const lattice = genus === 'ac' ? 'mid' as const : 'low' as const
-  const layer: FieldLayer = {
-    lattice, baseKm: heightKm, meanVKm: vKm, kappa: 15, cover: 0.25, Q: 1, g: 1, floorTau: 0,
-    form: { conv: 0, strat: lattice === 'low' ? 0.55 : 0, sheet: 0, veil: 0 }, d: [0, 0], vel: [0, 0],
-  }
-  const cell: FieldCell = {
-    genus, lattice, id: 47, seed: 47, x, y, r, baseKm: layer.baseKm, vKm, tau0: 15, rainWeight: 0, share: 1, rank: 0,
-  }
-  const physical = layerSnapshot({ placeId: 'shape', t: 960, layers: [layer] }, lattice, 0, 0, 100)
-  const depth = (east: number, north: number) => cellTauAt(cell, east, north)
-  return { ...physical, cells: [cell], densityGrid: {
-    ...physical.densityGrid, tauAt: depth, resolvedTauAt: depth, expectedTauAt: () => 0,
-  } }
-}
 
 /** The painted widths (px) of a lone cloud at half its opacity, half a pixel a row, top to bottom. */
 function widths(sheet: LayerOf<'cloudSheet'>) {
@@ -58,7 +39,7 @@ it.each([
     const shapes = ['a', 'b', 'c'].flatMap((id) => [150, 180, 210].flatMap((azimuth) => [-2, -1, 0, 1, 2].map((step) => {
       const range = groundRangeAt(heightKm, elevation + step)
       const rows = widths(cloudSheetOf(worldOf(id), geom,
-        lone(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
+        loneCell(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
       const widest = Math.max(...rows), low = rows.slice(Math.floor(rows.length / 2))
       // A vase: how far the foot's half narrows before it widens again, and its width near its end.
       const waist = Math.max(0, ...low.map((wide, i) => Math.max(...low.slice(i)) - wide)) / widest
@@ -77,7 +58,7 @@ it.each([
 }, 30_000)
 
 it('draws no level rim: an overhead cell ends at an altitude that follows the air, not the projection', () => {
-  const heightKm = 5, snapshot = lone('ac', 0, 0, groundRangeAt(heightKm, 40), 0.4, heightKm)
+  const heightKm = 5, snapshot = loneCell('ac', 0, 0, groundRangeAt(heightKm, 40), 0.4, heightKm)
   const seen = seenDepth('shape', 960, snapshot, geom, snapshot.densityGrid.tauAt)
   const rim = Array.from({ length: 125 }, (_, i) => {
     const azimuth = geom.azimuthAt(3 * i) * RAD

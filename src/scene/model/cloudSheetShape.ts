@@ -8,7 +8,8 @@ import type { SkyGeom } from './sky'
 /*
  * One cell of a sheet as the eye sees it. The dome spreads altitude over a sky taller than it is wide, so a cell drawn by
  * its rays alone stands up as an egg, and the far rim of its base narrows to a point. Here it is made as much wider as it is
- * made lower, and an open one stands on its base.
+ * made lower about the range it is widest at, which stays where it truly is, as a tower's sides do; an open one's foot is
+ * its base's broad underside.
  *
  * The ground it covers and the depth it holds are kept exactly, whatever the shape. In the bearing φ and the square of the
  * range q the ground's area is ½ dφ dq, so a drawn place (φ, q) that shows the cell's own place (φ / W(q), F(q)) has the
@@ -31,8 +32,8 @@ export interface Shape {
   cumulus: boolean
   /** Its range (km) and its bearing as a unit vector, east and north. */
   d: number; east: number; north: number
-  /** The square of its widest range (km²), and of the range that is drawn at. */
-  mid: number; seat: number
+  /** The square of its widest range (km²), where it is seated. */
+  mid: number
   /** The bearing's scale there, and how it bends towards the foot. */
   wide: number; bend: number
   /** How far its foot and its crown are drawn from its seat, in the square of the range. */
@@ -76,11 +77,9 @@ export function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad
   // A foot shows as the cell is seen from its side; from right under it there is none.
   const foot = Math.min(FLAT * open * cos * weight, most / wide - 1)
   const far = 2 * r * (d + r) / (wide * (1 + foot / 3)), near = 2 * r * (d - r) / wide
-  // An open cell stands on the far edge of its base, as that is seen; one among others keeps its centre.
-  const centred = d * d + (0.5 - 1.5 / wide) * r * r
   return {
     cell, cumulus: cell.genus === 'cu' || cell.genus === 'cg' || cell.genus === 'cb',
-    d, east: cell.x / d, north: cell.y / d, mid: d * d - r * r, seat: centred + open * ((d + r) ** 2 - far - centred),
+    d, east: cell.x / d, north: cell.y / d, mid: d * d - r * r,
     wide, bend: foot * wide / (3 * far * far), far, near, cos: Math.max(0, Math.cos(half * wide * (1 + foot))),
     from: d - r, to: d + r,
   }
@@ -104,7 +103,7 @@ export function change(shape: Shape, x: number, y: number, range: number): numbe
   if (along <= range * shape.cos) return 0
   const inverse = 1 / (cell.r * cell.r), dx = x - cell.x, dy = y - cell.y
   const native = kernel(cell.tau0, (dx * dx + dy * dy) * inverse, shape.cumulus)
-  const up = range * range - shape.seat
+  const up = range * range - shape.mid
   if (up >= shape.far || up <= -shape.near) return -native
   const bend = up > 0 ? shape.bend * up * up : 0, square = shape.mid + up * (shape.wide + bend)
   const cos = narrowed((1 - along / range) / 2, shape.wide + 3 * bend)

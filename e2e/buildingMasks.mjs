@@ -47,7 +47,8 @@ export async function buildingMasks(png) {
   const q = values => values.length ? values.sort((a, b) => a - b)[Math.floor(values.length * .5)] : null
   const yAt = (rgba, i) => .2126 * lin[rgba[i]] + .7152 * lin[rgba[i + 1]] + .0722 * lin[rgba[i + 2]]
   const horizon = q(Array.from({ length: sky.length / 4 }, (_, j) => yAt(sky, j * 4)))
-  // The sky's red beside the tiles at 26° up, where `sky`'s rows stood under a dome with a kink at its join.
+  // The sky's red beside the tiles. 26° up is this fixture's choice, no property of the sky: where `sky`'s rows stood under
+  // the dome the thresholds were measured on, kept so they still compare the same sky.
   const { skyGeom } = await import('/src/scene/model/sky.ts')
   const level = Math.round(skyGeom(window.__world, box).dome(26)) - 5
   const red = full.getImageData(0, level, w, 10).data

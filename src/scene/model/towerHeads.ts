@@ -19,7 +19,9 @@ const SLENDER = [1.1, 2.2] as const
 const SHOULDERS = 3, OUT = [0.18, 0.3], WIDE = [0.45, 0.65], HIGH = [0.35, 0.88]
 /** How much lower a shoulder stands under an anvil: the mature column rises clear of them. */
 const UNDER_ANVIL = 0.35
-/** Look: how much wider an anvil's top is than the column; the height (0 base … 1 top) it flares from. */
+/** Look: how much wider an anvil's top is than the column; the height (0 base … 1 top) it flares from. A true anvil is
+ *  several columns wide and as thin as a seventh of the storm; on a sprite a few dozen px across that is a lid on a
+ *  stalk, so here it is twice the column, and spreads out of its upper half with no corner. */
 const ANVIL_FLARE = 1, FLARE_FROM = 0.45
 /** The anvil's own height under the column's overshooting top, which is this wide and stands this far off the middle. */
 const SHEET_TOP = 0.95, OVERSHOOT = 0.7, OFF = 0.3
@@ -41,14 +43,17 @@ export interface Head {
 
 export interface TowerHeadShape { seed: number; w: number; tall: number; anvil?: number }
 
-/** No tower is drawn more slender: a Cb 8–12 km deep and 5–8 km across (`LATTICES.tower`) is at most 1.6 times as tall as
- *  wide. The dome stretches a near one past it; it is drawn wider there, not a chimney. */
+/** Look. No tower is drawn more slender: a Cb 8–12 km deep and 5–8 km across (`LATTICES.tower`) is 1 to 2.4 times as tall
+ *  as wide, 1.6 at the middle of both. The dome stretches a near one past it; it is drawn wider there, not a chimney. */
 export const SLENDEREST = 1.6
-/** Above the cool-season Levant tropopause (km), a tall Cb can spread into an anvil, brought in over a column's last step
- *  to the most slender one (a cap on a squat body reads as a disc floating in the sky). */
-const TROPOPAUSE_KM = 11
+/** Look. The anvil is brought in over a column's last step to the most slender (a cap on a squat body reads as a disc
+ *  floating in the sky). */
+const STANDING = 1.5
+/** The lower of the winter's two tropopauses at 30–35° N, 10–12 km up (Randel, Seidel and Pan 2007), where a Cb's top
+ *  spreads. Look: from 1.5 km under it, as the day's own height in that range is not forecast. */
+const TROPOPAUSE_KM = 11, SPREADS_KM = 1.5
 export const towerAnvil = (cb: boolean, top: number, w: number, tall: number) =>
-  cb ? smoothstep(1.5, SLENDEREST, tall / w) * smoothstep(TROPOPAUSE_KM - 1.5, TROPOPAUSE_KM, top) : 0
+  cb ? smoothstep(STANDING, SLENDEREST, tall / w) * smoothstep(TROPOPAUSE_KM - SPREADS_KM, TROPOPAUSE_KM, top) : 0
 
 /** The main column first, then its shoulders, last the base they all stand on (the whole underside is its own). */
 export function headsOf(s: TowerHeadShape): Head[] {
