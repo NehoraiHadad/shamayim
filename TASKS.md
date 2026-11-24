@@ -1289,10 +1289,19 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] Owner approved the direction (round 2, 5afc056d), with fixes during the build
       - [x] Build plan: notes `real/BUILD-PLAN.md` (S0 and six slices A-F, needs N1-N9 for foundations, every open fix), reviewed by another model; lightened by the owner's bar
       - [x] S0 on main 5fb0d856 (CI run 45341294326, scratch `claude/real-meas-base`): notes `real/S0-BASELINE.md`; one dispatch again when the integration lands
-      - [ ] N1 the lamp, N2 the sky's grade, N3 bounds: the manager to foundations
+      - [~] N1 the lamp, N2 the sky's grade: on main c121ed23 (the canopy is not in N1); N3 bounds: the manager to foundations
       - [ ] Phase 2 after the manager opens `src/scene`: A town, B plane, C sky, D towers and low sun, E trees and sea, F weather; per slice: CI stills, drawn identical, one review; perf at S0, B, C, end
-      - [~] A, night half (`claude/real-town`): street light behind each nearer body, window bloom, far shore lights down the sea,
+      - [~] A, night half (`claude/real-town`, e73c6b42, owner approved, the manager integrates): street light behind each nearer body, window bloom, far shore lights down the sea,
             folded windows on bodies of unresolved storeys (`paint/real/town/`). Codex review: 8 findings, reflections fixed. Written down, not
             chased: a lit pane's bloom pops with the pane; `shine.windows` keyed in 1/64 (a ramp of the strip's poses); the shrine's
             floodlight blooms as a window; glows squeeze at the layer's edge. Day half waits for the label slice
+      - [~] C and part of D, cloud bodies (`claude/real-sky`): one cloud hand for sheets and towers (`paint/real/cloud/`: noise, grain, light
+            marched to sun, sky and base, tone, soft cover); the horizon strip stays the far deck's mean (land-light's 2 % gate).
+            Gates re-measured with a reason: Tiberias 12:00 and 16:30, Jerusalem 16:30 (`landLighting.mjs`), high-pass room 1.36 (`buildingLight.mjs`).
+            Codex reviews: 7 findings, 5 fixed; the rest of the commits: 7, none high, 2 fixed, gate baseline kept. For the shared model: the
+            lamp's half-degree altitude steps the moon's and dusk's light on the sheets, the tower key lacks `tau`, a combed veil and a hole's
+            wall may pass the dust bound, a low sheet's beam ignores the upper deck. Written down, not chased: deckOpenness' hard node count and the mean anchor shifting as a bank
+            enters; closed decks' and veils' tone not premultiplied; lamp bits in their keys; tower octave switch at 70 px; towers' crowns not
+            capped in dust; a twilight body keeps a faint ring. Perf over main d0195813: scrub latency, animation and memory flat;
+            first paint dearer (firstShown +5..37 %, 21-86 ms once; cold sky and land +19..29 %, over the +15 % cap), thunder batch sky +20..38 %: the manager's call
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)

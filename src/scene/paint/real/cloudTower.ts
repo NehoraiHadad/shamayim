@@ -16,7 +16,7 @@ export function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: 
     const shape = towerShape(sprite), tone = towerTone(sprite, shape)
     return { depth: shape.depth, reach: shape.reach, at: (px, py) => {
       const here = shape.at(px, py)
-      return here && { a: here.a, rgb: tone(px, py, here.bump) }
+      return here && { a: here.a, rgb: tone(px, py, here) }
     } }
   })
 }

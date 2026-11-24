@@ -6,7 +6,7 @@ import { mix } from '../base/hand'
 export { deckOpenness } from '../../../model/cloudPaintBounds'
 
 /** The model's colour for a tone: lit at 0, the body at ½, the shaded underside at 1. */
-export function toneOf({ lit, body, shade }: LayerOf<'cloudSheet'>, tone: number): RGB {
+export function toneOf({ lit, body, shade }: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 'shade'>, tone: number): RGB {
   const t = Math.min(1, Math.max(0, tone))
   return t < 0.5 ? mix(lit, body, t * 2) : mix(body, shade, t * 2 - 1)
 }
