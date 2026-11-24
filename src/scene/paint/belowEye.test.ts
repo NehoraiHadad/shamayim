@@ -4,8 +4,7 @@ import { carriedSheet } from '../model/advect'
 import { skyBelowEye } from '../model/crest'
 import type { SkyGeom } from '../model/skyGeom'
 import type { LayerOf, SceneBox } from '../model/types'
-import { paintDrawnSheet } from './drawn/cloudSheet'
-import { paintCloudSheet } from './real/cloudSheet'
+import { painterOf, SCENE_STYLES } from './painters'
 import type { Ctx2D, PaintEnv } from './shared/base/hand'
 import { paintRows } from './shared/sky/skyRows'
 
@@ -26,14 +25,14 @@ const sheet = (alpha: number): LayerOf<'cloudSheet'> => ({
 
 interface Texels { data: Uint8ClampedArray; width: number; height: number }
 
-function painted(paint: (ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: PaintEnv) => void, desc: LayerOf<'cloudSheet'>) {
+function painted(style: (typeof SCENE_STYLES)[number], desc: LayerOf<'cloudSheet'>) {
   const draws: number[][] = [], rasters: Texels[] = []
   const scratch = {
     createImageData: (width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4), width, height }),
     putImageData: (image: Texels) => { rasters.push(image) },
   }
   const ctx = { save() {}, restore() {}, globalAlpha: 1, drawImage: (_: unknown, ...args: number[]) => draws.push(args) } as unknown as Ctx2D
-  paint(ctx, desc, { hand: { grain: 1 }, phase: 0, scale: 1, canvas: () => ({ canvas: {}, ctx: scratch }) } as unknown as PaintEnv)
+  painterOf(desc, style)!.form(ctx, desc, { hand: { grain: 1 }, phase: 0, scale: 1, canvas: () => ({ canvas: {}, ctx: scratch }) } as unknown as PaintEnv)
   return { draw: draws[0], raster: rasters[0] }
 }
 
@@ -52,12 +51,13 @@ describe('the sky below eye level', () => {
     expect(bands[bands.length - 1].y).toBeGreaterThanOrEqual(330)
   })
 
-  it.each([['real', paintCloudSheet], ['drawn', paintDrawnSheet]] as const)('a %s sheet carries its eye-level row down, the rest as without it', (_, paint) => {
-    const level = painted(paint, sheet(0.9)), dipped = painted(paint, carriedSheet(sheet(0.9), 0, BELOW))
+  it.each(SCENE_STYLES)('%s: a sheet goes on under eye level from its own row there, the rest as without it', (style) => {
+    const level = painted(style, sheet(0.9)), dipped = painted(style, carriedSheet(sheet(0.9), 0, BELOW))
     const { width, height, data } = dipped.raster, row = (j: number) => Array.from(data.slice(j * width * 4, (j + 1) * width * 4))
     expect(width).toBe(level.raster.width)
     expect(Array.from(data.slice(0, level.raster.data.length))).toEqual(Array.from(level.raster.data))
-    for (let j = level.raster.height; j < height; j++) expect(row(j)).toEqual(row(level.raster.height - 1))
+    const above = Array.from({ length: level.raster.height }, (_, j) => row(j)).reverse()
+    for (let k = 0; k < height - above.length; k++) expect([above[0], above[k + 1]]).toContainEqual(row(above.length + k))
     // The same px per raster row, and down to the far horizon.
     expect(dipped.draw[7] / dipped.draw[3]).toBeCloseTo(level.draw[7] / level.draw[3], 9)
     expect(dipped.draw[5] + dipped.draw[7]).toBeGreaterThanOrEqual(330 + BELOW)

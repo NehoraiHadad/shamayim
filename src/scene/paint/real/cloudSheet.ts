@@ -2,7 +2,7 @@ import { sheetPaintBound } from '../../model/cloudPaintBounds'
 import { CORE_LEAK } from '../../model/cloudSprite'
 import type { LayerOf } from '../../model/types'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
-import { carryDown, rowsBelow } from '../shared/cloud/belowEye'
+import { rowsBelow, turnDown } from '../shared/cloud/belowEye'
 import { throughAir } from '../shared/cloud/throughAir'
 import { lampLight } from './cloud/lampLight'
 import { RASTER, sheetField, type SheetField } from './cloud/sheetField'
@@ -32,7 +32,7 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const image = sheet.createImageData(w, h + more)
   colour(image.data, desc, field)
   throughAir(image.data, w, h, desc)
-  carryDown(image.data, w * 4, h, more)
+  turnDown(image.data, w * 4, h, more)
   sheet.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
