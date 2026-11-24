@@ -13,7 +13,7 @@ const CELL_M = LAND_STEP * M_PER_DEG
 /** Equator, mid-latitude, and where the grid's columns are narrower than half a cell. */
 const LATS = [0, 32.35, 62]
 const ground = (lat: number, read: (eastM: number, northM: number) => number) =>
-  nearGroundOf(lat, 35.0123, Math.cos(lat * RAD), (e, n) => ({ cover: read(e, n) }) as unknown as LivingLandSample)
+  nearGroundOf(lat, 35.0123, Math.cos(lat * RAD), (e, n) => ({ cover: read(e, n) }) as LivingLandSample)
 const areaOf = (lat: number, near: NearGround, azimuth: number) => {
   const cosLat = Math.cos(lat * RAD)
   return near(azimuth).reduce((sum, { weight }) => sum + weight, 0) * CELL_M * CELL_M * cosLat * Math.max(1, Math.round(1 / cosLat))
@@ -57,21 +57,22 @@ describe('the land\'s near ground', () => {
   const at = (data: Parameters<typeof livingLandOf>[0]['data']) => livingLandOf({ lat: SHADMOT.lat, lon: SHADMOT.lon,
     elevationM: -175, shownDate: '2026-11-15', shownUtcDate: '2026-11-15', camera: SCENE_CAMERA, terrain: SHADMOT_TERRAIN, data })
 
-  it('costs the place load no cover reads, and one per cell when first asked', () => {
+  it('costs the place load no cover reads, and one sample a class when first asked', () => {
     let reads = 0
     const town = typedCover(5, 'worldcover-2021:local-50m')
     const cover: LandCover = { ...town, coverWithSourceAt: (lat, lon) => { reads++; return town.coverWithSourceAt!(lat, lon) } }
     const land = at({ cover, near: null, far: null, weather: null })
     const loaded = reads
     expect(loaded).toBeLessThanOrEqual(1 + land.local.length + land.rays.length * land.distancesM.length)
-    const shares = nearGroundAt(land, land.rays[0].azimuth)
-    expect(reads).toBe(loaded + shares.length)
+    const shares = nearGroundAt(land, land.rays[0].azimuth)!
+    expect(shares).toHaveLength(1)
+    const asked = reads
+    expect(asked).toBeGreaterThan(loaded)
     nearGroundAt(land, land.rays[0].azimuth)
-    expect(reads).toBe(loaded + shares.length)
+    expect(reads).toBe(asked)
   })
 
-  it('is the place\'s own sample where no cover is loaded', () => {
-    const land = at(null)
-    expect(nearGroundAt(land, 0)).toEqual([{ sample: land.own, weight: 1 }])
+  it('is unknown where no cover is loaded', () => {
+    expect(nearGroundAt(at(null), 0)).toBeUndefined()
   })
 })

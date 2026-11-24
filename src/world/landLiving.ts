@@ -57,9 +57,8 @@ export interface LivingLandInput {
 // Beside the land, not in it: the state stays cloneable, and a place load reads none of these cells.
 const nearGrounds = new WeakMap<LivingLand, NearGround>()
 
-/** The cover between the eye and the first DEM ring on a bearing; the place's own sample where no cover is loaded. */
-export const nearGroundAt = (land: LivingLand, azimuth: number): GroundShare[] =>
-  nearGrounds.get(land)?.(azimuth) ?? [{ sample: land.own, weight: 1 }]
+/** The cover between the eye and the first DEM ring on a bearing, where cover is loaded. */
+export const nearGroundAt = (land: LivingLand, azimuth: number): GroundShare[] | undefined => nearGrounds.get(land)?.(azimuth)
 
 /** Builds the pure, structured-cloneable living-land state for a place on `(shownDate, shownUtcDate)`. */
 export function livingLandOf(input: LivingLandInput): LivingLand {
@@ -72,8 +71,9 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
   const cosLat = Math.max(1e-6, Math.cos(lat * RAD))
 
   const elevationNear = (eastM: number, northM: number) => terrain.heightNear?.(eastM / 1000, northM / 1000) ?? elevationM
-  const sampleNear = (eastM: number, northM: number) => samplePoint(sampler, lat + northM / M_PER_DEG,
-    lon + eastM / (M_PER_DEG * cosLat), elevationNear(eastM, northM), shownDate, utcDate, month, farGain)
+  const geoNear = (eastM: number, northM: number) => [lat + northM / M_PER_DEG, lon + eastM / (M_PER_DEG * cosLat)] as const
+  const sampleNear = (eastM: number, northM: number, elevM = elevationNear(eastM, northM)) =>
+    samplePoint(sampler, ...geoNear(eastM, northM), elevM, shownDate, utcDate, month, farGain)
 
   const local: LandLocalPoint[] = []
   for (const northM of LOCAL_OFFSETS_M) {
@@ -99,6 +99,15 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
   }
 
   const land = { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain }
-  if (data.cover || data.near) nearGrounds.set(land, nearGroundOf(lat, lon, cosLat, sampleNear))
+  if (data.cover || data.near) {
+    // Around the eye the climatology knows one colour a cover class: one sample of it, and one a cell where a satellite sees the cells.
+    const ofCover = data.near || data.far ? null : new Map<number | null, LivingLandSample>(), eyeElevationM = elevationNear(0, 0)
+    nearGrounds.set(land, nearGroundOf(lat, lon, cosLat, (eastM, northM) => {
+      const { cover } = sampler.coverAt(...geoNear(eastM, northM))
+      const sample = ofCover?.get(cover) ?? sampleNear(eastM, northM, eyeElevationM)
+      ofCover?.set(cover, sample)
+      return sample
+    }))
+  }
   return land
 }

@@ -1,15 +1,18 @@
 //# allFunctionsCalledOnLoad
 import { unknownLandRgb } from '../../data/land/climatology'
-import { nearGroundAt, type LivingLand } from '../../world/landLiving'
+import type { LivingLand } from '../../world/landLiving'
 import { linearRgbToSrgb, tciRgbToReflectance } from '../../world/landRadiometry'
 import { FIRST_RING_M } from '../../world/nearGround'
 import type { RGB } from '../../world/types'
-import { labOf, rgbOfLab, toLinear } from './tone'
+import { COVER_WATER, dominantWeightedSource, nearTone } from './nearTone'
+import { labOf, rgbOfLab } from './tone'
 
 /**
  * Deterministic Oklab palette quantisation and ray-band albedo sampling (Stages 3 & 7 round 2: living land).
  * Raw BOA sRGB albedos are preserved without lightness squeezing; lighting, compression and chroma live in `landRadiance.ts`.
  */
+
+export { COVER_WATER, dominantWeightedSource }
 
 /** Minimum squared Oklab separation between quantised centroids (~0.018 ΔE). */
 const MIN_CLUSTER_SEP_SQ = 0.018 * 0.018
@@ -59,8 +62,6 @@ export function quantiseTones(tones: readonly RGB[], maxColours: number): { pale
   return { palette: centers.map((c) => roundRgb(rgbOfLab(c))), indices }
 }
 
-/** WorldCover open water class (excluded from land-plane albedo; water is painted by `water.ts`). */
-export const COVER_WATER = 8
 const lerpRgb = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 
 /** Non-water fallback when rays lack dry land: non-water centre -> closest non-water local point -> explicit land climatology. */
@@ -77,34 +78,8 @@ export function nonWaterLocalFallback(land: LivingLand): { albedo: RGB; source: 
   return { albedo: linearRgbToSrgb(tciRgbToReflectance(unknownLandRgb(land.own.dryness))), source: 'climatology' }
 }
 
-/** Picks the source label carrying the highest total contribution weight. */
-export function dominantWeightedSource(entries: readonly { source: string; weight: number }[]): string {
-  const sums = new Map<string, number>()
-  for (const { source, weight } of entries) if (weight > 0) sums.set(source, (sums.get(source) ?? 0) + weight)
-  let best = entries[0]?.source ?? 'climatology', bestW = -1
-  for (const [src, w] of sums) if (w > bestW) { bestW = w; best = src }
-  return best
-}
-
-/** The panorama's profiles place the ground by 700 m, their fourth ring; from there in, the rays give way to the near ground. */
-const RAYS_FROM_M = 700
-interface NearTone { albedo: RGB; contribs: { source: string; weight: number }[] }
-const nearTones = new WeakMap<LivingLand, Map<number, NearTone | null>>()
-
-/** The dry ground's mean reflectance between the eye and the first DEM ring on a bearing; null over open water. */
-function nearTone(land: LivingLand, azimuth: number): NearTone | null {
-  let byBearing = nearTones.get(land)
-  if (!byBearing) nearTones.set(land, byBearing = new Map())
-  const hit = byBearing.get(azimuth)
-  if (hit !== undefined) return hit
-  const dry = nearGroundAt(land, azimuth).filter(({ sample }) => sample.cover !== COVER_WATER)
-  const sum = dry.reduce((total, { weight }) => total + weight, 0)
-  const mean = (k: number) => dry.reduce((total, { sample, weight }) => total + toLinear(sample.albedo[k]) * weight, 0) / sum
-  const tone = sum > 0 ? { albedo: linearRgbToSrgb([mean(0), mean(1), mean(2)]),
-    contribs: dry.map(({ sample, weight }) => ({ source: sample.albedoSource, weight: weight / sum })) } : null
-  byBearing.set(azimuth, tone)
-  return tone
-}
+/** The first ring's footprint is as deep as the ring is far; past the ring the rays take over across its radius. */
+const RAYS_FROM_M = FIRST_RING_M * 1.5
 
 /** Samples light-free land albedo & provenance along a ray column at distance `km` (log-interpolated, water-excluded). */
 export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; source: string } {
@@ -142,7 +117,7 @@ export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { 
     const share = clamp((RAYS_FROM_M - distM) / (RAYS_FROM_M - FIRST_RING_M), 0, 1)
     albedo = lerpRgb(albedo, near.albedo, share)
     for (const c of contribs) c.weight *= 1 - share
-    for (const { source, weight } of near.contribs) contribs.push({ source, weight: weight * share })
+    contribs.push({ source: near.source, weight: share })
   }
   return { albedo, source: dominantWeightedSource(contribs) }
 }

@@ -1,13 +1,14 @@
 //# allFunctionsCalledOnLoad
 import type { OutsideFrame } from '../../data/city/outsideView'
-import type { LivingLand } from '../../world/landLiving'
+import type { LandLocalPoint, LivingLand } from '../../world/landLiving'
 import type { OutsideView, RGB, WorldState } from '../../world/types'
-import { COVER_WATER, dominantWeightedSource, nonWaterLocalFallback, quantiseTones } from './landPalette'
+import { nonWaterLocalFallback, quantiseTones } from './landPalette'
 import { linearLuminance, litLandRgb, srgbRgbToLinear, surfaceNormal } from './landRadiance'
 import { snowyAlbedo } from './landSnow'
 import { smoothstep } from '../../world/ridgeLighting'
 import { hazeAt, hazeOf } from './landVeil'
 import { skyAt } from './sky'
+import { COVER_WATER, dominantWeightedSource, ownGroundTone, type GroundTone } from './nearTone'
 import { mixLight, mixRgb } from './tone'
 import type { OutsideLandDesc, Pt, SceneBox } from './types'
 
@@ -25,6 +26,12 @@ const OUTSIDE_NORMAL = surfaceNormal(0, 0.08)
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v)
 const medianByLum = (tones: readonly RGB[]) =>
   [...tones].sort((a, b) => linearLuminance(srgbRgbToLinear(a)) - linearLuminance(srgbRgbToLinear(b)))[Math.floor(tones.length / 2)]
+
+/** A point of the local grid: the place's own ground at the centre, the point's cell elsewhere; null on open water. */
+function groundAt(land: LivingLand, { eastM, northM, sample }: LandLocalPoint): GroundTone | null {
+  const own = eastM === 0 && northM === 0 ? ownGroundTone(land) : null
+  return own ?? (sample.cover === COVER_WATER ? null : { albedo: sample.albedo, source: sample.albedoSource })
+}
 
 /** Bilinearly samples `world.land.local` at `(eastM, northM)`, excluding open water (`COVER_WATER = 8`). */
 export function sampleLocalField(land: LivingLand, eastM: number, northM: number): { albedo: RGB; source: string } {
@@ -51,9 +58,10 @@ export function sampleLocalField(land: LivingLand, eastM: number, northM: number
   let r = 0, g = 0, b = 0, wSum = 0
   const contribs: { source: string; weight: number }[] = []
   for (const { pt, w } of corners) {
-    if (!pt || w <= 0 || pt.sample.cover === COVER_WATER) continue
-    r += pt.sample.albedo[0] * w; g += pt.sample.albedo[1] * w; b += pt.sample.albedo[2] * w
-    wSum += w; contribs.push({ source: pt.sample.albedoSource, weight: w })
+    const tone = pt && w > 0 ? groundAt(land, pt) : null
+    if (!tone) continue
+    r += tone.albedo[0] * w; g += tone.albedo[1] * w; b += tone.albedo[2] * w
+    wSum += w; contribs.push({ source: tone.source, weight: w })
   }
   if (wSum > 0) return { albedo: [r / wSum, g / wSum, b / wSum], source: dominantWeightedSource(contribs) }
   let best = null as (typeof pts)[number] | null, bestD = Infinity

@@ -9,7 +9,7 @@ import type { LivingLandSample } from './landSample'
  * stretch as its diameter. Cover cells are read one by one, when a bearing first asks for them.
  */
 export interface GroundShare { sample: LivingLandSample; weight: number }
-/** The cells under the footprint on a bearing (degrees), each with the share of its area that lies inside. */
+/** What lies under the footprint on a bearing (degrees): each sample once, with the area of its cells inside (in cells). */
 export type NearGround = (azimuth: number) => GroundShare[]
 
 const RAD = Math.PI / 180
@@ -26,9 +26,9 @@ export function nearGroundOf(
   // From the eye to the centre of its own cell.
   const centre = (deg: number) => (Math.floor(deg / LAND_STEP) + 0.5) * LAND_STEP - deg
   const east0 = centre(lon) * M_PER_DEG * cosLat, north0 = centre(lat) * M_PER_DEG
-  const held = new Map<string, LivingLandSample>()
+  const held = new Map<number, LivingLandSample>()
   const cell = (col: number, row: number) => {
-    const key = `${col}:${row}`
+    const key = row * 1024 + col
     let sample = held.get(key)
     if (!sample) held.set(key, sample = sampleAt(east0 + col * eastStep, north0 + row * CELL_M))
     return sample
@@ -38,13 +38,15 @@ export function nearGroundOf(
     const east = RADIUS_M * Math.sin(azimuth * RAD), north = RADIUS_M * Math.cos(azimuth * RAD)
     const firstCol = Math.ceil((east - reach - east0) / eastStep), lastCol = Math.floor((east + reach - east0) / eastStep)
     const firstRow = Math.ceil((north - reach - north0) / CELL_M), lastRow = Math.floor((north + reach - north0) / CELL_M)
-    const out: GroundShare[] = []
+    const areas = new Map<LivingLandSample, number>()
     for (let row = firstRow; row <= lastRow; row++) for (let col = firstCol; col <= lastCol; col++) {
       // The rim crosses a cell over the cell's own width, so its share falls from 1 to 0 over that width.
       const d = Math.hypot(col * eastStep + east0 - east, row * CELL_M + north0 - north)
       const weight = Math.min(1, (RADIUS_M - d) / CELL_M + 0.5)
-      if (weight > 0) out.push({ sample: cell(col, row), weight })
+      if (weight <= 0) continue
+      const sample = cell(col, row)
+      areas.set(sample, (areas.get(sample) ?? 0) + weight)
     }
-    return out
+    return Array.from(areas, ([sample, weight]) => ({ sample, weight }))
   }
 }
