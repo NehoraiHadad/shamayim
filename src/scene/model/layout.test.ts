@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { LABEL_H, LABEL_PX, textWidth } from '../../world/layout'
-import { BACKING_PAD, heightLabelBox } from '../../world/sceneClearance'
+import { BACKING_PAD } from '../../world/place'
+import { heightLabelBox } from '../../world/sceneClearance'
 import type { WorldState } from '../../world/types'
 import { layoutOf } from './layout'
 import type { SceneBox } from './types'
@@ -42,17 +43,17 @@ describe('height label size: one source of truth for CSS and collision layout', 
     expect(LABEL_H).toBe(LABEL_PX * Number(lh![1]))
   })
 
-  it('reserves the full 12 px type and backing in the model', () => {
+  it('reserves the full unbacked line and leaves the backed label out of clearance', () => {
     const dot = { x: 187.5, y: 80 }
-    const height = { text: '−137 מ׳', x: dot.x, y: 60, below: true, backed: true, leader: null }
-    const w12 = textWidth(height.text, 12)
-    expect(w12).toBeGreaterThan(textWidth(height.text, 11))
+    const height = { text: '−137 מ׳', x: 187.5, y: 60, below: true }
     const world = { place3: { dot }, labels: { height, notes: [], datum: null } } as unknown as WorldState
-    const [, labelClear] = layoutOf(world, BOX).clear
-    expect(labelClear).toEqual({ ...heightLabelBox(height, BOX.width), overFabric: true })
-    expect(labelClear.w).toBe(w12 + 2 * BACKING_PAD)
-    expect(labelClear.h).toBe(LABEL_H + 2 * BACKING_PAD)
-    const overlayCss = readFileSync(new URL('../react/SceneOverlay.module.css', import.meta.url), 'utf8')
-    expect(Number(cssBodiesFor(overlayCss, '.backed').match(/padding:\s*([\d.]+)px/)?.[1])).toBe(BACKING_PAD)
+    const w = textWidth(height.text, LABEL_PX)
+    expect(w).toBeGreaterThan(textWidth(height.text, 11))
+    expect(layoutOf(world, BOX).clear[1]).toEqual({ x: height.x - w / 2, y: height.y, w, h: LABEL_H })
+    const backed = { ...height, backed: true }
+    expect(layoutOf({ ...world, labels: { ...world.labels, height: backed } }, BOX).clear).toHaveLength(1)
+    expect(heightLabelBox(backed, BOX.width)).toMatchObject({ w: w + 2 * BACKING_PAD, h: LABEL_H + 2 * BACKING_PAD })
+    const css = readFileSync(new URL('../react/SceneOverlay.module.css', import.meta.url), 'utf8')
+    expect(Number(cssBodiesFor(css, '.backed').match(/padding:\s*([\d.]+)px/)?.[1])).toBe(BACKING_PAD)
   })
 })

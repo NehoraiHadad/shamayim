@@ -1,28 +1,22 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { unpackPanorama, type StoredPanorama } from '../data/terrain/panorama'
-import { noteBoxes } from '../data/terrain/sceneNotes'
+import { sceneModel } from '../scene/model'
+import { layoutOf } from '../scene/model/layout'
 import { outsideShape } from '../scene/model/outsideShape'
-import type { OutsideItem } from '../scene/model/types'
 import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
-import { coveredArea, besideDot } from './heightLabel'
-import { headHeightSpot } from './heightLabelHead.fixture'
-import { portraitLabelObstacles } from './heightLabelObstacles'
-import { DOT_R, VISIBLE_BOTTOM, type Box } from './layout'
-import { markBox } from './markGeometry'
+import { measureHeightLabel } from './heightLabelTiming'
+import { DOT_R, overlaps, VISIBLE_BOTTOM, type Box } from './layout'
 import { heightLabelBox, hits, sceneClearance, type ScreenBox } from './sceneClearance'
 import { SCENE_W } from './sceneBox'
 import { buildWorld } from './world'
 
 const BOX = { width: SCENE_W, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
+const WIDTHS = [320, 360, SCENE_W, 430, 520]
 const records = new URL('../test/fixtures/scene/', import.meta.url)
 const ids = readdirSync(records).filter(file => file.endsWith('.panorama.json')).map(file => file.replace('.panorama.json', ''))
 const places = [...SCENE_PLACES, ...DATUM_PLACES, ...STILL_PLACES, ...SKYLINE_STUDY_PLACES, ...VILLAGE_PLACES]
-const elevations = new Map(ids.map(id => {
-  const raw = JSON.parse(readFileSync(new URL(id + '.panorama.json', records), 'utf8')) as StoredPanorama
-  return [id, unpackPanorama(raw)!.groundM]
-}))
 let loaded: Map<string, LoadedPlace>
 
 beforeAll(async () => {
@@ -31,94 +25,120 @@ beforeAll(async () => {
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 
-function rect({ x, y, w, h }: ScreenBox): Box {
-  return { left: x, right: x + w, top: y, bottom: y + h }
-}
+const rect = ({ x, y, w, h }: ScreenBox) => ({ left: x, right: x + w, top: y, bottom: y + h })
+const signature = (...geometry: number[]) => geometry.join()
 
-// Count a fabric pixel once, including overlapping rows, by sweeping the
-// rectangle boundaries and merging the occupied intervals on each strip.
-function fabricArea(boxes: readonly Box[], clip: Box) {
-  const inside = boxes.filter(b => coveredArea(b, clip) > 0).map(b => ({
+function unionArea(boxes: readonly Box[], clip: Box) {
+  const inside = boxes.filter(b => overlaps(b, clip)).map(b => ({
     left: Math.max(b.left, clip.left), right: Math.min(b.right, clip.right),
     top: Math.max(b.top, clip.top), bottom: Math.min(b.bottom, clip.bottom),
-  }))
+  })).sort((a, b) => a.top - b.top)
   const xs = [...new Set(inside.flatMap(b => [b.left, b.right]))].sort((a, b) => a - b)
   let area = 0
   for (let i = 1; i < xs.length; i++) {
-    const intervals = inside.filter(b => b.left < xs[i] && b.right > xs[i - 1]).sort((a, b) => a.top - b.top)
-    let y = clip.top, height = 0
-    for (const b of intervals) {
-      height += Math.max(0, b.bottom - Math.max(b.top, y))
-      y = Math.max(y, b.bottom)
+    let bottom = clip.top
+    for (const b of inside) if (b.left < xs[i] && b.right > xs[i - 1]) {
+      area += (xs[i] - xs[i - 1]) * Math.max(0, b.bottom - Math.max(bottom, b.top))
+      bottom = Math.max(bottom, b.bottom)
     }
-    area += height * (xs[i] - xs[i - 1])
   }
   return area
 }
 
-it.each(ids)('%s keeps its own fabric visible and its height stable through the day', id => {
+it.each(ids)('%s preserves the fabric and keeps its badge clear across viewport widths', id => {
   const loadedPlace = loaded.get(id)!
+  const raw = JSON.parse(readFileSync(new URL(id + '.panorama.json', records), 'utf8')) as StoredPanorama
+  const elevation = unpackPanorama(raw)!.groundM
   const at = (time: '12:00' | '21:00') => {
     const input = worldInput(loadedPlace, `2026-11-17T${time}`)
-    return buildWorld({ ...input, forecast: { ...input.forecast, elevation: elevations.get(id)! } })
+    return buildWorld({ ...input, forecast: { ...input.forecast, elevation } })
   }
-  const world = at('12:00')
+  const world = measureHeightLabel(id, () => at('12:00'))
   const view = world.place3
   if (view.kind !== 'outside') throw new Error(`Missing outside view for ${id}`)
   const { dot } = view
   const { height, notes, datum } = world.labels
-  const clear = sceneClearance(world.labels, dot, BOX.width)
-  const placed = outsideShape(world, BOX, clear).items
-  const own = placed.filter((item): item is Extract<OutsideItem, { kind: 'box' }> => item.kind === 'box' && !item.beyond)
-  const expected = view.skyline.boxes.filter(b => !hits(clear.filter(zone => !zone.overFabric),
-    b.x - b.w / 2, b.top, b.x + b.w / 2, b.foot))
-  const geometry = ({ x, w, top, foot }: Pick<(typeof expected)[number], 'x' | 'w' | 'top' | 'foot'>) => [x, w, top, foot].join()
-  expect(own.map(geometry).sort()).toEqual(expected.map(geometry).sort())
 
-  const line = (datum?.segments ?? []).map(seg => ({ left: seg.x1, right: seg.x2, top: datum!.y - 1, bottom: datum!.y + 1 }))
-  const oldMarks = world.marks.filter(mark => mark.plane !== 'far').map(markBox)
-  const noteZones = noteBoxes(notes)
-  const oldObstacles = [...oldMarks, ...line, ...noteZones]
-  const newObstacles = [...portraitLabelObstacles(view, dot, BOX.width), ...world.marks.map(markBox), ...line, ...noteZones]
-  const old = () => headHeightSpot(dot, height.text, BOX.width, oldObstacles)
-  const next = () => besideDot(dot, height.text, BOX.width, newObstacles)
-  const before = old()
-  expect(next()).toMatchObject({ x: height.x, y: height.y, leader: height.leader })
+  for (const width of WIDTHS) {
+    const sx = width / SCENE_W
+    const box = { ...BOX, width }
+    const noteZones = notes.map(n => ({ x: n.left * sx, y: n.top, w: n.width, h: n.height }))
+    const clear = sceneClearance(world.labels, dot, width)
+    expect(clear).toEqual([{ x: dot.x * sx - DOT_R, y: dot.y - DOT_R, w: 2 * DOT_R, h: 2 * DOT_R }, ...noteZones])
+    const placed = outsideShape(world, box, clear).items
+    const clearOfNotes = (x: number, half: number, top: number, bottom: number) =>
+      !hits(noteZones, x - half, top, x + half, bottom)
+    const expected = [
+      ...view.skyline.boxes.filter(b => clearOfNotes(b.x * sx, b.w * sx / 2, b.top, b.foot))
+        .map(b => signature(b.x * sx, b.w * sx, b.top, b.foot)),
+      ...view.skyline.towers.filter(t => clearOfNotes(t.x * sx, t.w / 2, t.baseY - t.h, t.baseY))
+        .map(t => signature(t.x * sx, t.w, t.baseY - t.h, t.baseY)),
+      ...view.trees.filter(t => clearOfNotes(t.x * sx, t.w, t.base - t.h, t.base))
+        .map(t => signature(t.x * sx, t.w, t.base - t.h, t.base)),
+    ]
+    const own = placed.flatMap(item => {
+      if (item.kind === 'box' && !item.beyond) return [signature(item.x, item.w, item.top, item.foot)]
+      if (item.kind === 'tower' && view.skyline.towers.some(t => t.seed === item.seed)) {
+        return [signature(item.x, item.w, item.base - item.h, item.base)]
+      }
+      if (item.kind === 'tree') {
+        const t = item.tree
+        return [signature(t.x, t.w, t.base - t.h, t.base)]
+      }
+      return []
+    })
+    expect(own.sort()).toEqual(expected.sort())
 
-  // Use the wall and roof envelope in both styles. Shadows are outside the fabric.
-  const fabric = own.map(b => {
-    const eave = b.roof === 'tile' ? .5 : 0
-    return { left: b.x - b.w / 2 - eave, right: b.x + b.w / 2 + eave,
-      top: b.top - (b.roof === 'tile' ? 3 : b.heater ? 1 : 0), bottom: b.foot }
-  })
-  const area = fabricArea(fabric, { left: 0, right: BOX.width, top: 0, bottom: BOX.landHeight })
-  const badge = rect(heightLabelBox(height, BOX.width))
-  const previous = rect(heightLabelBox({ ...height, ...before }, BOX.width))
-  const share = (clip: Box) => area === 0 ? 0 : fabricArea(fabric, clip) / area
-  const dx = Math.max(badge.left - dot.x, dot.x - badge.right, 0)
-  const dy = Math.max(badge.top - dot.y, dot.y - badge.bottom, 0)
-  const distance = Math.hypot(dx, dy) - DOT_R
-  const side = badge.bottom <= dot.y ? 'above' : badge.top >= dot.y ? 'below' : height.x < dot.x ? 'left' : 'right'
-  // Alternate order to reduce systematic warm-up bias; report timings without a pass/fail threshold.
-  const samples: [number[], number[]] = [[], []]
-  for (let round = 0; round < 7; round++) {
-    for (const index of round % 2 === 0 ? [0, 1] : [1, 0]) {
-      const run = [old, next][index]
-      const start = performance.now()
-      run()
-      samples[index].push(performance.now() - start)
+    const badge = rect(heightLabelBox(height, width))
+    const overlay = layoutOf(world, box).overlay.find(item => item.kind === 'height')
+    expect(overlay).toBeDefined()
+    if (!overlay) throw new Error(`Missing height badge at ${width}px`)
+    const x = dot.x * sx
+    const edgeX = Math.max(badge.left, Math.min(x, badge.right))
+    const edgeY = Math.max(badge.top, Math.min(dot.y, badge.bottom))
+    const gap = Math.hypot(edgeX - x, edgeY - dot.y) - DOT_R
+    expect(gap).toBeGreaterThanOrEqual(2 - 1e-6)
+    expect(gap).toBeLessThanOrEqual(34 + 1e-6)
+    expect(Boolean(overlay.leader)).toBe(gap > 12)
+    if (overlay.leader) {
+      const { x1, y1, x2, y2 } = overlay.leader
+      expect([x2, y2]).toEqual([edgeX, edgeY])
+      expect(Math.hypot(x1 - x, y1 - dot.y)).toBeCloseTo(DOT_R, 6)
+      expect(Math.hypot(x2 - x1, y2 - y1)).toBeCloseTo(gap, 6)
+    }
+
+    expect(badge.left).toBeGreaterThanOrEqual(2 - 1e-6)
+    expect(badge.right).toBeLessThanOrEqual(width - 2 + 1e-6)
+    expect(badge.top).toBeGreaterThanOrEqual(2 - 1e-6)
+    expect(badge.bottom).toBeLessThanOrEqual(VISIBLE_BOTTOM - 2 + 1e-6)
+    expect(noteZones.filter(n => overlaps(rect(n), badge, -1e-6))).toEqual([])
+    expect((datum?.segments ?? []).filter(s => overlaps({
+      left: s.x1 * sx, right: s.x2 * sx, top: datum!.y - 1, bottom: datum!.y + 1,
+    }, badge, -1e-6))).toEqual([])
+    const far = sceneModel(world, box).layers.flatMap(layer => layer.kind === 'marks' ? layer.glyphs : [])
+    const glyphs = [...far, ...placed.flatMap(item => item.kind === 'mark' ? [item.glyph] : [])]
+    const coveredMarks = glyphs.flatMap(m => {
+      return overlaps({ left: m.x - m.w / 2, right: m.x + m.w / 2, top: m.base - m.h * m.scale, bottom: m.base }, badge, -1e-6)
+        ? [m.kind] : []
+    })
+    expect(coveredMarks.length, coveredMarks.join()).toBeLessThanOrEqual(id === 'tel-aviv' ? 1 : 0)
+
+    if (id === 'karmei-tzur' && width === SCENE_W) {
+      expect(height.x).toBeCloseTo(dot.x, 6)
+      expect(badge.bottom).toBeLessThan(dot.y)
+      expect(gap).toBeGreaterThanOrEqual(6)
+      expect(gap).toBeLessThanOrEqual(7)
+      expect(overlay.leader).toBeNull()
+    }
+
+    if (loadedPlace.place.settlementType !== 'city') {
+      const fabric = placed.flatMap(b => b.kind === 'box' && !b.beyond ? [{
+        left: b.x - b.w / 2 - (b.roof === 'tile' ? .5 : 0), right: b.x + b.w / 2 + (b.roof === 'tile' ? .5 : 0),
+        top: b.top - (b.roof === 'tile' ? 3 : b.heater ? 1 : 0), bottom: b.foot,
+      }] : [])
+      const total = unionArea(fabric, { left: 0, right: width, top: 0, bottom: BOX.landHeight })
+      expect(unionArea(fabric, badge)).toBeLessThanOrEqual(total * .01)
     }
   }
-  const medianMs = samples.map(times => times.sort((a, b) => a - b)[Math.floor(times.length / 2)])
-  console.log(JSON.stringify({ place: id, side, distance, before: share(previous), after: share(badge), medianMs }))
-
-  expect(share(badge)).toBeLessThanOrEqual(loadedPlace.place.settlementType === 'city' ? share(previous) + 1e-9 : .01)
-  expect(badge.left).toBeGreaterThanOrEqual(2 - 1e-9)
-  expect(badge.right).toBeLessThanOrEqual(BOX.width - 2 + 1e-9)
-  expect(badge.top).toBeGreaterThanOrEqual(2 - 1e-9)
-  expect(badge.bottom).toBeLessThanOrEqual(VISIBLE_BOTTOM - 2 + 1e-9)
-  expect(distance).toBeGreaterThanOrEqual(2 - 1e-9)
-  expect(distance).toBeLessThanOrEqual(34 + 1e-9)
-  expect(Boolean(height.leader)).toBe(distance > 12)
   expect(at('21:00').labels.height).toEqual(height)
 }, 120_000)

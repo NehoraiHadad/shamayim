@@ -1,4 +1,4 @@
-import type { HeightLeader } from '../../../world/heightLabel'
+import type { HeightLeader } from '../heightLeader'
 import type { Box } from './base'
 import type { CloudLayers } from './cloud'
 import type { LandLayers } from './land'

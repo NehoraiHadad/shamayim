@@ -1,4 +1,3 @@
-import type { HeightLeader } from './heightLabel'
 import type { OutsideFrame, OutsideSkyline, OutsideTower } from '../data/city/outsideView'
 import type { SceneNote } from '../data/terrain/sceneNotes'
 import type { LandStatus, SceneTerrain } from '../data/terrain/terrain'
@@ -92,7 +91,7 @@ export interface OutsideView {
 
 /** The text the scene keeps on the land: place height label, notes and sea-level datum. */
 export interface WorldLabels {
-  height: { text: string; below: boolean; x: number; y: number; backed?: boolean; leader: HeightLeader | null }
+  height: { text: string; below: boolean; x: number; y: number; backed?: boolean }
   notes: SceneNote[]
   datum?: Datum | null
 }

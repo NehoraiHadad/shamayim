@@ -2,7 +2,8 @@ import { STOREY_M } from '../../data/city/skylineHeight'
 import { HOUSE_TOP_M } from '../../data/city/outsideView'
 import { hashId, seeded } from '../../data/landmarks/hash'
 import { outsideItemKm } from '../../world/outsideDepth'
-import { hits, type ScreenBox } from '../../world/sceneClearance'
+import { dotClearance, heightLabelBox, hits, type ScreenBox } from '../../world/sceneClearance'
+import { outsideBounds } from './outsideBounds'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
 import { receiversUsed } from './buildingUsage'
@@ -27,27 +28,12 @@ function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM:
     full: t.lod === 'glyph', famous: t.famous, storeys: Math.max(1, Math.round(t.heightM / STOREY_M)) }
 }
 
-function boundsOf(items: OutsideItem[]) {
-  // The layer's box: everything with the longest cast shadow either side, independent of the light (a scrub never resizes it).
-  const reach = (left: number, top: number, right: number, bottom: number, height: number) => {
-    const cast = Math.min(14, 2.5 * height * .6 + 1)
-    return { left: left - cast - 2, top: top - 4, right: right + cast + 2, bottom: bottom + 2 }
-  }
-  const boxes = items.map((item) => item.kind === 'box' ? reach(item.x - item.w / 2, item.top - 2.5, item.x + item.w / 2, item.foot, item.foot - item.top)
-    : item.kind === 'tree' ? reach(item.tree.x - item.tree.w, item.tree.base - item.tree.h - 1, item.tree.x + item.tree.w, item.tree.base, 0)
-    : item.kind === 'tower' ? reach(item.x - item.w / 2, item.base - item.h - 4, item.x + item.w / 2, item.base, item.h)
-      : reach(item.glyph.x - item.glyph.w / 2, item.glyph.base - item.glyph.h * item.glyph.scale, item.glyph.x + item.glyph.w / 2,
-        item.glyph.base, item.glyph.h * item.glyph.scale))
-  if (!boxes.length) return
-  return { left: Math.min(...boxes.map(b => b.left)), right: Math.max(...boxes.map(b => b.right)),
-    top: Math.min(...boxes.map(b => b.top)), bottom: Math.max(...boxes.map(b => b.bottom)) }
-}
 interface Shape {
   key: string
   items: OutsideItem[]
   mass: DrawnMass[]
   home: ReturnType<typeof homeRoofline>
-  bounds: ReturnType<typeof boundsOf>
+  bounds: ReturnType<typeof outsideBounds>
   /** The km of each tier the items refer to (their tones are the hour's). */
   kms: number[]
   /** Each tier's distance for its walls (a step of their own; the land's cap for what is beyond), and the town's ground. */
@@ -66,7 +52,9 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly S
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${JSON.stringify([clear, world.keys.marks])}`
+  const height = world.labels.height
+  const seatZone = world.seatPool.length && height.backed ? heightLabelBox(height, box.width) : null
+  const key = `${box.width}|${JSON.stringify([clear, seatZone, world.keys.marks])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W
@@ -83,7 +71,9 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly S
   }
   const { frame, skyline, baseKm } = view
   const out: OutsideItem[] = []
-  const fabricZones = clear.filter(zone => !zone.overFabric)
+  const dot = dotClearance(view.dot, box.width)
+  const fabricZones = clear.filter((zone, i) => i !== 0 ||
+    zone.x !== dot.x || zone.y !== dot.y || zone.w !== dot.w || zone.h !== dot.h)
   const free = (left: number, top: number, right: number, bottom: number) => !hits(fabricZones, left, top, right, bottom)
   // The towers beyond the place: at their true distance, far first, behind the place.
   // C9: with the towns beyond at their feet, far first (a nearer block hides a farther tower's foot).
@@ -146,7 +136,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly S
   }
   const formKey = `${key}|${out.flatMap(item => item.kind === 'mark' ? [item.glyph.seed] : []).join(',')}`
   const { receivers, heaters } = receiversUsed(out, kms.length)
-  const shape = { key: formKey, items: out, bounds: boundsOf(out), kms, wallKms, groundKm: townGroundKm(world, view), receivers, heaters, marks, mass, home }
+  const shape = { key: formKey, items: out, bounds: outsideBounds(out), kms, wallKms, groundKm: townGroundKm(world, view), receivers, heaters, marks, mass, home }
   if (byKey.size > 8) byKey.clear()
   byKey.set(key, shape)
   return shape

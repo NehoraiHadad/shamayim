@@ -15,6 +15,8 @@ export const DOT_R = 4.5
 /** The height label's drawn size (`ui/tokens.css` `--text-caption` = 0.75rem = 12 px, `scene/react/Scene.module.css` `.depth` `line-height: 1`). */
 export const LABEL_PX = 12
 export const LABEL_H = LABEL_PX
+/** CSS padding on the height badge. */
+export const BACKING_PAD = 2.5
 
 /** A drawn box in scene px (y grows down). */
 export interface Box { left: number; right: number; top: number; bottom: number }
@@ -38,7 +40,7 @@ export function shifts(max: number, step: number) {
 // Assistant 600 bundled by @fontsource/assistant (600.css), Hebrew and Latin WOFF
 // cmap/hmtx advances in units of 1/1000 em. The scene uses this face for every note.
 const ADVANCE: Readonly<Record<string, number>> = {
-  '1': 463, ' ': 200, '\u00a0': 200, ',': 264, '-': 317, '−': 506,
+  '0': 506, '1': 463, ' ': 200, '\u00a0': 200, ',': 264, '-': 317, '−': 506, '־': 321, '(': 315, ')': 315,
   א: 586, ב: 534, ג: 395, ד: 539, ה: 558, ו: 240, ז: 367, ח: 578, ט: 570, י: 240,
   ך: 507, כ: 478, ל: 486, ם: 585, מ: 621, ן: 240, נ: 374, ס: 583, ע: 551,
   ף: 555, פ: 548, ץ: 496, צ: 536, ק: 567, ר: 480, ש: 652, ת: 618, '׳': 239, '״': 418,
@@ -48,8 +50,8 @@ export function textWidth(text: string, fontPx: number) {
   let units = 0
   for (const char of text) {
     if (/[\u2066-\u2069\p{Mark}]/u.test(char)) continue
-    // Other digits are 506 units. Reserve a full em for an unlisted fallback glyph.
-    units += ADVANCE[char] ?? (/[0-9]/.test(char) ? 506 : 1000)
+    // Use the widest listed advance for digits, Hebrew letters and punctuation.
+    units += ADVANCE[char] ?? (/[0-9]/.test(char) ? 506 : /\p{Script=Hebrew}/u.test(char) ? 652 : /\p{Punctuation}/u.test(char) ? 418 : 1000)
   }
   return Math.ceil(units * fontPx / 1000)
 }

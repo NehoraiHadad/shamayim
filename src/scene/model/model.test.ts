@@ -44,7 +44,7 @@ describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
     const gap = Math.hypot(dx, dy) - DOT_R
     expect(gap).toBeGreaterThanOrEqual(2 - 1e-8)
     expect(gap).toBeLessThanOrEqual(34 + 1e-8)
-    expect(Boolean(world.labels.height.leader)).toBe(gap > 12)
+    expect(Boolean(height.leader)).toBe(gap > 12)
     expect(badge.x).toBeGreaterThanOrEqual(2 - 1e-8)
     expect(badge.x + badge.w).toBeLessThanOrEqual(BOX.width - 2 + 1e-8)
     expect(badge.y + badge.h).toBeLessThanOrEqual(VISIBLE_BOTTOM - 2 + 1e-8)

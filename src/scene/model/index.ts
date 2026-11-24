@@ -65,8 +65,7 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
   const layout = layoutOf(world, box)
-  const fabricZones = layout.clear.filter(zone => !zone.overFabric)
-  const towns = farCitiesLayer(world, box, fabricZones, light)
+  const towns = farCitiesLayer(world, box, layout.clear, light)
   const outside = outsideOf(world, box, layout.clear, light)
   const home = outsideHome(world, box, layout.clear)
   const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
@@ -74,10 +73,10 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: St
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
   const shadows = cloudShadowsOf(world, box, sky.find(layer => layer.kind === 'cloudCells'))
-  const planes = planeLayers(world, box, fabricZones)
+  const planes = planeLayers(world, box, layout.clear)
     .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life), !life.still))
   const wind = plantWindOf(world.wind)
-  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, fabricZones, !life.still) ?? [])
+  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear, !life.still) ?? [])
   const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
     ...landDustLayers(world, box), ...weatherLayers(world, box, layout.clear)]

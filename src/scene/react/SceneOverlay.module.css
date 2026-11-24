@@ -1,10 +1,13 @@
-/* Same 2.5 px margin as the world badge. Paper tokens keep contrast over every canvas background. */
+/*
+ * The height label beside the dot over the place seen from outside (C9): a small backing in the near land's own tone, so
+ * the figure reads as the dot's over the mass behind it, not floating in the sky above it. Its margin is the model's
+ * `BACKING_PAD` (2.5 px), which the label's clear zone and placement count.
+ */
 .backed {
   padding: 2.5px;
   margin: -2.5px 0 0;
   border-radius: 4px;
-  background: var(--sheet);
-  color: var(--sheet-ink);
+  background: color-mix(in srgb, var(--ridge-near) 72%, transparent);
   text-shadow: none;
 }
 
