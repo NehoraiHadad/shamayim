@@ -3,7 +3,9 @@ import type { Surface } from '../compose/surface'
 import { glideAt } from '../model/anim'
 import type { LayerDesc, LayerOf } from '../model/types'
 import { css } from '../paint/shared/base/hand'
+import { DEFAULT_STYLE } from '../paint/painters'
 import { onSkyCanvas, skyBackground } from '../paint/shared/sky/skyBackground'
+import { STYLES } from '../paint/styles'
 import { useSurface, type SurfaceSize } from './useSurface'
 
 interface Props {
@@ -16,7 +18,7 @@ interface Props {
 
 /**
  * The SkySurface (§1e, C6): one canvas over the sky's box. The sky's base (gradient, glows, Earth's shadow, haze band:
- * the `sky` layer) is laid as the canvas's own CSS background, from the same desc (`skyBackground`): the browser
+ * the `sky` layer) is laid as the canvas's own CSS background, from the same desc (`skyBackground`, or the style's own `skyBase`): the browser
  * composites it without a per-pixel paint on the main thread, which a full-surface canvas fill pays each time the light
  * moves (C1's sky scrub frame, ~20 ms in software raster ×4). The canvas holds the rest: the stars, the sun and moon, the
  * clouds (drifting), the lightning and the shimmer. In the app it is mounted inside `ui/Sky.tsx` (a portal from the
@@ -27,7 +29,8 @@ interface Props {
 export function SkyCanvas({ layers, size, onReady, surfaceRef }: Props) {
   const base = layers.find((layer): layer is LayerOf<'sky'> => layer.kind === 'sky') ?? null
   const rest = useMemo(() => onSkyCanvas(layers), [layers])
-  const background = useMemo(() => (base ? skyBackground(base) : undefined), [base])
+  const { skyBase = skyBackground } = STYLES[size.style ?? DEFAULT_STYLE]
+  const background = useMemo(() => (base ? skyBase(base) : undefined), [base, skyBase])
   const glide = base?.animated?.glide
   // The edge a glide uncovers takes the base's colour there: the top's when the sky stands low, the horizon's when high.
   const gap = base && glide ? css(base.stops[glide.dy > 0 ? 0 : base.stops.length - 1][1]) : undefined
