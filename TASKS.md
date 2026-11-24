@@ -1248,5 +1248,19 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             No hand passes either yet. The sky branch takes the grade before `skyFilter` when it lands
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
-- [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
+- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
+      - [x] Phase 1 on `claude/real-style-13639d` (nothing in `src/scene`): fault map (notes `real/FAULT-MAP.md`), plan `docs/design/REAL-STYLE.md`,
+            concept painters and stills `docs/design/prototypes/real/` (5 moments, side by side in notes `real/concept/`)
+      - [x] Round 2 on the manager's four criticisms (prototype only, stills on CI: the `concept` dispatch input of `ci.yml`): ground raked
+            and gully banks, house corners and casts, haze graded as the sky; one cloud hand for sheets and towers; hole walls; round heads
+            Stills: notes `real/concept/round2/`
+      - [x] Owner approved the direction (round 2, 5afc056d), with fixes during the build
+      - [x] Build plan: notes `real/BUILD-PLAN.md` (S0 and six slices A-F, needs N1-N9 for foundations, every open fix), reviewed by another model; lightened by the owner's bar
+      - [x] S0 on main 5fb0d856 (CI run 45341294326, scratch `claude/real-meas-base`): notes `real/S0-BASELINE.md`; one dispatch again when the integration lands
+      - [ ] N1 the lamp, N2 the sky's grade, N3 bounds: the manager to foundations
+      - [ ] Phase 2 after the manager opens `src/scene`: A town, B plane, C sky, D towers and low sun, E trees and sea, F weather; per slice: CI stills, drawn identical, one review; perf at S0, B, C, end
+      - [~] A, night half (`claude/real-town`): street light behind each nearer body, window bloom, far shore lights down the sea,
+            folded windows on bodies of unresolved storeys (`paint/real/town/`). Codex review: 8 findings, reflections fixed. Written down, not
+            chased: a lit pane's bloom pops with the pane; `shine.windows` keyed in 1/64 (a ramp of the strip's poses); the shrine's
+            floodlight blooms as a window; glows squeeze at the layer's edge. Day half waits for the label slice
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
