@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ALONE, CORNER, STREET, storedGroup, storedTile } from '../../test/villageTile'
 import { decodeHouses, encodeHouses } from './houseCode'
 import { sizeClassOf } from './settlement'
@@ -30,6 +30,8 @@ describe('a tile', () => {
     expect(tile.groups).toEqual([{ corner: CORNER, places: [[31.6003, 35.1003]], osmShare: .9, rows: [3], houses: [...STREET, ALONE] }])
   })
   it('may hold no group', () => expect(parsed(storedTile({ groups: [] }))!.groups).toEqual([]))
+  it('carries the known places that have no footprints', () =>
+    expect(parsed(storedTile({ bare: [[31.65, 35.15]] }))!.bare).toEqual([[31.65, 35.15]]))
   it('may hold a ring', () => {
     const ring = Array.from({ length: 8 }, (_, x) => ({ ...ALONE, x }))
     expect(parsed(storedTile({ groups: [storedGroup({ r: [-8], h: encodeHouses(ring) })] }))!.groups[0].rows).toEqual([-8])
@@ -55,5 +57,21 @@ describe('a tile', () => {
     ['no house', { h: '' }],
   ])('is none when one of its groups has %s', (_, bad) => {
     expect(readTile({ ...storedTile(), groups: [storedGroup(), { ...storedGroup(), ...bad }] })).toBeNull()
+  })
+})
+
+describe('a tile that is too large', () => {
+  const houses = (count: number) => 'AQjw'.repeat(count)
+  afterEach(() => vi.restoreAllMocks())
+  it.each([
+    ['houses in a group', storedTile({ groups: [storedGroup({ r: [], h: houses(4001) })] })],
+    ['houses together', storedTile({ groups: Array.from({ length: 6 }, () => storedGroup({ r: [], h: houses(4000) })) })],
+    ['rows', storedTile({ groups: [storedGroup({ r: Array(3000).fill(2), h: houses(4000) })] })],
+    ['places of a group', storedTile({ groups: [storedGroup({ p: Array(200_000).fill([31.6, 35.1]) })] })],
+    ['bare places', storedTile({ bare: Array(200_000).fill([31.6, 35.1]) })],
+  ])('in %s is none, and no house of it is read', (_, raw) => {
+    const read = vi.spyOn(globalThis, 'atob')
+    expect(readTile(raw)).toBeNull()
+    expect(read).not.toHaveBeenCalled()
   })
 })
