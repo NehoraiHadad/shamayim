@@ -10,7 +10,7 @@ const tower = (dx: number, dy: number, heightM: number, name?: string): CityTowe
 
 describe('the place seen from outside', () => {
   const frame = outsideFrame(undefined, 3, 195, 390, true)
-  const look = { house: { w: 3 }, plan: 3 / 13, px: (heightM: number, k: number) => heightM * k }
+  const look = { house: { w: 3 }, plan: 3 / 13, px: (heightM: number, k: number) => .5 * heightM * k / frame.k }
 
   it('changes frontage continuously through the house roof threshold', () => {
     const frontM = 26
@@ -34,6 +34,13 @@ describe('the place seen from outside', () => {
       expect(result.boxes).toHaveLength(1)
       expect(result.boxes[0].w).toBeCloseTo(frontM * look.plan * k / frame.k)
     }
+  })
+
+  it('widens a block no further than its own height needs', () => {
+    const result = outsideSkyline({ place, towers: [], landmarks: [], frame, ground: () => 100,
+      floor: 120, width: 390, look, fabric: [{ dx: 0, dy: 0, wKm: .01, heightM: 25, frontM: 70, seed: 1 }] })
+    expect(result.boxes[0].w).toBeCloseTo(result.boxes[0].foot - result.boxes[0].top)
+    expect(result.boxes[0].w).toBeCloseTo(12.5)
   })
 
   it('keeps a folded tower at its own plan width where it shows beside a taller block', () => {
