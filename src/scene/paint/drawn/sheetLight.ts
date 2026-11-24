@@ -18,10 +18,12 @@ import { fieldAt } from './sheetField'
 const SIDE = 0.6, TONE = 0.9, TONE_MOST = 0.16
 /** The share of the model's own shade a sheet's body keeps where gaps light it,
  *  what it keeps more where there are few, and the cover that is; the chroma its inks take (its body is half the sky's),
- *  and what of a shade's cool turn a closed one has not. */
-const KEEPS = 0.55, CLOSED = 0.1, COVER = [0.45, 0.8] as const, GAIN = 1.2, GREY = 0.7
+ *  what of a shade's cool turn a closed one has not, and what a dull light takes of its top and foot. */
+const KEEPS = 0.55, CLOSED = 0.1, COVER = [0.45, 0.8] as const, GAIN = 1.2, GREY = 0.7, DULL = 0.4
 /** The altitudes (degrees) a lamp stands low between, what it does to the side that faces it, and how far off it is whole (of the width). */
 const LOW = [8, 32] as const, ACROSS = 0.45, OFF = 0.4
+/** The beam at the ground a sheet's light is all sky's under, and all sun's from. */
+const BEAM = [0.03, 0.3] as const
 /** What a low sun takes of a cap's light: it comes from below. */
 const BELOW = 1.8
 
@@ -41,9 +43,11 @@ export function sheetLight(desc: LayerOf<'cloudSheet'>, { f, alpha, wide }: Ease
   for (let n = 0; n < alpha.length; n++) { solid += alpha[n]; tones += alpha[n] * f.tone[n] }
   const mean = solid ? tones / solid : 0.5
   const closed = smoothstep(COVER[0], COVER[1], solid / alpha.length), body = mix(desc.lit, toneOf(desc, mean), KEEPS + CLOSED * closed)
-  const t = cloudInks({ lit: desc.lit, bright: mix(whitened(desc.lit), desc.lit, low), body, shade: desc.shade, least: 0, gain: GAIN, cool: 1 - GREY * closed })
+  // By day with the beam gone, no paper shows and no shade turns: the cloud is lit by its grey sky alone.
+  const dull = (desc.daylit ?? 0) * (lamp?.body === 'sun' ? 1 - smoothstep(BEAM[0], BEAM[1], lamp.strength) : 0), grey = Math.max(closed, dull)
+  const t = cloudInks({ lit: desc.lit, bright: mix(whitened(desc.lit), desc.lit, low), body, shade: desc.shade, least: dull, gain: GAIN + (1 - GAIN) * dull, cool: 1 - GREY * grey })
   // A low sun lights the feet, and the side of the sky it stands on.
-  const up = SIDE * (0.7 - 0.35 * t.heavy) * (1 - 2 * low), place = lamp?.sun ?? lamp, across = place ? ACROSS * (1 - smoothstep(LOW[0], LOW[1], place.altitude)) : 0
+  const up = SIDE * (0.7 - 0.35 * t.heavy) * (1 - DULL * dull) * (1 - 2 * low), place = lamp?.sun ?? lamp, across = place ? ACROSS * (1 - smoothstep(LOW[0], LOW[1], place.altitude)) : 0
   return {
     t,
     crest: 1 - BELOW * low,
