@@ -1245,8 +1245,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             bf3b316f (minarets out, dusk, near ground) approved and merged 9416f668, main CI 45348662552 running
             The blend experiment is closed. Owner's lighter bar (24 Nov): larger slices, CI green on the exact sha, before/after stills,
             one perf check at merge-ready, one independent review; tests only on GitHub
-            Next READYs: clouds 545d90a1, town 676d6cd3, lamp 9e3fd10c, sky, village first stills, label
+            Clouds 545d90a1 approved by the owner ("look fine") and merged d85ec3e5, main CI 45349651423 running
+            Owner: no endless polish. Closed list left: town, lamp, label, village, skyBase + grade, cloud position; sky parked if red again
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
-- [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; build plan, code waits for `src/scene`)
+- [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 after the label)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
