@@ -1248,7 +1248,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             Clouds 545d90a1 approved by the owner ("look fine") and merged d85ec3e5, main CI green
             Owner: no endless polish. Town + lamp 812bcf85 approved, merged 8b21fb41, main CI 45350798658 green. N2 (skyBase + grade, no look change) merged c121ed23. Waiting for the owner: label c0719ae6 (tick to the dot), sky 1bc369a9 (dust dark brown), real S1 night town e73c6b42. Closed list left: label, village, skyBase + grade, cloud position; sky parked if red again
             24 Nov: owner said yes to village, real night town, sky as is, label with the tick carried to the dot. integ-1 `6039cb0d`
-            (village 9d85b096 + night town e73c6b42, ODbL credit seen on screen) merged, main CI 45361470172 running. On CI: spikes
+            (village 9d85b096 + night town e73c6b42, ODbL credit seen on screen) merged, main CI 45361470172 green, perf log read: no new overrun. On CI: spikes
             `claude/found-i-spikes` dfeb5f00, label2 f7b9028d, cloudpos2 52e1edf9; sky 534c865a green, merges main next
             Owner asked about the low red moon of 25-26 Nov: place, time and phase right; not reddened, at the left edge, stars random,
             no text. Owner said yes (24 Nov): after the styles and the vote, one slice: moon reddens low down, "tonight in the sky" line
