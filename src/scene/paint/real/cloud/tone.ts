@@ -27,6 +27,8 @@ const LOW = 0.6, LOW_SHADE = 0.35, WARM = [0.03, 0.2] as const
 /** From this warmth over its body to this, a sun on the horizon colours a cloud as one soft mass: how far its own forms give way to the far deck's look
  *  (a head's lit pink and its grey shade would break it in patches). */
 const GLOW = [0.18, 0.36] as const, SOFTENED = 0.62
+/** There the light that reaches a point says how far it leans to the lit colour: none up to this much, all from this much. */
+const LEAN = [0.3, 0.85] as const
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
 const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.43
@@ -71,7 +73,7 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
   const ramp = new Float32Array((RAMP + 1) * 3), model = new Float32Array((RAMP + 1) * 3)
   // A low sun's light comes in under the mass: its body keeps of it.
   const { lit, body } = tones, warmth = lit[0] - lit[2] - (body[0] - body[2]), low = LOW * own * smoothstep(WARM[0], WARM[1], warmth), self = own * own
-  const formed = 1 - SOFTENED * own * smoothstep(GLOW[0], GLOW[1], warmth)
+  const glow = own * smoothstep(GLOW[0], GLOW[1], warmth), formed = 1 - SOFTENED * glow
   const bright = lightness(lit), hue = { lit, body: upTo(mix(body, mix(lit, tones.shade, LOW_SHADE), low), BODY_UP_TO * bright, HELD * own), shade: upTo(mix(tones.shade, lit, low / 2), SHADE_UP_TO * bright, HELD * own) }
   for (let n = 0; n <= RAMP; n++) {
     ramp.set(toneOf(hue, n / RAMP), n * 3)
@@ -86,7 +88,8 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
     const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * Math.max(0, place - UNDER_FROM)
     const crown = 1 + over * CROWN_TO * clamp(((0.4 - there) * 2.4) / CROWN_TO) * (0.35 + 0.65 * light) * own
     // Far off it is the model's tone, leaning to the lit colour as its crowns do; a closed deck's is the model's throughout.
-    const m = Math.round(Math.min(1, Math.max(0, tone)) * RAMP) * 3, grey = 1 - own * (1 - FAR_GREY * p.cover ** 2)
+    const m = Math.round(Math.min(1, Math.max(0, tone)) * RAMP) * 3, thick = FAR_GREY * p.cover ** 2
+    const kept = glow ? thick + (1 - smoothstep(LEAN[0], LEAN[1], light) - thick) * glow : thick, grey = 1 - own * (1 - kept)
     for (let k = 0; k < 3; k++) {
       const far = lit[k] + (model[m + k] - lit[k]) * grey
       out[k] = Math.min(1, far + near * (ramp[n + k] * (1 - DEEPEST[k] * under) * crown - far))
