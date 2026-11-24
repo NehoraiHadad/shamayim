@@ -1251,6 +1251,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
           - [x] S3 model (src/world/village/): the village on its own frame, laid on the town's unchanged land (`lay.ts`); towns from 3.5 km on untouched
           - [x] Landmarks among the houses, held to their size (`landmarks.ts`); ODbL credit line where footprints are drawn
           - [ ] Follow-ups (not refined, owner's decision): small known faults in NOTES.md; gable direction, soft ground tone
+      - [~] N2. The sky both hands wait for (`claude/found-i-grade`, on `found-i-lamp`): `StyleLight.sky.grade` (`skyTone.ts`: stops,
+            glows, arch, haze, once; light ungraded; key suffix) and `Style.skyBase` (CSS list; `skyBaseRows.ts`, `e2e/skyBase.mjs`).
+            No hand passes either yet. The sky branch takes the grade before `skyFilter` when it lands
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [ ] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
 - [ ] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged

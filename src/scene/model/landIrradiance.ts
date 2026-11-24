@@ -54,7 +54,16 @@ const REF_SCATTER = 0.099 + aerosolDepth(REF_AIR)[1]
 // against a 0.625 lx illustration reference at night, with a daylight-relative fade in twilight.
 const FULL_MOON_LUX = 0.30
 const NIGHT_EXPOSURE_LUX = 0.625
+// Keep the existing land exposure cap at 115% of the reference DNI.
+const beamShare = (strength: number) => Math.min(1.15, strength / REF_BEAM)
+const CLEAR_NOON_BEAM = DAY_DNI * beamShare(solarBeam(90, REF_AIR).strength)
 const memo = new WeakMap<RadianceWorld, LandIrradiance>()
+
+/** Direct beam in the picture's own exposure relative to clear noon, before receiver wet reflectance. */
+export function clearNoonBeamShare(world: RadianceWorld, body: 'sun' | 'moon'): number {
+  const { eSunPi, eMoonPi } = landIrradiance(world)
+  return (body === 'sun' ? eSunPi : eMoonPi) / CLEAR_NOON_BEAM
+}
 
 export function landIrradiance(world: RadianceWorld): LandIrradiance {
   const known = memo.get(world)
@@ -82,7 +91,7 @@ export function landIrradiance(world: RadianceWorld): LandIrradiance {
   const scatter = Math.min(0.7, Math.max(0, 1 - Math.exp(REF_SCATTER - tau)))
   const sky = diffuseSky(light, sunAlt, tau)
   const eSkyPi = sky.amount * (1 - day) + DAY_DHI * (1 + DAY_CLOUD_DHI_GAIN * Math.max(clamp01(light.diffuse), scatter)) * day
-  const eSunPi = DAY_DNI * openVisible * Math.min(1.15, beam.strength / REF_BEAM)
+  const eSunPi = DAY_DNI * openVisible * beamShare(beam.strength)
   const eMoonPi = FULL_MOON_LUX / NIGHT_EXPOSURE_LUX * clamp01(moonShare)
   const cSun = normalized(beam.transmission as unknown as RGB), cMoon = unitChroma(MOON_RGB), cSky = normalized(sky.rgb)
   const wetFactor = 1 - WET_REFLECTANCE_DROP * clamp01(world.ground.wet)

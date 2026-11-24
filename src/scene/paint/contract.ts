@@ -31,6 +31,12 @@ export interface Style {
   readonly painters: Painters
   /** The model's own light (`PLAIN_LIGHT`), or where the hand lights things its own way. */
   readonly light: StyleLight
+  /**
+   * The hand's own base of the sky, from the same desc: a CSS `background-image` list over the layer's whole box (px from
+   * its top left, as `skyBackground`, the default); its size, place and repeat are the canvas's. A row's mean colour stays
+   * the default's (`src/test/skyBaseRows.ts`). A hand that has one paints the canvas form too (`painters.sky`).
+   */
+  readonly skyBase?: (desc: LayerOf<'sky'>) => string
 }
 
 /** The form of a layer that is all light (water, far towns): only its place, nothing drawn. */
