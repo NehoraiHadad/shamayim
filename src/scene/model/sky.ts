@@ -21,9 +21,9 @@ const WHITE: RGB = [1, 1, 1]
  * Up, the bodies stand on the world's relief (`relief.y`, the land's own angle scale), so the sun sets behind the ridge it
  * really sets behind.
  *
- * The clouds use the same relief up to `DOME_ALT` (`dome.ts`); above it the relief's zenith is only ~135 px over the horizon, less
- * than half the sky the screen shows over the land, so the rest of the dome (to the zenith) is spread over the whole sky
- * above: a cloud overhead is drawn high behind the text, as an eye looking up sees it (an illustrator's dome, not a
+ * The clouds use the same relief up to `DOME_ALT` (`dome.ts`); above it the relief's zenith is only ~135 px over the
+ * horizon, less than half the sky the screen shows over the land, so the rest of the dome (to the zenith) is spread over
+ * the whole sky above: a cloud overhead is drawn high behind the text, as an eye looking up sees it (an illustrator's dome, not a
  * projection; the bodies keep the true scale, the clouds near the horizon too).
  */
 export interface SkyGeom {
