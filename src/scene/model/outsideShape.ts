@@ -102,7 +102,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
     const r = seeded(seed + 7)
     const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
     own.push({ y: b.foot - .001 * b.near, item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
-      seed, receiver: receiverId(roof || !N('decor') ? seed : seed ^ 0x5bd1e995),
+      seed, receiver: receiverId(roof || !N('decor') ? seed : seed ^ [0, 0x5bd1e995, 0x9e3779b9, 0x2545f491, 0x1b873593][N('decor')]),
       storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
       heater: roof === 'flat' && r() < .45 } })
   }
