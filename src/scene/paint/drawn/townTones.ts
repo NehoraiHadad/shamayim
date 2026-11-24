@@ -1,7 +1,7 @@
 import { smoothstep } from '../../../domain/smoothstep'
 import type { IllustratedTones } from '../../model/illustratedTones'
-import { labOf } from '../../model/tone'
-import type { OutsideLandDesc, RGB, SeaDesc, Tones } from '../../model/types'
+import { lightness } from '../../model/tone'
+import type { OutsideLandDesc, SeaDesc, Tones } from '../../model/types'
 import { calm, papered, pigment, skied, valued } from './kit/palette'
 
 /* A town's tones as the block's inks: lit planes warm and a step up, shades cool and a step down; its lamps and air as they are. */
@@ -16,19 +16,17 @@ const PAPERED: Partial<Record<keyof IllustratedTones, number>> = { wall: 0.3, li
 /** A step of value fades with the light: a night's planes stay as close as they are. */
 const BRIGHT = 1.3
 
-/** The tan of an air (Oklab b past what is rose) that dust is told by, and what it takes of a plane's step of value. */
-const TAN = [0.01, 0.03] as const, FLAT = 0.5
+/** How far (a share of the air's value) a town's darks stand out of its air: under the first it is all air, past the last all its own. */
+const CLEAR = [0.1, 0.45] as const
 
-function dustIn(air: RGB): number {
-  const { a, b } = labOf(air)
-  return smoothstep(TAN[0], TAN[1], b - 1.5 * Math.max(0, a))
-}
+/** The share of the hand's own ink a tone takes: the block gives back no contrast that fog or dust has taken. */
+const clearOf = ({ deep, mist }: Tones): number => smoothstep(CLEAR[0], CLEAR[1], 1 - lightness(deep) / Math.max(0.05, lightness(mist)))
 
 export function inkedTones<T extends Tones>(tones: T): T {
-  const all: Partial<IllustratedTones> = tones, out = { ...all }, dust = dustIn(tones.mist)
+  const all: Partial<IllustratedTones> = tones, out = { ...all }, clear = clearOf(tones)
   for (const [key, [turn, step]] of Object.entries(TURN) as [keyof IllustratedTones, readonly [number, number]][]) {
     const rgb = all[key]
-    if (rgb) out[key] = papered(calm(valued(rgb, step * (1 - FLAT * dust) * Math.min(1, Math.max(...rgb) * BRIGHT)), turn, dust), (PAPERED[key] ?? 0) * (1 - dust))
+    if (rgb) out[key] = papered(calm(valued(rgb, step * clear * Math.min(1, Math.max(...rgb) * BRIGHT)), turn * clear, 1 - clear), (PAPERED[key] ?? 0) * clear)
   }
   return out as T
 }
