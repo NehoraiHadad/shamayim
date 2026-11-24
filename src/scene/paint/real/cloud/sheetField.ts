@@ -1,5 +1,6 @@
 import { hashId } from '../../../../data/landmarks/hash'
 import { smoothstep } from '../../../../domain/smoothstep'
+import { grainedSheetAlpha, veiledSheetAlpha } from '../../../model/cloudPaintBounds'
 import type { LayerOf } from '../../../model/types'
 import { deckOpenness } from '../../shared/cloud/deck'
 import { ROW } from '../../shared/cloud/resampleRows'
@@ -21,11 +22,13 @@ const WALL = 11, WALL_COVER = 0.8
 const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.1
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
 const LEAST = 0.012, COMBED = 1.6
+/** Low over the horizon a cloud is far: the share of the sky's height over which the air takes its body. */
+const FAR = 0.34
 
 export interface SheetField {
   w: number; h: number
-  /** Each row's scale: 1 overhead, small far off. */
-  scale: Float32Array
+  /** Each row's scale: 1 overhead, small far off; how far its clouds are bodies of their own, not the far deck's mean (0–1). */
+  scale: Float32Array; near: Float32Array
   /** Drawn opacity 0–1, thickness 0–1, the model's tone 0–1, its source's share, the towns' light 0–1, the noise's bend. */
   alpha: Float32Array; thick: Float32Array; tone: Float32Array; source: Float32Array; city: Float32Array; bend: Float32Array
   /** A hole's far wall, and the straight edge of an underside, 0–1. */
@@ -42,12 +45,12 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const holed = open * (1 - smoothstep(DECK_UP_TO, HEAPS_FROM, clear))
   const { buf, cols, rows, scale } = softCover(desc, make.soft)
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, grid = () => new Float32Array(w * h)
-  const field: SheetField = { w, h, scale: new Float32Array(h), alpha: grid(), thick: grid(), tone: grid(), source: grid(), city: grid(),
+  const field: SheetField = { w, h, scale: new Float32Array(h), near: new Float32Array(h), alpha: grid(), thick: grid(), tone: grid(), source: grid(), city: grid(),
     bend: grid(), wall: grid(), flat: grid(), open, grain: cloudGrain(make, hashId(desc.id)) }
   const { alpha, grain } = field, next = cols * 4
   for (let j = 0, p = 0; j < h; j++) {
     const gy = (j * (rows - 1)) / (h - 1), r = Math.min(rows - 2, Math.floor(gy)), ty = gy - r, y = j / RASTER
-    const size = field.scale[j] = scale[r], row = r * next
+    const size = field.scale[j] = scale[r], near = field.near[j] = smoothstep(0, FAR, 1 - j / h), row = r * next
     const rowAt = (px: number) => Math.min(rows - 1, Math.max(0, r + Math.sign(px) * Math.max(1, Math.round((Math.abs(px) * size) / ROW)))) * next - row
     const under = rowAt(FOOT), over = rowAt(-FOOT), into = rowAt(WALL)
     grain.row(size)
@@ -73,7 +76,8 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       }
       // An underside: cloud over it, open air under it.
       const flat = Math.min(1, Math.max(0, STEP * (across(n + over + 3) - across(n + under + 3)))), noise = grain.noise(x, y, bend, wisp)
-      alpha[p] = here + open * (coverOf(make, a, noise + grain.fine(x, y, bend), wisp, flat) - here)
+      const far = grainedSheetAlpha(veiledSheetAlpha(here, open), noise, open), cover = coverOf(make, a, noise + grain.fine(x, y, bend), wisp, flat)
+      alpha[p] = far + near * (here + open * (cover - here) - far)
       field.thick[p] = thickOf(make, a, noise, flat)
       field.flat[p] = flat * holed
       field.wall[p] = wall

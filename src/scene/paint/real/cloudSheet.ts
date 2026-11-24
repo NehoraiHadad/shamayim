@@ -1,4 +1,3 @@
-import { smoothstep } from '../../../domain/smoothstep'
 import { sheetPaintBound } from '../../model/cloudPaintBounds'
 import { CORE_LEAK } from '../../model/cloudSprite'
 import type { LayerOf } from '../../model/types'
@@ -18,8 +17,6 @@ import { cloudPoint, cloudTone } from './cloud/tone'
 
 /** Opacity of the thickest cloud of an open deck: a breath of sky stays behind it. */
 const CORE = 1 - CORE_LEAK
-/** Low over the horizon a cloud is far: the share of the sky's height over which the air takes its depth, and what it keeps. */
-const FAR = 0.34, KEEP = 0.2
 /** How fast dusty air holds the crowns to what the sky's filter reckons with (`sheetPaintBound`). */
 const DUSTY = 5
 
@@ -46,11 +43,12 @@ function colour(data: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, field: She
   const { w, h, alpha, open } = field, { city } = desc
   const { x, y, beam } = lampLight(desc.lamp)
   const light = open ? sheetLight(field, { x: (x - desc.xs[0]) * RASTER, y: (y - desc.ys[0]) * RASTER }, beam) : null
-  const tone = cloudTone(desc, open), point = cloudPoint(), rgb = new Float32Array(3), core = 1 + open * (CORE - 1)
+  const tone = cloudTone(desc, open), point = cloudPoint(), rgb = new Float32Array(3)
   const { bright } = sheetPaintBound(desc), dusty = desc.through ? Math.min(1, DUSTY * (1 - Math.min(...desc.through))) : 0
   const most = bright.map((c) => 1 + (c - 1) * dusty)
   for (let j = 0, p = 0; j < h; j++) {
-    point.near = KEEP + (1 - KEEP) * smoothstep(0, FAR, 1 - j / h)
+    point.near = field.near[j]
+    const core = 1 + open * point.near * (CORE - 1)
     for (let i = 0; i < w; i++, p++) {
       if (alpha[p] <= 0.003) continue
       point.tone = field.tone[p]
