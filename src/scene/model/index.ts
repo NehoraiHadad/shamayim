@@ -14,11 +14,11 @@ import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
 import { carriedCells, carriedSheet, minuteStart } from './advect'
-import { cloudLayersOf } from './cloudLayers'
+import { cloudLayersForSky } from './cloudLayers'
 import { flashLayersOf } from './flash'
 import { shimmerLayerOf } from './shimmer'
-import { skyBoxKey } from './keys'
 import { skyGeom, skyLayer } from './sky'
+import { skyFilterLayer } from './skyGrade'
 import { gradedWorld, withGradeKey } from './skyTone'
 import { starsLayer } from './stars'
 import { PLAIN_LIGHT, type StyleLight } from './styleLight'
@@ -115,21 +115,13 @@ function outsideOf(world: WorldState, box: SceneBox, clear: readonly Box[], ligh
   return layer
 }
 
-const cloudMemo = new WeakMap<WorldState, { box: number[]; layers: ReturnType<typeof cloudLayersOf> }>()
-
 /** The sky surface's layers (C6): the base, the stars, the bodies, the clouds by level, lightning, shimmer. */
 export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LIFE_START): LayerDesc[] {
   const sky = skyLayer(world, box)
   if (!sky) return []
   const geom = skyGeom(world, box)
   const field = starsLayer(world, box, geom)
-  const cloudBox = skyBoxKey(box, true)
-  const previous = cloudMemo.get(world)
-  // A minute's world is immutable. Reuse its cloud descriptors when the
-  // land, animation or display asks to redraw at the same dimensions.
-  const cloudLayers = previous && cloudBox.every((value, i) => value === previous.box[i])
-    ? previous.layers : cloudLayersOf(world, box, geom)
-  if (cloudLayers !== previous?.layers) cloudMemo.set(world, { box: cloudBox, layers: cloudLayers })
+  const cloudLayers = cloudLayersForSky(world, box, geom)
   const from = minuteStart(life)
   const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from) : carriedCells(layer, from)))
   const shimmer = shimmerLayerOf(world, box, geom)
@@ -142,10 +134,11 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const rainbow = rainbowLayer(world, box, geom)
   const veil = cloudLayers.find((layer): layer is LayerOf<'cloudSheet'> => layer.kind === 'cloudSheet' && layer.genus === 'cs')
   const halo = veil ? haloLayer(world, box, geom, veil) : null
+  const filter = skyFilterLayer(world, box)
   return [sky, ...(milkyWay ? [milkyWay] : []), ...(stars ? [stars] : []), ...twinkle.layers, ...(planets ? [planets] : []),
     ...meteorLayers(world, box, geom, life), ...bodyLayers(world, box, geom, cloudLayers), ...carried, ...flashLayersOf(world, box, geom),
     ...(shimmer ? [shimmer] : []), ...(halo ? [halo] : []), ...(rainbow ? [rainbow] : []), ...contrailLayers(world, box, geom, life),
-    ...lowPlaneLayers(world, box, geom, life), ...birdLayers(world, box, geom, life)]
+    ...lowPlaneLayers(world, box, geom, life), ...birdLayers(world, box, geom, life), ...(filter ? [filter] : [])]
 }
 
 /** The layers drawn on one surface, in draw order. */

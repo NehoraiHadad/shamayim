@@ -10,7 +10,9 @@ import { sceneModel } from './index'
 import { landIrradiance, srgbRgbToLinear } from './landRadiance'
 import { hazeOf } from './landVeil'
 import { horizonBand, skyArch, skyGeom, skyGlows, skyStops } from './sky'
+import { skyColours, unveiledSkyColours } from './skyColour'
 import { solarSkyGlows } from './skyGlows'
+import { inkSkySamples } from './skyGradeClouds'
 import { gradedWorld, ungradedWorld } from './skyTone'
 import { PLAIN_LIGHT, type SkyGrade } from './styleLight'
 import { mixRgb } from './tone'
@@ -58,6 +60,24 @@ it.each(MOMENTS)('grades every colour of the sky once, %s %s', (...moment) => {
   const layers = modelOf(world, A), sky = ofKind(layers, 'sky')[0]
   expect(sky).toMatchObject({ stops: skyStops(inked, BOX), glow: skyGlows(inked, BOX, geom), band })
   for (const { light } of ofKind(layers, 'plane')) expect(light.litField.hazeLin).toEqual(srgbRgbToLinear(once(hazeOf(world))))
+})
+
+it('grades a dusty sky once, before its filter and the ink read it', () => {
+  const world = buildWorld({ ...worldInput(places.get('haifa')!, '2026-11-17T12:00'), forced: { pm10: 400, dust: 400, visibilityKm: 3 } })
+  const inked = gradedWorld(world, A)
+  for (const coloursOf of [skyColours, unveiledSkyColours]) {
+    const { top, mid, horizon } = coloursOf(world)
+    expect(coloursOf(inked)).toMatchObject({ top: once(top), mid: once(mid), horizon: once(horizon) })
+  }
+  expect(skyColours(world).bandWeight).toBeGreaterThan(0)
+  expect(hazeOf(inked)).toEqual(once(hazeOf(world)))
+  // The filter's own samples of the sky are the graded stops, and the base the filter multiplies holds them too.
+  const stops = skyStops(inked, BOX)
+  expect(inkSkySamples(inked, BOX, 100)[0][2]).toEqual(stops[0][1])
+  const layers = modelOf(world, A)
+  expect(ofKind(layers, 'sky')[0].stops).toEqual(stops)
+  expect(ofKind(layers, 'skyFilter').every(({ key }) => key.endsWith(':grade:a'))).toBe(true)
+  expect(ofKind(sceneModel(world, BOX).layers, 'skyFilter')).toHaveLength(1)
 })
 
 it('grades the arch, the sea\'s far edge and the mist in a land not known yet, and asks with the sun\'s altitude', () => {

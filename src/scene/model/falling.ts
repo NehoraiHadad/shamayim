@@ -26,8 +26,16 @@ const LEVEL_ALPHA: Record<CloudLevel, number> = { low: 1, mid: 0.85, high: 0.55 
 const CORE = 0.6
 
 /** A falling cloud before it is drawn: where it is, in degrees and km. */
-interface Source { id: string; level: CloudLevel; azimuth: number; wDeg: number; altitude: number; distanceKm: number
-  seed: number; share: number }
+interface Source {
+  id: string
+  level: CloudLevel
+  azimuth: number
+  wDeg: number
+  altitude: number
+  distanceKm: number
+  seed: number
+  share: number
+}
 
 /** What falls, from which clouds, where it stands in the stack, and how fast the wind carries it across (px/s). */
 export interface Falling { cells: FallingCloud[]; z: number; speed: number }
@@ -62,7 +70,8 @@ function drawn(world: WorldState, box: SceneBox, geom: SkyGeom, stops: [number, 
   // Tones in 1/64 steps: the soft wash shows no finer, and a scrub repaints less often.
   const snap = (rgb: RGB): RGB => [Math.round(rgb[0] * 64) / 64, Math.round(rgb[1] * 64) / 64, Math.round(rgb[2] * 64) / 64]
   return { id: s.id, x: wrap(geom.x(s.azimuth), geom.period), y, w, h, seed: s.seed, alpha: 0.88 * LEVEL_ALPHA[s.level] * s.share,
-    body: snap(tones.body), shade: snap(tones.shade), altitude: s.altitude, distanceKm: s.distanceKm, share: s.share }
+    body: snap(tones.body), shade: snap(tones.shade),
+    altitude: s.altitude, distanceKm: s.distanceKm, share: s.share }
 }
 
 /** The z the shafts must stand over: the underside of the highest sheet drawn (they start below it). */
