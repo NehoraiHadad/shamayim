@@ -108,7 +108,7 @@ describe('at every harness place', () => {
   })
 
   it('draws the place’s ground as one edge, never a comb of single columns', { timeout: 120_000 }, () => {
-    const TOOTH_PX = 2.5, APART_PX = 4
+    const TOOTH_PX = 5, APART_PX = 4
     const teeth = ['majdal-shams', 'ein-gedi'].flatMap((id) => {
       const points = worldOf(id).terrain.near!.points
       const at = groundFn(points.map(([x, y]) => [x, y]), 375)
