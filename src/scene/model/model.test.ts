@@ -97,7 +97,7 @@ describe('scene model: layers', () => {
     // C3: the far towns between the far plane and the near ridge, the sea (within the near band) over the near plane. (No
     // far water: the fixture's height is below sea level, but Haifa's ground, from the Carmel to the bay, is not, so the
     // picture has no 0 m above its dot and no datum, `world/datum.ts`.)
-    // C4–C5: the place seen from outside over it all, its marks (the Báb, the Carmel's church and mosque) among its mass;
+    // C4–C5: the place seen from outside over it all, its marks (the Báb and the Carmel's church) among its mass;
     // C7: the weather the hour has over them. (What flies in front of the land, laid where it is, comes and goes.)
     const land = layersOn(model, 'land')
     expect(land.filter((layer) => !layer.placed && layer.kind !== 'canopy').map((layer) => layer.id))

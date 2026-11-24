@@ -3,7 +3,7 @@ import { GLYPH_SPECS, type GlyphKind } from './glyphSpecs'
 import { LEGIBLE_PX, MAX_EXAGGERATION, NEIGHBOUR_MIN_TRUE_PX, neighbourSize } from './neighbourSize'
 
 it.each(Object.keys(GLYPH_SPECS) as GlyphKind[])('applies the same legibility floor and cap to %s', kind => {
-  const hidden = ['minaret', 'church', 'synagogue', 'westernWall', 'babShrine'].includes(kind)
+  const hidden = ['church', 'synagogue', 'westernWall', 'babShrine'].includes(kind)
   for (const height of [NEIGHBOUR_MIN_TRUE_PX, (NEIGHBOUR_MIN_TRUE_PX + LEGIBLE_PX) / 2, LEGIBLE_PX, LEGIBLE_PX * 2]) {
     const size = neighbourSize(kind, height)!
     if (hidden) { expect(size).toBeNull(); continue }

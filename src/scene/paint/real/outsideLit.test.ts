@@ -13,7 +13,7 @@ import { PAINT_PASS } from '../shared/base/paintPass'
 import { drawGlyph } from '../shared/town/glyphs'
 import { paintOutside } from './outside'
 
-const WINDOW_GLYPHS = ['minaret', 'church', 'synagogue', 'homes', 'chimney', 'highrise', 'silo', 'azrieli', 'babShrine'] as const
+const WINDOW_GLYPHS = ['church', 'synagogue', 'homes', 'chimney', 'highrise', 'silo', 'azrieli', 'babShrine'] as const
 
 /** Identifies each warm, opaque window fill by its path in glyph space. */
 function glyphWindows(glyph: GlyphDesc, shine: Shine) {

@@ -40,7 +40,7 @@ export function assertNeighbour(world: WorldState, width: number, layer: LayerOf
       .toBeGreaterThanOrEqual(fade.get(JSON.stringify(roof.haze))!)
   }
   // Infer the requirement from the source kind, independently of the renderer's town classification.
-  if (['minaret', 'church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) {
+  if (['church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) {
     expect(glyph.town, hint).toBe(true)
   }
   if (glyph.baseMode === 'ridge') {

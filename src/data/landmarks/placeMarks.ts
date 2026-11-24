@@ -1,3 +1,4 @@
+import { isDrawableMark } from './drawableMark'
 import { byPriority, fewLandmarks, PORTRAIT_LANDMARKS } from './portraitSelection'
 export { PORTRAIT_LANDMARKS } from './portraitSelection'
 import { markAppearance } from './markAppearance'
@@ -22,7 +23,7 @@ export const isGenericHighrise = (kind: Landmark['kind'], glyph?: string) =>
 
 const FIXED: Partial<Record<Landmark['kind'], number>> = { solar: 3, orchard: 6, palms: 11 }
 /** Towers too: a city's high-rises rise out of its blocks instead of standing alone beside an empty hill. */
-const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'minaret', 'church', 'silo'])
+const ABSORB = new Set<Landmark['kind']>(['synagogue', 'waterTower', 'church', 'silo'])
 /**
  * `notes`: the boxes of the notes written on the land (`sceneNotes`: the sea-level datum, the water's names), in px at
  * the real width; a mark standing in one moves aside, or is left out.
@@ -33,6 +34,7 @@ export function placeMarks(place: Place, terrain: SceneTerrain, marks: Landmark[
   const candidates: Candidate[] = []
   const scale = 375 / width
   for (const mark of marks) {
+    if (!isDrawableMark(mark)) continue
     const placed = projectMark(place, mark, terrain, portrait && { ...portrait, innerPx: homeHalf * scale })
     if (!placed) continue
     const { offset, ...projected } = placed

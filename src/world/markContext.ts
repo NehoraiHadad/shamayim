@@ -16,7 +16,7 @@ export function localTownAt(city: CityResult | null | undefined, mark: Landmark)
 /** Explicit source evidence that a glyph requires town support. */
 export function requiresTown(mark: WorldMark): boolean | undefined {
   if (mark.seatBlockId !== undefined) return true
-  if (['minaret', 'church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) return true
+  if (['church', 'synagogue', 'homes', 'westernWall', 'babShrine'].includes(mark.glyphKind)) return true
   return mark.townFootprint
 }
 

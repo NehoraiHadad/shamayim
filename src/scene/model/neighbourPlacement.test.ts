@@ -6,7 +6,7 @@ import type { WorldMark } from '../../world/markGeometry'
 
 const home = { left: 100, right: 120, hazeKm: 2 }
 const block = { x: 135, w: 30, top: 98, foot: 100, hazeKm: 4 }
-const mark = (glyphKind = 'minaret'): WorldMark => ({ glyphKind, base: 100, h: 4, scale: 1, w: 4 } as WorldMark)
+const mark = (glyphKind = 'church'): WorldMark => ({ glyphKind, base: 100, h: 4, scale: 1, w: 4 } as WorldMark)
 
 it.each(Object.keys(GLYPH_SPECS))
 ('keeps the nearest separated position within the source block for %s', kind => {
