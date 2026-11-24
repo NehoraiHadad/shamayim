@@ -112,9 +112,11 @@ export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): { 
     albedo = lerpRgb(a.sample.albedo, b.sample.albedo, t)
     contribs.push({ source: a.sample.albedoSource, weight: 1 - t }, { source: b.sample.albedoSource, weight: t })
   }
-  const near = distM < RAYS_FROM_M ? nearTone(land, rays[idx].azimuth) : null
+  const T = (globalThis as unknown as { T?: [number, string] }).T ?? [RAYS_FROM_M, 'lin']
+  const near = distM < T[0] ? nearTone(land, rays[idx].azimuth) : null
   if (near) {
-    const share = clamp((RAYS_FROM_M - distM) / (RAYS_FROM_M - FIRST_RING_M), 0, 1)
+    const share = clamp(T[1] === 'log' ? Math.log(T[0] / distM) / Math.log(T[0] / FIRST_RING_M)
+      : ((T[0] - distM) / (T[0] - FIRST_RING_M)) ** (T[1] === 'quad' ? 2 : 1), 0, 1)
     albedo = lerpRgb(albedo, near.albedo, share)
     for (const c of contribs) c.weight *= 1 - share
     contribs.push({ source: near.source, weight: share })
