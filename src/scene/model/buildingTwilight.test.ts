@@ -21,8 +21,12 @@ const lightHue = (rgb: RGB, rho: readonly number[]) => {
   const [r, , b] = srgbRgbToLinear(rgb)
   return (b / rho[2]) / (r / rho[0])
 }
-/** The light on a wall turned from the sun against the light on the shaded ground, B/R. */
-const HUE = [.78, 1.22] as const
+/**
+ * The light on a wall turned from the sun against the light on the shaded ground, B/R. Both have the sky's; the wall has the
+ * ground's bounce (albedo about .15 in blue, .3 in red) as well, so it lies between 1.15 / 1.3 and 1. Over 1 are 3 % for the
+ * warm low sky that the neighbours hide from a wall first. Measured .933-1.010 over the five places.
+ */
+const HUE = [.88, 1.03] as const
 const median = (values: number[]) => values.sort((a, b) => a - b)[values.length >> 1]
 let loaded: Awaited<ReturnType<typeof loadPlaces>>
 beforeAll(async () => {
