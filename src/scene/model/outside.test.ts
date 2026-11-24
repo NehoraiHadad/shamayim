@@ -71,12 +71,18 @@ describe('mapped town frontage and roof heights', () => {
     expect(ratios[Math.floor(ratios.length / 2)]).toBeLessThanOrEqual(1.6)
   })
 
-  it.each([[5, 0, 5 * STOREY_M + 1], [0, 10, 10]])('uses sparse raster height (%i storeys, p90 %i m)', (levels, p90, roof) => {
+  it.each([
+    ['a block of 5 storeys', 5, 0, [5 * STOREY_M + 1]],
+    ['a block beside one tall stack', 5, 60, [5 * STOREY_M + 1]],
+    ['a house of 3 storeys', 3, 0, [STOREY_M + 1.5, 2 * STOREY_M + 1.5]],
+    ['a house beside one tall stack', 0, 60, [STOREY_M + 1.5, 2 * STOREY_M + 1.5]],
+  ])('gives a sparse square its typical roof: %s', (_, levels, p90, roofs) => {
     const fixture = loaded.get('haifa')!
-    const city = { ...fixture.city!, raster: { at: () => ({ built: 2 / 15, levels, p90 }) } }
+    const city = { ...fixture.city!, towers: [], raster: { at: () => ({ built: 2 / 15, levels, p90 }) } }
     const world = buildWorld(worldInput({ ...fixture, city }, NOON))
-    const boxes = (world.place3 as OutsideView).skyline.boxes
-    expect(boxes.some(b => b.heightM === roof)).toBe(true)
+    const boxes = (world.place3 as OutsideView).skyline.boxes.filter(b => b.seed !== undefined)
+    expect(boxes.length).toBeGreaterThan(50)
+    expect(new Set(boxes.map(b => b.heightM))).toEqual(new Set(roofs))
   })
 
   it('still gives dense squares without height data their raster default roof', () => {

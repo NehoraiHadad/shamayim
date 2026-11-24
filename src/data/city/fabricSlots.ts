@@ -33,12 +33,13 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
   return standing
 }
 
-const overlap = (a: OutsideBox, b: OutsideBox, pitch: number) =>
-  Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.foot - b.foot) < pitch
+/** Whether `body` covers the spot `other` stands on, within one row. */
+const covers = (body: OutsideBox, other: OutsideBox, pitch: number) =>
+  Math.abs(body.x - other.x) < body.w / 2 && Math.abs(body.foot - other.foot) < pitch
 
 /**
- * The standing sites' bodies, where a block drawn wider than its site takes the ground it covers: of blocks whose fronts
- * overlap within one row (`pitch` px of ground), the nearest stands; one at its own width always does. Houses keep their
+ * The standing sites' bodies, where a block drawn wider than its site takes the ground it covers: a widened block whose
+ * spot a nearer one (or one at its own width) covers within one row (`pitch` px of ground) is left out. Houses keep their
  * sites (the painter's order hides what stands behind a block), so a low-rise place keeps its layout.
  */
 export function composeBodies(sites: readonly FabricSite[], pitch: number, houseTopM: number): OutsideBox[] {
@@ -52,11 +53,7 @@ export function composeBodies(sites: readonly FabricSite[], pitch: number, house
       else columns.set(c, [box])
     }
   }
-  const taken = (box: OutsideBox) => {
-    const [from, to] = span(box)
-    for (let c = from; c <= to; c++) if (columns.get(c)?.some(other => overlap(box, other, pitch))) return true
-    return false
-  }
+  const taken = (box: OutsideBox) => columns.get(Math.floor(box.x / pitch))?.some(other => covers(other, box, pitch))
   const blocks = sites.filter(({ body }) => (body.heightM ?? 0) >= houseTopM)
   const widened = blocks.filter(({ box, body }) => body.w > box.w).sort((a, b) => b.body.near - a.body.near)
   for (const { box, body } of blocks) if (body.w <= box.w) lay(body)

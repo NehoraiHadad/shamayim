@@ -155,11 +155,13 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
   const cos = Math.cos(place.lat * Math.PI / 180)
   const cells: FabricCell[] = []
   const trees: PlaceTree[] = []
+  // A sparse square keeps its houses, unless its typical building is a block: then it stands at the typical roof, with no
+  // tail (of so few buildings the tallest is a tower of its own).
   const heightsAt = (at: ReturnType<NonNullable<typeof raster>['at']> | undefined, u: number) => {
     const house = HOUSE_M[u < .6 ? 0 : 1]
-    const heightM = at && (at.built >= .2 || at.levels > 0 || at.p90 > 0)
-      ? roofHeight(at.levels, at.p90, u) : house
-    return { heightM, ...(at && at.built < .2 && heightM !== house ? { siteHeightM: house } : {}) }
+    if (at && at.built >= .2) return { heightM: roofHeight(at.levels, at.p90, u) }
+    const typical = at ? roofHeight(at.levels, 0, 0) : house
+    return typical < HOUSE_TOP_M ? { heightM: house } : { heightM: typical, siteHeightM: house }
   }
   if (cover) {
     const step = LAND_STEP
