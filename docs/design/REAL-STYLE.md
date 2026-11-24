@@ -28,14 +28,14 @@ Order by gain at phone size. "Contract" = a need outside `paint/real` that goes 
 
 | # | Layer | Painter plan | Contract |
 |---|---|---|---|
-| 1 | `cloudSheet` | Raster 0.6 px/px: coverage softened by the deck's own scale, its edge carried by two octave-blended noises (never a per-row scale: it shears to streaks). Light: two short marches (toward the sun, up) and a blurred depth; `shade = ½ tone + own depth`, crowns over `lit`, rims at thin edges. Low over the horizon depth, relief and crowns fade into the air | (a) |
+| 1 | Cloud: `cloudSheet` and `cloudCells`, **one hand** | One grain (`cloudGrain`), one light (`cloudLight`) and one tone (`cloudTone`) for sheets and towers, so a storm's tower and its deck are one painter's. Grain: a soft cover, its edge here crisp and there soft, its inside whole, its underside cut flat. Light: marches toward the sun, up and down over the half raster, two losses (the fine one models heads, the broad one the mass: a lit side, a shaded one, a flat dark base). Tone: between the model's lit and shade by that light, round heads of two sizes raked by it, a shade a little under the model's only where the sky has a range. A half-closed deck stays by the model's tone; a hole shows its far wall, lit, and its near edge's straight dark underside. Low over the horizon all of it fades into the air | (a) |
 | 2 | Sky | Not painted by a style: the base is a CSS background from the shared stops. The style grades the stops: blues only, by day only (chroma +0.28, mid lift +0.2), dusk and night untouched | (b) |
-| 3 | `plane` | The model's palette, light field, snow and haze on a finer raster; its surface patches lie along the slope and shrink to the crest; relief raked by the sun; the haze deeper at a far plane's foot; mid tones opened by day | (a) |
+| 3 | `plane` | The model's palette, light field, snow and haze on a finer raster; its surface patches lie along the slope and shrink to the crest; swells and scrub raked by the sun, harder the lower it stands; gullies as folds with a lit and a shaded bank (`planeGullies`); the haze deeper at a far plane's foot and **graded as the sky** (land and sky one air); mid tones opened by day | (a) |
 | 4 | `outside` by night | Added light: pools between houses, air glow, a bloom on lamps, paths on the sea; from the model's share of lit windows and their colour | none |
-| 5 | `cloudCells` | Lumps packed inside the model's own heads on a spine, joined soft-max to one surface; lit from the model's side; creases, lower column and foot in its shade; inward tearing only, so the outline stays the model's | none |
+| 5 | Towers' own part (`towerField`) | The model's heads (`headsOf`) as a soft cover, billowing inward; under the tropopause a thin fibrous veil of ice, no puffy anvil; a far, narrow tower softer, fainter and flatter; the foot melts into rain or haze | none |
 | 6 | `canopy`, trees | Leaf clumps in three passes, broken edge, soft under-shade; the model's inks; palms by today's hand until they get their own | (a) |
 | 7 | Sea (`outside`, `water`) | Waves that shrink to the horizon, the far edge melted into haze, a wet shore with foam, the sun's path | (a) |
-| 8 | `outside` by day | Bodies seated: foot darker, top open to the sky, sun side warm. Weakest gain: the fronts need the model's albedo (fault map, model 8). Phase 2 adds shade between neighbours and roofs by their own normal | (a) |
+| 8 | `outside` by day | `houseLight`: a house at its corner, one wall in the sun and one in the sky's shade, its top open to the sky, its foot dark, a thin bright edge against the light; its cast on its neighbours (`houseCast`, the model's own cast). Nothing at night or without sun. Fronts still need the model's albedo (fault map, model 8) | (a) |
 | 9 | Dusk and dawn clouds | Under-lighting when the sun is below the base: the march turns, lit colour from below. Needs distinct lit and shade colours (model 4) | (a) + model |
 | 10 | Fog | Three or four veils by distance, each with a soft uneven top, the near ones thinner; planes and bodies fade by their own distance, not under one sheet | asks: `mist.ts` is shared |
 | 11 | Rain | Curtain: finer and denser fibres, gentle gather (done in the concept). Near rain: three depths of falls, the far ones a tone and not dashes; wet air lowers contrast | `fall.ts` is shared |
@@ -80,11 +80,14 @@ anim 4 ms, memory 48 MB). Mean ms a paint, concept against today, same desktop, 
 
 | | today | concept | how it comes down |
 |---|---|---|---|
-| `cloudSheet` | 86–144 | 216–294 | tiles built once (200 ms, warm on idle in the worker); `bend`, swell, light and colour on the half raster; a 256-step shade table; row constants out of the loop; one octave where the blend is near its end |
+| `cloudSheet` (round 1) | 86–144 | 216–294 | tiles built once (200 ms, warm on idle in the worker); `bend`, swell, light and colour on the half raster; a 256-step shade table; row constants out of the loop; one octave where the blend is near its end |
 | `plane` | 20–33 | 69–278 | reflectance and slope on the 3 px texel grid, kept by `desc.key`; the light per texel; a fine overlay kept as form; no allocation per sample |
 | `cloudCells` | 120–163 | 225 | cap 20–25 000 px; front to back, covered pixels skipped; tears near edges only; tables for the powers |
 | `outside` | 45–106 | 55–137 | gradients per tone and size bucket, not per body |
 | `canopy`, `water`, `shafts` | 4–29 | 4–24 | nothing |
+
+Round 2 is not measured: a sheet adds one march and two head reads a pixel (the marches stay on the half raster), a tower loses its
+lumps. Phase 2 measures on CI first.
 
 Sky layers paint in the worker and land light is scrubbed, so **`plane` is the risk** (scrub.land 10 ms gated): its surface (noise, relief
 slope) is form and is kept; only the light per texel is redone while scrubbing. If it cannot be met, `plane` ships at texel
@@ -101,7 +104,8 @@ resolution with the finer surface as a kept overlay. The first phase 2 step is t
 ## 6. Known weak points of the concept
 
 - Buildings gain little by day; tel-aviv's fronts stay brown (model).
-- The giant column (rosh-pina), the vase (storm) and the egg (night) are the model's shapes: better light does not cure them.
-- A broken middle deck (jerusalem 13:00, `jerusalem-1300-concept-weak.png`) is still soft paper with smooth holes: rims and bases are next.
+- The giant column (rosh-pina), the chimney (storm) and the egg (night) are the model's shapes: better light does not cure them.
+- The storm's left mass has no sun and little of its own form; a faint sun disc reads through the tower's foot (today's too).
+- Settlement composition (number over the village, odd or sparse houses) is the foundations session's, track V.
 - Palms keep today's hand. Jerusalem noon, dusk, fog, dust, snow and near rain are planned, not drawn.
 - The plane and the sheet cost more than today (§4).

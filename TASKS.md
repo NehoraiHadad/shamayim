@@ -1238,6 +1238,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
       - [x] Phase 1 on `claude/real-style-13639d` (nothing in `src/scene`): fault map (notes `real/FAULT-MAP.md`), plan `docs/design/REAL-STYLE.md`,
             concept painters and stills `docs/design/prototypes/real/` (5 moments, side by side in notes `real/concept/`)
+      - [x] Round 2 on the manager's four criticisms (prototype only, stills on CI: the `concept` dispatch input of `ci.yml`): ground raked
+            and gully banks, house corners and casts, haze graded as the sky; one cloud hand for sheets and towers; hole walls; round heads
+            Stills: notes `real/concept/round2/`
       - [ ] Owner's verdict on the concept; contract needs (a) the lamp, (b) the sky's grade go to the manager
       - [ ] Phase 2 after the manager opens `src/scene`: plane in perf budget first, then REAL-STYLE.md §5; CI stills, perf, READY
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
