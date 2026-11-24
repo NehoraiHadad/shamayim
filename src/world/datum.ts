@@ -11,7 +11,7 @@ import type { Pt } from './types'
  * stands there along the dot's own row, in front of the land behind the place, and on each side runs until that row's
  * ground rises through 0 m, which is where the slope reaches sea level (`datumOfRow`; a side whose ground stays below
  * 0 m ends a short way past the dot, fading out). Without the place's local ground there is no scale to draw it on: no line, no note
- * (the label, "−N מ׳", still says the place lies below sea level, and the spoken label says it in words).
+ * (the spoken label still says in words that the place lies below sea level).
  *
  * (Before decision 14 the picture had two scales, pressed apart above and below the dot, and the dot sat on the ridge
  * line whatever the crest's height, so sea level had to be found as the median of a 0 m contour drawn by that rule, or of

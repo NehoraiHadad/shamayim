@@ -1,5 +1,5 @@
-/* The valley scene's figure and its HTML (docs/design/CANVAS-SCENE-PLAN.md §1e): the canvas fills it; the labels, the
-   place's dot, the scrubber and the readout are HTML over it. */
+/* The valley scene's figure and its HTML (docs/design/CANVAS-SCENE-PLAN.md §1e): the canvas fills it; the notes,
+   the scrubber and the readout are HTML over it. */
 .scene {
   position: relative;
   height: 128px;
@@ -14,11 +14,14 @@
   pointer-events: none;
 }
 
-.seaLabel,
-.waterLabel {
+/* A word on the land or the water, found when looked for: small, regular, in a tone of what it stands on (`theme/quietInk.ts`). */
+.note {
   position: absolute;
-  font-size: var(--text-caption);
-  font-weight: 600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  font-size: calc(var(--text-caption) * .8);
+  font-weight: 400;
   line-height: 1;
   white-space: nowrap;
 }

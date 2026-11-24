@@ -1,11 +1,12 @@
 import { farMasses } from './markOcclusion'
 //# allFunctionsCalledOnLoad
+import { sceneClearance } from '../../world/sceneClearance'
 import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
 import { landDustLayers } from './landDust'
-import { layoutOf } from './layout'
+import { overlayOf } from './layout'
 import { withCloudAir } from './cloudAir'
 import { withLamp } from './lamp'
 import { arrivingLayers, loadingLayers, showsUnknown } from './loading'
@@ -73,24 +74,24 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
 }
 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
-  const layout = layoutOf(world, box)
-  const towns = farCitiesLayer(world, box, layout.clear, light)
-  const outside = outsideOf(world, box, layout.clear, light)
-  const home = outsideHome(world, box, layout.clear)
-  const foreground = outsideMass(world, box, layout.clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
-  const marks = marksLayers(world, box, towns, home, layout.clear, [...foreground, ...farMasses(towns)], light)
+  const clear: Box[] = sceneClearance(world.labels, world.place3.dot, box.width)
+  const towns = farCitiesLayer(world, box, clear, light)
+  const outside = outsideOf(world, box, clear, light)
+  const home = outsideHome(world, box, clear)
+  const foreground = outsideMass(world, box, clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
+  const marks = marksLayers(world, box, towns, home, clear, [...foreground, ...farMasses(towns)], light)
   // The sky's life is hidden by the land drawn over it, and laid in front of the land it is nearer than.
   const sky = skyLayers(world, box, life)
   const shadows = cloudShadowsOf(world, box, sky.find(layer => layer.kind === 'cloudCells'))
-  const planes = planeLayers(world, box, layout.clear)
+  const planes = planeLayers(world, box, clear)
     .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life), !life.still))
   const wind = plantWindOf(world.wind)
-  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, layout.clear, !life.still) ?? [])
-  const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, layout.clear),
+  const canopies = planes.flatMap((plane) => canopyOf(plane, wind, clear, !life.still) ?? [])
+  const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
-    ...landDustLayers(world, box), ...weatherLayers(world, box, layout.clear)]
+    ...landDustLayers(world, box), ...weatherLayers(world, box, clear)]
     .sort((a, b) => (a.surface === b.surface ? a.z - b.z : a.surface === 'sky' ? -1 : 1))
-  return { layers: asked(layers, world, box, light), ...layout }
+  return { layers: asked(layers, world, box, light), overlay: overlayOf(world, box, layers), clear }
 }
 
 /** The layers with what the hand's light asks of the model beyond its own. */

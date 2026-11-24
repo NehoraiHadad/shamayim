@@ -26,7 +26,7 @@ export const roofM = (box: { heightM?: number }) => box.heightM ?? 3 * STOREY_M
  * What of the outside view stands clear of the text and the dot, as drawn: each body's middle and width (land px, x scaled
  * from the reference width by `sx`). The one silhouette the scene draws and the sun and moon are judged against.
  */
-export function outsideBodies(view: Pick<OutsideView, 'skyline' | 'frame' | 'baseKm' | 'beyond' | 'beyondTowns' | 'trees'>, clear: readonly ScreenBox[], sx: number) {
+export function outsideBodies(view: OutsideView, clear: readonly ScreenBox[], sx: number) {
   const { skyline, frame, baseKm } = view
   const free = (x: number, half: number, top: number, foot: number) => !hits(clear, x - half, top, x + half, foot)
   const stacks = skyline.towers.filter(t => t.industrial && free(t.x * sx, t.w / 2, t.baseY - t.h, t.baseY))

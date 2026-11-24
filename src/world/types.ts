@@ -124,7 +124,7 @@ export interface WorldState {
   marks: WorldMark[]
   /** All viable beyond seats, ranked for re-budgeting after the scene's screen-space cull. */
   seatPool: SeatedWorldMark[]
-  /** The height label and the notes on the land (the place part: independent of the hour). */
+  /** The notes on the land (the place part: independent of the hour). */
   labels: WorldLabels
   night: Night
   ground: { wet: number; snowLineM: number | null }

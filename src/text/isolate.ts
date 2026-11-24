@@ -12,14 +12,8 @@ export const PDI = '\u2069'
 /** Keep left-to-right text together in a mixed-direction sentence. */
 export const ltr = (s: string): string => LRI + s + PDI
 
-/** Keep right-to-left text together even in a left-to-right container. */
-export const rtl = (s: string): string => RLI + s + PDI
-
 /** Keep the sign, digits and degree mark in the same left-to-right run. */
 export const tempText = (n: number): string => ltr(formatTemp(n))
-
-/** Keep the signed number together and place the Hebrew unit to its left. */
-export const heightText = (m: number): string => rtl(ltr(formatTemp(m, false)) + '\u00A0מ׳')
 
 /** Keep each clock readable while letting RTL place the earlier time on the right. */
 export const clockRange = (a: string, b: string): string => ltr(a) + '–' + ltr(b)

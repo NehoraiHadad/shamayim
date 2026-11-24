@@ -41,7 +41,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${JSON.stringify([clear, world.labels.height, world.keys.marks])}`
+  const key = `${box.width}|${JSON.stringify([clear, world.keys.marks])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W

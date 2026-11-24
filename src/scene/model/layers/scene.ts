@@ -1,4 +1,3 @@
-import type { LabelTone } from '../../../theme/labelTone'
 import type { Box } from './base'
 import type { CloudLayers } from './cloud'
 import type { LandLayers } from './land'
@@ -18,11 +17,14 @@ export type LayerKind = LayerDesc['kind']
 export type LayerOf<K extends LayerKind> = Extract<LayerDesc, { kind: K }>
 
 /** HTML over the land, placed from the model: positions in scene px (x as `box.width` scales it). */
-export type OverlayItem =
-  /** `x` the letters' middle, `y` their top, `spot` the place's exact spot; `dot` its colour, where the spot is marked. */
-  | { kind: 'height'; text: string; x: number; y: number; spot: { x: number; y: number }; tone: LabelTone; dot: string | null }
-  /** `x` the note's left edge, `y` its top. */
-  | { kind: 'datum' | 'water'; text: string; x: number; y: number }
+export interface OverlayItem {
+  kind: 'datum' | 'water'
+  text: string
+  /** The note's box: its left edge, top, width and height. The letters stand in its middle, at its foot. */
+  x: number; y: number; w: number; h: number
+  /** A tone of what lies under the letters. */
+  ink: string
+}
 
 /**
  * The land's arrival in time (C8), kept by the React shell, which alone reads the clock, as phases of the scene's one
@@ -37,6 +39,6 @@ export interface LandClock { loadingAt: number; reveal?: { at: number | null; fr
 export interface SceneModel {
   layers: LayerDesc[]
   overlay: OverlayItem[]
-  /** Text and dot zones (land px) that nothing drawn may cover. */
+  /** Text zones and the place's spot (land px), that nothing drawn may cover. */
   clear: Box[]
 }

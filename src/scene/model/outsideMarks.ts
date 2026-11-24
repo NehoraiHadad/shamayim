@@ -1,6 +1,5 @@
 import type { WorldMark } from '../../world/markGeometry'
 import { visibleOutsideMark } from '../../world/outsideSeats'
-import { heightLabelBox } from '../../world/sceneClearance'
 import type { HomeRoofline, NeighbourBlock } from './neighbourPlacement'
 import { evaluateNeighbour } from './evaluateNeighbour'
 import { markDescriptor } from './markDescriptor'
@@ -18,11 +17,10 @@ const MARK_DEPTH_OFFSET_PX = .01
 export function outsideMarks(world: WorldState, width: number, drawnBlocks: ReadonlyMap<string, NeighbourBlock>,
   clear: readonly Box[], behind: (x: number, y: number) => number, mass: DrawnMass[], home: HomeRoofline | null) {
   const sx = width / SCENE_W
-  const zones = [...clear, heightLabelBox(world.labels.height, width)]
   const neighbour = <T extends WorldMark>(mark: T, foreground: DrawnMass[]) => {
     const town = needsTown(world, mark)
     const block = town ? drawnBlocks.get(mark.seatBlockId ?? mark.supportBlockId ?? '') : null
-    const result = evaluateNeighbour(world, mark, width, block, home, zones, foreground)
+    const result = evaluateNeighbour(world, mark, width, block, home, clear, foreground)
     return result.placed ? { ...result.placed, hazeKm: result.hazeKm, supportId: result.supportId, town } : null
   }
   const ordinary = world.marks.filter(mark => mark.plane === 'near' && mark.seatBlockId === undefined)

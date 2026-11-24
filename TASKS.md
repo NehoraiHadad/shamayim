@@ -33,8 +33,9 @@ every mosque and minaret line below.
       drift, re-rendered the stills, refreshed the background audit and `AUDIT-table.md` After; counts/factor bins are in `REPORT.md` Round 7.
 - [x] Obtain a recorded panorama for the production Karmei Tzur coordinate (and four more small settlements) through
       the fixture workflow: `src/test/fixtures/scene` via `scripts/fixtures/recordPanoramas.ts`, run on Actions.
-- [x] Height mark (owner's choice A, no name): the number lettered over the roofs; no line, a tiny dot only where no house is drawn
-      (`src/world/heightMark.ts`, `src/theme/labelTone.ts`, `src/scene/react/HeightLabel.tsx`); the backed label is gone.
+- [x] Scene texts (owner, 2026-11-24): no height number and no dot on the picture; the water's names and "פני הים" quieter, in a
+      tone of what is under them (`src/theme/quietInk.ts`, `src/scene/model/noteInk.ts`). The number's last form: a3030959 on
+      `claude/found-i-label2`. Left: the spot's small clearing among the houses (filling it fails Tiberias's roof/front gate).
 - [ ] Review the settlement rules against that terrain. Stage V1 measured them (label over the town, dot erasing
       houses, beyond-town blocks, house size and frame); the fixes are not started. Unit tests still use flat 100 m.
 - [x] Landmark-size decision: shared 6–16 CSS px policy, land aerial perspective plus far-city contrast and lamp

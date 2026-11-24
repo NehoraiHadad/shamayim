@@ -6,6 +6,7 @@ import { smoothstep } from '../../world/ridgeLighting'
 import type { WorldState } from '../../world/types'
 import { colourKey, landBoxKey, layerKey } from './keys'
 import { aerialFor, hazeOf, toneAt } from './landVeil'
+import { landInk } from './noteInk'
 import { skyAt } from './sky'
 import { mixLight, mixRgb, rgbOf } from './tone'
 import type { Box, GlintPath, LayerOf, RGB, SceneBox, Streak, WaterBand } from './types'
@@ -17,6 +18,8 @@ type WaterName = 'far' | 'near'
 const Z: Record<WaterName, number> = { far: 15, near: 35 }
 /** The water's strip (C7): six frames at six a second, a one-second loop of ripples and sparks. */
 export const WATER_FRAMES = { count: 6, fps: 6 }
+/** The datum's dots are a fine row under its note's letters, in their tone: fainter, as a line is found before a word. */
+const DATUM_ALPHA = 0.6
 /** The water's own colour where it sends back no sky: deep, a little green-blue (scaled by the light of the hour). */
 const DEEP: RGB = [0.06, 0.17, 0.21]
 /** The sun's path on the water in its own colour, the moon's silver. */
@@ -94,7 +97,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const { water, light, night } = world
   const sx = box.width / SCENE_W
   const spans = water.spans.map((span, index) => ({ span, index })).filter(({ span }) => waterLayer(span) === name)
-  const line = name === 'near' && world.labels.height.below ? world.labels.datum ?? null : null
+  const line = name === 'near' && world.labels.below ? world.labels.datum ?? null : null
   const datumOn = line !== null
   if (!spans.length && !datumOn) return null
 
@@ -179,7 +182,7 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   let datum: LayerOf<'water'>['datum'] = null
   if (line) {
     const segments = line.segments.map((seg) => ({ x1: seg.x1 * sx, x2: seg.x2 * sx, fadeLeft: seg.fadeLeft * sx, fadeRight: seg.fadeRight * sx }))
-    datum = { y: line.y, segments, rgb: rgbOf(light.palette.ink), alpha: 0.38 }
+    datum = { y: line.y, segments, rgb: landInk(world), alpha: DATUM_ALPHA }
     for (const seg of segments) { left = Math.min(left, seg.x1); right = Math.max(right, seg.x2) }
     top = Math.min(top, datum.y - 1); bottom = Math.max(bottom, datum.y + 1)
   }
@@ -189,11 +192,11 @@ export function waterOnPlane(world: WorldState, box: SceneBox, name: WaterName, 
   const bandStopsKey = bands.map((b) => b.stops.map(([, c]) => colourKey(c)))
   const lightKey = layerKey('water.light', name, world.keys.terrain, world.keys.water, world.keys.light, world.keys.air,
     world.keys.ground, bandStopsKey, Math.round(world.wind.ms), Math.sign(Math.round(world.wind.across * 20)),
-    world.keys.night, world.labels.height.below, clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
+    world.keys.night, datum && colourKey(datum.rgb), clear.map((b) => [b.x, b.y, b.w, b.h]), landBoxKey(box))
   return {
     kind: 'water', id: `water.${name}`, surface: 'land', z: Z[name], bounds,
-    // All of the water is light (the sky it mirrors, the hour's glint, the wind's ripples, the datum in the ink of the
-    // hour): its form is only its place, so a scrub frame repaints the light canvas alone (§1d), and a datum alone only
+    // All of the water is light (the sky it mirrors, the hour's glint, the wind's ripples, the datum in its ground's
+    // tone): its form is only its place, so a scrub frame repaints the light canvas alone (§1d), and a datum alone only
     // when the ink turns.
     key: layerKey('water', name, world.keys.terrain, datum && [datum.y, ...datum.segments.flatMap((seg) => [seg.x1, seg.x2, seg.fadeLeft, seg.fadeRight])], landBoxKey(box)),
     light: { key: bands.length ? lightKey : layerKey('water.datum', datum && colourKey(datum.rgb), landBoxKey(box)),

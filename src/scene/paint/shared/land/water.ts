@@ -112,7 +112,7 @@ export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): v
 }
 
 /**
- * The sea-level datum: a quiet dashed note one css px wide, in the hour's ink (below sea level only), segment by segment;
+ * The sea-level datum: a quiet dashed note one css px wide, in its note's tone (below sea level only), segment by segment;
  * an end that meets no land fades out to nothing.
  */
 function paintDatum(ctx: Ctx2D, desc: LayerOf<'water'>) {

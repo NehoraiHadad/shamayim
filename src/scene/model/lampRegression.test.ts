@@ -49,7 +49,7 @@ it.each(['sun', 'moon'] as const)('registers the unquantised %s direction agains
 
 it('leaves the datum-only water descriptor and both keys untouched', () => {
   const world = buildWorld(worldInput(beitShean, '2026-11-17T12:00'))
-  expect(world.labels.height.below).toBe(true)
+  expect(world.labels.below).toBe(true)
   expect(world.water.spans).toHaveLength(0)
   const layers = sceneModel(world, BOX).layers
   const at = layers.findIndex(layer => layer.kind === 'water' && layer.datum && !layer.bands.length)

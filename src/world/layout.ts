@@ -1,7 +1,7 @@
 import { SCENE_H } from './sunPath'
 
 /**
- * The scene's layout constants and box helpers (stage C4): the world places the marks and the height label with them
+ * The scene's layout constants and box helpers (stage C4): the world places the marks with them
  * (`world/marks.ts`, `world/place.ts`).
  */
 
@@ -10,13 +10,8 @@ export const SHEET_OVERLAP = 14
 export const VISIBLE_BOTTOM = SCENE_H - SHEET_OVERLAP
 /** A base closer than this to the sheet edge reads as a stub cut by the card. */
 export const SHEET_CLEAR = 6
-/** The room kept clear round the place's dot (`scene/react/HeightLabel.tsx`). */
+/** The small clearing kept round the place's exact spot (`place3.dot`): nothing marks the spot, but the town is laid round it. */
 export const DOT_R = 4.5
-/** How far the dot itself is drawn round its spot (px). */
-export const DOT_DRAWN = 2
-/** The size the place's height is lettered in, at the least (`scene/react/heightHands.ts`), and how tall its figures stand. */
-export const LABEL_PX = 12
-export const LETTER_H = 9
 
 /** A drawn box in scene px (y grows down). */
 export interface Box { left: number; right: number; top: number; bottom: number }
@@ -36,9 +31,3 @@ export function shifts(max: number, step: number) {
   for (let d = step; d <= max; d += step) out.push(d, -d)
   return out
 }
-
-/** Width of a one-line label (Heebo-like digits and Hebrew run about half an em). */
-export function textWidth(text: string, fontPx: number) { return text.replace(/[\u2066-\u2069]/g, '').length * fontPx * .5 + 1 }
-
-/** Room for the height in either hand's letters. */
-export const letterWidth = (text: string) => Math.ceil(textWidth(text, LABEL_PX) * 1.1) + 2

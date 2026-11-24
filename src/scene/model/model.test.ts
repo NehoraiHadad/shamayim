@@ -2,13 +2,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { LocalTime } from '../../domain/types'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { SCENE_PLACES } from '../../test/scenePlaces'
-import { heightText } from '../../text/isolate'
-import { LABEL_PX, textWidth } from '../../world/layout'
-import { markBox } from '../../world/markGeometry'
-import { heightLabelBox, hits } from '../../world/sceneClearance'
 import { buildWorld, makeWorldBuilder } from '../../world/world'
 import { compositeOrder } from '../compose/compositeOrder'
 import { layersOn, sceneModel } from '.'
+import { waterInk } from './noteInk'
+import { hexOf } from './tone'
 import type { SceneBox } from './types'
 
 /** Stage C1 (docs/design/CANVAS-SCENE-PLAN.md §4): the model's skeleton, the overlay and the scrub split. */
@@ -25,37 +23,33 @@ beforeAll(async () => {
 })
 afterAll(() => { vi.unstubAllGlobals() })
 
-it('measures the height label without its bidi isolates', () => {
-  expect(textWidth(heightText(-137), LABEL_PX)).toBe(textWidth('−137 מ׳', LABEL_PX))
-})
-
 describe.each(SCENE_PLACES)('scene model: $id', ({ id }) => {
-  it('places the height, its dot and the notes, the height clear of the marks', () => {
-    const place = loaded.get(id)!
-    const input = worldInput(place, TIMES[1])
+  it('places the notes and nothing else, each on its box', () => {
+    const input = worldInput(loaded.get(id)!, TIMES[1])
     const world = buildWorld(input)
     const below = input.forecast.elevation < 0
     const { overlay } = sceneModel(world, BOX)
-    // The height over the roofs in the dot's column and its dot (`heightMark.test.ts`), clear of the marks.
-    const height = overlay.find((item) => item.kind === 'height')!
-    expect(height).toMatchObject({ x: world.labels.height.x, y: world.labels.height.y,
-      spot: { x: Number.parseFloat(place.terrain.centerLeft) / 100 * 375, y: world.place3.dot.y } })
-    const letters = heightLabelBox(world.labels.height, BOX.width)
-    const covered = world.marks.filter((m) => m.plane !== 'far').filter((mark) => hits([letters], markBox(mark).left, markBox(mark).top, markBox(mark).right, markBox(mark).bottom))
-    expect(covered.map((m) => m.id)).toEqual([])
-    // The datum only below sea level (the SVG scene's rule); the water's names on their water (C9, `notesOnWater`:
-    // outside.test.ts).
-    expect(overlay.filter((item) => item.kind === 'datum'))
-      .toEqual(world.labels.notes.filter((note) => note.kind === 'datum').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
-    // Below sea level only, and only where the picture's land reaches 0 m above the dot (`world/datum.ts`): the fixture's
-    // height is below sea level at every place, but the ground of most of them is not.
+    expect(overlay.map(({ kind, text, x, y, w, h }) => ({ kind, text, x, y, w, h })))
+      .toEqual(world.labels.notes.map(({ kind, text, left, top, width, height }) => ({ kind, text, x: left, y: top, w: width, h: height })))
+    // The datum only below sea level, and only where the picture's land reaches 0 m above the spot (`world/datum.ts`): the
+    // fixture's height is below sea level at every place, but the ground of most of them is not.
     expect(overlay.some((item) => item.kind === 'datum')).toBe(below && Boolean(world.labels.datum))
     if (world.labels.datum) expect(below).toBe(true)
-    expect(overlay.filter((item) => item.kind === 'water'))
-      .toEqual(world.labels.notes.filter((note) => note.kind === 'water').map((note) => ({ kind: note.kind, text: note.text, x: note.left, y: note.top })))
     // Scaled across with the figure, heights as they are.
     const wide = sceneModel(world, { ...BOX, width: 750 }).overlay
     overlay.forEach((item, i) => expect(wide[i]).toMatchObject({ x: item.x * 2, y: item.y }))
+  })
+
+  it.each(TIMES)('letters the notes in a tone of the land and the water under them (%s)', (at) => {
+    const model = sceneModel(buildWorld(worldInput(loaded.get(id)!, at)), BOX)
+    for (const { kind, text, x, y, w, h, ink } of model.overlay) {
+      if (kind === 'datum') {
+        const line = layersOn(model, 'land').flatMap((layer) => layer.kind === 'water' && layer.datum ? [layer.datum] : [])[0]
+        expect(ink, text).toBe(hexOf(line.rgb))
+      } else {
+        expect(ink, text).toBe(waterInk(model.layers, x + w / 2, y + h / 2))
+      }
+    }
   })
 
   it('is a pure function of the world and the box', () => {

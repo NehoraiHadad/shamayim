@@ -15,8 +15,6 @@ import type { LandCover } from '../data/land/landData'
 import { settlementOf } from '../data/village/settlementOf'
 import type { VillageTile } from '../data/village/tile'
 import type { WaterMask } from '../data/water/waterMask'
-import { heightText } from '../text/isolate'
-import { heightMark } from './heightMark'
 import { DOT_R, overlaps, SHEET_CLEAR, VISIBLE_BOTTOM } from './layout'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import { marksOf } from './marks'
@@ -47,7 +45,7 @@ export interface PlaceInput {
   city?: CityResult | null
   /** The figure's width (px) the marks are laid out in. */
   width: number
-  /** The place's height (m): the label it keeps clear of, and the "פני הים" datum below sea level. */
+  /** The place's height (m): the "פני הים" datum below sea level. */
   elevation: number
   /** The places' own boundaries (C5: the outside view's frame is cut at the place's). */
   bounds?: BoundsFile | null
@@ -70,8 +68,8 @@ export function homeHalf(reachKm: number, known: boolean): number {
  * The place and its marks (stages C4–C5), once its land is known (a panorama; `world.ts` keeps an unknown place while it
  * is not). Every place is seen from outside and built from its own data by one builder (`outside.ts`, owner 2026-11-19):
  * its built cells at their real heights (houses with roofs where low and sparse, blocks where dense, the jagged mass with
- * spires where high), its trees, towers and marks, by true east–west and north–south. The height over the
- * roofs clears the budgeted marks. Layout is independent of the hour (`night.litShare` controls lit windows).
+ * spires where high), its trees, towers and marks, by true east–west and north–south. Layout is
+ * independent of the hour (`night.litShare` controls lit windows).
  */
 export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldMark[]; seatPool: SeatedWorldMark[]; labels: WorldLabels;
   ownSkyline: boolean; coastalSea: CoastalSea | null; nearLine: NearLine | null } {
@@ -79,8 +77,6 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const landmarks = [...input.landmarks]
   const reachKm = portraitReach(city?.clusters, place.nameHe)
   const towers = city?.raster?.towers ?? city?.towers ?? []
-  const rounded = Math.round(elevation)
-  const label = { text: heightText(rounded), below: elevation < 0 }
   const ground = groundFn(terrain.nearPoints, width)
   const centerX = Number.parseFloat(terrain.centerLeft) / 100 * width
   const seed = hashId(place.id)
@@ -114,9 +110,7 @@ export function placeOf(input: PlaceInput): { place3: OutsideView; marks: WorldM
   const { marks, seatPool } = marksOf({ place, city, terrain: drawn, landmarks, seatCandidates: input.seatCandidates, width, dot, reachKm,
     homeHalf: homeHalf(reachKm, known), style: style.style, notes: noteBoxes(notes), rasterTowers: ownSkyline ? towers : null,
     outside: { frame: view.frame, isCity: true, lie: view.lie, baseKm: view.baseKm, land: view.land, seatMark: view.seatMark, village: view.village } })
-  // The height is lettered over the place's own roofs, in the dot's column (`heightMark.ts`).
-  const mark = heightMark({ text: label.text, dot, view, marks, labels: { notes, datum }, landY })
-  const labels: WorldLabels = { height: { ...label, ...mark }, notes, datum }
+  const labels: WorldLabels = { below: elevation < 0, notes, datum }
   return { marks, seatPool, labels, ownSkyline, coastalSea: view.sea, nearLine: view.nearLine, place3: { kind: 'outside', dot, reachKm, seed, skyline: view.skyline,
     frame: view.frame, bounds: view.bounds, topM: view.topM, beyond: view.beyond, beyondTowns: view.beyondTowns, baseKm: view.baseKm,
     trees: view.trees, fabric: view.fabric, roofs: style.roofs, land: view.land,

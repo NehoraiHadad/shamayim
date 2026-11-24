@@ -66,7 +66,7 @@ describe('water', () => {
       const w = world(id, '12:00')
       const datum = waterOf(sceneModel(w, BOX)).find((l) => l.datum)?.datum
       // Only below sea level (the fixture's height is below it everywhere), where the land reaches 0 m above the dot.
-      expect(Boolean(datum), id).toBe(w.labels.height.below && Boolean(w.labels.datum))
+      expect(Boolean(datum), id).toBe(w.labels.below && Boolean(w.labels.datum))
       // The place's own datum (`world/datum.ts`): sea level drawn where its picture puts 0 m, above the dot.
       if (datum) {
         expect(datum.y, id).toBe(w.labels.datum!.y)
