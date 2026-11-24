@@ -17,7 +17,8 @@ import type { Landmark } from '../data/landmarks/types'
 import { apparentAngle, LOCAL_REACH_KM, LOCAL_STEP_KM } from '../data/terrain/panorama'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import type { WaterMask } from '../data/water/waterMask'
-import { HOUSE_ROOF_M, outsideVillage, villageCells, villageDepth, villageHouseH, type OutsideVillage } from './village/outsideVillage'
+import { layVillage } from './village/lay'
+import { HOUSE_ROOF_M, villageHouseH, type OutsideVillage } from './village/outsideVillage'
 import type { SettlementSource } from '../data/village/settlement'
 import { beyondKm, beyondTowns, builtSquares, outsideDistance, overTheCrest, rowKm, type SeatMark } from './beyondSeat'
 import { ridgeHeightAt } from './datum'
@@ -330,9 +331,9 @@ function lieOf(input: OutsideInput) {
   const pb = boundsForPlace(place, city?.clusters, input.bounds, reachKm)
   const inPlace = pb ? (dx: number, dy: number) => boundsHoldKm(pb, place, dx, dy) : undefined
   const fabric = fabricOf(place, input, inPlace, pb?.box ?? null)
+  const squares = fabric.cells
   let frame: OutsideFrame
   if (pb || input.cover) {
-    const squares = fabric.cells
     const xs = Float64Array.from(squares, (sq) => sq.dx), ys = Float64Array.from(squares, (sq) => sq.dy)
     // Half a cell round the place's built cells (its few outliers left out), so their boxes stand inside the frame.
     xs.sort(); ys.sort()
@@ -341,19 +342,7 @@ function lieOf(input: OutsideInput) {
       s: at(ys, FRAME_Q) - .03, n: at(ys, 1 - FRAME_Q) + .03 } : pb?.box ?? null
     frame = frameOfBox(box, reachKm, centerX, width, true, FRAME_SCALE)
   } else frame = outsideFrame(city?.clusters, reachKm, centerX, width, true, place.nameHe)
-  const village = outsideVillage(input.settlement, frame, fabric.cells, width)
-  if (village) frame = village.frame
-  const squares = village?.squares ?? fabric.cells
   const bounds = { source: pb?.source ?? 'cluster' as const, ...(pb?.name ? { name: pb.name } : {}) }
-  const { mask } = input
-  const cos = Math.cos(place.lat * Math.PI / 180)
-  const waterAt = (dx: number, dy: number) => {
-    const body = mask?.bodyAt(place.lat + dy / 111.32, place.lon + dx / (111.32 * cos)) ?? null
-    return body === null ? null : mask!.bodies[body]?.kind ?? 'lake'
-  }
-  /** The place's fabric as it is drawn, `depthPx` deep. */
-  const drawnFabric = (depthPx: number) => village
-    ? { ...fabric, cells: villageCells(village, fabric.cells, depthPx, place.lat, (dx, dy) => waterAt(dx, dy) !== null) } : fabric
   const heightNear = terrain.heightNear
   // Each built cell's ground in the frame, once (NaN outside it or the local grid).
   const cellGround = new Float64Array(squares.length).fill(NaN)
@@ -371,13 +360,14 @@ function lieOf(input: OutsideInput) {
     const lift = press < 1 ? (dx: number, dy: number) => -(1 - press) * outsideProject(frame, dx, dy).near * NEAR_DROP : undefined
     const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), ...(lift ? { lift } : {}) }
     const levelY = (dx: number, dy: number) => baseYAt(ground, centerX, outsideProject(frame, dx, dy).near, floor, 0, lift?.(dx, dy) ?? 0)
-    return { frame, village, lie, topM, fabric: drawnFabric(NEAR_DROP), bounds, levelY, spots: [], around: null, baseY: null, vscale: null }
+    return { frame, lie, topM, fabric, bounds, levelY, spots: [], around: null, baseY: null, vscale: null }
   }
   const h0 = heightNear(0, 0) ?? topM
   const near0 = outsideProject(frame, 0, 0).near
   const samples = groundSamples(frame, heightNear, inPlace)
   // The heights the picture holds: the place's land, its built rows, its water (a lake or the sea in the frame, the
   // coastal sea's shore at 0 m), the near ridge's crest behind it at the dot, and below sea level, sea level.
+  const waterAt = waterOf(input)
   const wet = samples.map((g) => waterAt(g.dx, g.dy))
   const coastal = wet.some((w) => w === 'sea')
   const crest = ridgeHeightAt(terrain.nearPoints, terrain.nearElevations)(centerX * 375 / width)
@@ -401,10 +391,8 @@ function lieOf(input: OutsideInput) {
   if (!Number.isFinite(hiM)) hiM = h0
   if (!Number.isFinite(loM)) loM = Math.min(h0, hiM)
   const s = verticalScale(hiM - loM, floor - LAND_TOP - NEAR_DROP)
-  // A village's rows lie deeper than a town's, as far as its land has the room.
-  const drop = village ? villageDepth(village, { top: () => LAND_TOP, floor, lift: (dx, dy) => (h0 - (heightNear(dx, dy) ?? h0)) * s }) : NEAR_DROP
   /** Px below the dot (+) or above it (−) for ground `h` m at a spot: its depth, and its height on the place's one scale. */
-  const offset = (dx: number, dy: number, h: number) => (outsideProject(frame, dx, dy).near - near0) * drop + (h0 - h) * s * farther(dy)
+  const offset = (dx: number, dy: number, h: number) => (outsideProject(frame, dx, dy).near - near0) * NEAR_DROP + (h0 - h) * s * farther(dy)
   // How far the picture reaches over the dot (its land's top, sea level) and under it (its lowest built row, its water,
   // its shore).
   let up = 0, down = 0
@@ -423,7 +411,7 @@ function lieOf(input: OutsideInput) {
   const levelY = (dx: number, dy: number, h = 0) => Math.min(floor, yDot + offset(dx, dy, h))
   const baseY = (dx: number, dy: number) => levelY(dx, dy, heightNear(dx, dy) ?? h0)
   const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), baseY }
-  return { frame, village, lie, topM, fabric: drawnFabric(drop), bounds, levelY, spots, around, baseY, vscale: { s, dotY: yDot - 1, h0 } }
+  return { frame, lie, topM, fabric, bounds, levelY, spots, around, baseY, vscale: { s, dotY: yDot - 1, h0 } }
 }
 
 /** The land as the outside view draws it: the near line and the far line (as many points as the panorama's ridge, evenly across 375 px), each with its heights (m). */
@@ -855,29 +843,54 @@ function zeroAlongRow(terrain: SceneTerrain, frame: OutsideFrame, width: number)
   return out
 }
 
+/** The kind of water at a spot (km from the place), null on land. */
+function waterOf({ mask, place }: OutsideInput) {
+  const cos = Math.cos(place.lat * Math.PI / 180)
+  return (dx: number, dy: number) => {
+    const body = mask?.bodyAt(place.lat + dy / 111.32, place.lon + dx / (111.32 * cos)) ?? null
+    return body === null ? null : mask!.bodies[body]?.kind ?? 'lake'
+  }
+}
+
+/** Whether a spot of the screen lies on the coastal sea as drawn. */
+function onSea(sea: CoastalSea | null, x: number, y: number): boolean {
+  if (!sea || y < sea.horizon) return false
+  const i = sea.coast.findIndex(([, at]) => at >= y)
+  if (i <= 0) return false
+  const [x0, y0] = sea.coast[i - 1], [x1, y1] = sea.coast[i]
+  const coast = y1 > y0 ? x0 + (x1 - x0) * (y - y0) / (y1 - y0) : x1
+  return sea.side === 'left' ? x < coast : x > coast
+}
+
 /** The place seen from outside: its frame, its own boundary and slope, mass and spires, the towers beyond, its sea. */
 export function outsidePlace(input: OutsideInput): OutsidePlace {
   const { place, landmarks, city, floor, width, terrain, centerX } = input
-  const { frame, village, lie, topM, bounds, fabric, levelY, spots, around, baseY, vscale } = lieOf(input)
+  const { frame, lie, topM, bounds, fabric, levelY, spots, around, baseY, vscale } = lieOf(input)
   // The near land the place stands in front of: its own ground and the terrain behind it, on its own scale (the
   // panorama's ridge beyond its span); everything of the place is laid against it.
   const nearLine = vscale && around ? nearLineOf(input, spots, around, levelY, frame, vscale.s) : null
   const ground = nearLine ? groundFn(nearLine.points, width) : input.ground
   const shaped = { ...input, ground }
+  const waterAt = waterOf(input)
   const land = baseY ? landOf(shaped, frame, spots, baseY) : null
-  const look = lookOf(frame, village)
-  const towers = city?.raster?.towers ?? city?.towers ?? []
-  const skyline = outsideSkyline({ place, towers, landmarks, raster: city?.raster ?? undefined, frame, ground,
-    floor, width, lie, fabric: fabric.cells, look })
   const baseKm = terrain.sightAt?.(centerX * 375 / width).nearKm ?? 1
+  const sea = coastalSeaOf(input, frame, baseKm, levelY)
+  // A village is laid on the town's picture: its own houses on its own frame, the land round it as it is.
+  const village = layVillage(input.settlement, { lat: place.lat, width, floor, frame, lie, cells: fabric.cells, ground, vscale,
+    heightNear: terrain.heightNear, waterAt: (dx, dy) => waterAt(dx, dy) !== null, onSea: (x, y) => onSea(sea, x, y) })
+  const own = village ?? { frame, lie, cells: fabric.cells }
+  const look = lookOf(own.frame, village?.village)
+  const towers = city?.raster?.towers ?? city?.towers ?? []
+  const skyline = outsideSkyline({ place, towers, landmarks, raster: city?.raster ?? undefined, frame: own.frame, ground,
+    floor, width, lie: own.lie, fabric: own.cells, look })
   // Trees in the frame, back to front, each standing on its row (hidden ones are left to the painter's order); sized as
   // the houses (a crown about half a legible house wide), one to a slot of that width.
   const slots = new Set<string>()
-  const trees = fabric.trees.filter((t) => inFrame(frame, t.dx, t.dy)).flatMap((t) => {
-    const at = outsideProject(frame, t.dx, t.dy)
-    const legible = .5 * look.house.w * at.k / frame.k
-    const w = Math.max(.9, Math.min(6, Math.max(frame.f * .012 / at.depth, legible) * (t.kind === 'cypress' ? .55 : 1)))
-    const base = lieBaseY(lie, ground, at.x, at.near, floor, 0, t.dx, t.dy)
+  const trees = fabric.trees.filter((t) => inFrame(own.frame, t.dx, t.dy)).flatMap((t) => {
+    const at = outsideProject(own.frame, t.dx, t.dy)
+    const legible = .5 * look.house.w * at.k / own.frame.k
+    const w = Math.max(.9, Math.min(6, Math.max(own.frame.f * .012 / at.depth, legible) * (t.kind === 'cypress' ? .55 : 1)))
+    const base = lieBaseY(own.lie, ground, at.x, at.near, floor, 0, t.dx, t.dy)
     if (at.x < -4 || at.x > width + 4) return []
     const key = `${Math.round(at.x / (w * TREE_SLOT + .4))}:${Math.round(base / Math.max(1, w))}`
     if (slots.has(key)) return []
@@ -886,6 +899,6 @@ export function outsidePlace(input: OutsideInput): OutsidePlace {
   })
   return { frame, skyline, bounds, topM, lie, beyond: beyondTowers(shaped, frame, lie, baseKm),
     ...beyondTowns(shaped, frame, lie, baseKm), trees, fabric: fabric.source,
-    sea: coastalSeaOf(input, frame, baseKm, levelY), baseKm, land, vscale, nearLine,
-    seaLevelY: vscale ? levelY(0, 0, 0) : null, zeroAlongRow: () => zeroAlongRow(terrain, frame, width) }
+    sea, baseKm, land, vscale: vscale && village ? { ...vscale, dotY: village.dotY } : vscale, nearLine,
+    seaLevelY: village ? village.levelY(0) : vscale ? levelY(0, 0, 0) : null, zeroAlongRow: () => zeroAlongRow(terrain, frame, width) }
 }
