@@ -52,11 +52,11 @@ function wallShade(world: WorldState): number {
  * (none under overcast or with no side: then a soft sky light from above); faces away sink toward a sky-lit dark. Every
  * tone but the lamps is then carried toward the air by the land's aerial rule at that distance.
  */
-export function illustratedTonesAt(world: WorldState, km: number): IllustratedTones {
+export function illustratedTonesAt(world: WorldState, km: number, seen = illustratedHazeOf(world)): IllustratedTones {
   const { light, night } = world
   const ridge = rgbOf(light.palette.ridgeNear)
   // What the sky lights takes its own colour; what mirrors it or fades into it, the colour it is seen in.
-  const sky = illustratedAirOf(world), seen = illustratedHazeOf(world)
+  const sky = illustratedAirOf(world)
   const dark = night.dark, day = 1 - dark
   // The living light: the direct share as it is (the moon's fainter), never gated by a side; a face takes it by its own
   // normal (`Shine.faces`), so `lit` is a face square to the light at this minute and equals the wall when there is none.
