@@ -2,7 +2,7 @@ import { hashId } from '../../../data/landmarks/hash'
 import { rowValues } from '../../model/rowValues'
 import type { LayerOf, RGB } from '../../model/types'
 import { css, type Ctx2D, type PaintEnv } from '../shared/base/hand'
-import { capTop, paintCap, traceCap } from './cloudCaps'
+import { capTop, paintCap, traceCap, traceTop } from './cloudCaps'
 import { capInks, printed } from './cloudInks'
 import { traceOver } from './kit/contour'
 import { sheetCaps } from './sheetCaps'
@@ -26,6 +26,8 @@ const THIN = 0.72, THICK = 0.95
 const WASH = 6, REACH = 30
 /** The key line (px, half of it behind the block), its strength, and what of it a far cloud keeps. */
 const LINE = 1.1, STRONG = 0.5, FAR = 0.15
+/** How far in (of its size) a cap no longer reaches over the edge. */
+const OUTER = 1.4
 /** The steps of the key line's fade down the sky. */
 const STEPS = 12
 
@@ -33,27 +35,31 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
   const { f } = read, frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }, seed = hashId(desc.id)
   const cut = cutOf(read, seed)
   if (!cut.edge.at.some((v) => v > 0)) return
-  const light = sheetLight(desc, read), { t } = light, caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), path = new Path2D()
+  const light = sheetLight(desc, read), { t } = light, caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), block = new Path2D(), key = new Path2D()
   const air = desc.through ? rowValues(desc.ys, desc.through, 1) : () => 1
   const opaque: Opaque = (gx, gy) => air(f.y0 + (gy / (f.rows - 1)) * f.height) * (THIN + (THICK - THIN) * Math.min(1, fieldAt(read.alpha, f.cols, f.rows, gx, gy)))
-  traceOver(path, cut.edge, 0, frame)
-  caps.forEach((cap, i) => traceCap(path, cap, tops[i]))
+  for (const path of [block, key]) traceOver(path, cut.edge, 0, frame)
+  caps.forEach((cap, i) => {
+    if (cut.inside(cap.x, cap.y) > OUTER * cap.r) return
+    traceCap(block, cap, tops[i])
+    traceTop(key, tops[i])
+  })
   ctx.save()
   ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * t.line * (FAR + (1 - FAR) * near)))
   ctx.lineWidth = LINE
-  ctx.stroke(path)
-  const block = blockOf(read, cut, light, opaque, env), ink = ctx.createPattern(block as CanvasImageSource, 'no-repeat')
+  ctx.stroke(key)
+  const wash = blockOf(read, cut, light, opaque, env), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')
   if (ink) {
-    const a = f.width / (block.width - 1), d = f.height / (block.height - 1)
+    const a = f.width / (wash.width - 1), d = f.height / (wash.height - 1)
     ink.setTransform({ a, d, e: f.x0 - 0.5 * a, f: f.y0 - 0.5 * d })
     ctx.fillStyle = ink
-    ctx.fill(path)
+    ctx.fill(block)
   }
   const alpha = ctx.globalAlpha
   caps.forEach((cap, i) => {
-    const { key, ...inks } = capInks(t, light.at(cap.gx, cap.gy, cap.side), light.crest), under = (rgb: RGB) => light.under(rgb, cap.gx, cap.gy)
+    const inks = capInks(t, light.at(cap.gx, cap.gy, cap.side), light.crest), under = (rgb: RGB) => light.under(rgb, cap.gx, cap.gy)
     ctx.globalAlpha = alpha * opaque(cap.gx, cap.gy)
-    paintCap(ctx, cap, tops[i], { lit: under(inks.lit), local: under(inks.local), shade: under(inks.shade), key }, t.line * nearAt(f, cap.gy))
+    paintCap(ctx, cap, tops[i], { lit: under(inks.lit), local: under(inks.local), shade: under(inks.shade), key: inks.key }, t.line * nearAt(f, cap.gy))
   })
   ctx.restore()
 }

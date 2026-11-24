@@ -18,8 +18,8 @@ import { printSheet } from './sheetPrint'
  * smoothing, and the print over it. Pure: the desc and its seed.
  */
 
-/** Raster px per sky px. */
-const RASTER = 0.5
+/** Raster px per sky px, and where all that is cut is printed: soft wisps alone are left. */
+const RASTER = 0.5, WISPS = 0.33
 /** The light's hand: a puff's lit cap and shaded foot, how far a closed deck's banks move the tone; the puffs' light inside a
  *  mass against its edge: calmer in the middle; the small heads' light on the edge. */
 const CAP = 1.7, FOOT = 1.9, BANKS = 0.27, INSIDE = 0.85, SMALL_LIT = 0.25
@@ -37,7 +37,7 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const field = sheetField(desc)
   if (!field) return
   const open = desc.air ? field.open : 0, read = open ? easedField(field) : null
-  const w = Math.ceil(field.width * RASTER) + 1, h = Math.ceil(field.height * RASTER) + 1
+  const raster = open < 1 ? RASTER : WISPS, w = Math.ceil(field.width * raster) + 1, h = Math.ceil(field.height * raster) + 1
   const scratch = env.canvas(w, h)
   const image = scratch.ctx.createImageData(w, h)
   const wisp = (gx: number, gy: number, wide: Float32Array) =>
@@ -64,11 +64,11 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
   for (let j = 0; j < h; j++) {
     const gy = (j * (rows - 1)) / (h - 1), size = Math.max(SIZE_MIN, Math.sqrt(Math.min(1, f.spacing[Math.round(gy)] / 20)))
     const air = smoothstep(AIR_FROM, AIR_FULL, 1 - j / (h - 1))
-    if (j) v += 1 / (RASTER * size)
+    if (j) v += f.height / ((h - 1) * size)
     for (let i = 0; i < w; i++) {
       const gx = (i * (cols - 1)) / (w - 1), a = fieldAt(f.alpha, cols, rows, gx, gy), alpha = a < 0.004 ? 0 : left(a, gx, gy)
       if (alpha < 0.004) continue
-      const puff = head((i / RASTER - f.width / 2) / size, v), part = 4 * a * (1 - a)
+      const puff = head(((i / (w - 1) - 0.5) * f.width) / size, v), part = 4 * a * (1 - a)
       const relief = puff.light * (INSIDE + (1 - INSIDE) * part) + SMALL_LIT * part * puff.small
       const full = BANKS * (relief > 0 ? CAP : FOOT) * (1 - LOW_CALM * low) * relief
       const lift = full * (1 - air * (full > 0 ? AIR_LIT : AIR_SHADE))

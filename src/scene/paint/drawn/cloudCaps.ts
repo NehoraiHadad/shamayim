@@ -41,9 +41,14 @@ export function capTop({ x: cx, y: cy, r, tilt, seed }: Cap): P[] {
     .map(([x, y]): P => [cx + x * c - y * s, cy + x * s + y * c])
 }
 
+/** A cap's top alone, as an open line. */
+export function traceTop(path: CanvasPath, pts: readonly P[]): void {
+  pts.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)))
+}
+
 /** A cap's shape: its top, and a round belly (of its size) where it hangs over the mass. */
 export function traceCap(path: CanvasPath, { x, y, r, tilt }: Cap, pts: readonly P[]): void {
-  pts.forEach(([px, py], i) => (i ? path.lineTo(px, py) : path.moveTo(px, py)))
+  traceTop(path, pts)
   path.quadraticCurveTo(x - Math.sin(tilt) * BELLY * r, y + Math.cos(tilt) * BELLY * r, ...pts[0])
   path.closePath()
 }
@@ -52,7 +57,7 @@ export function traceCap(path: CanvasPath, { x, y, r, tilt }: Cap, pts: readonly
 export function paintCap(ctx: Ctx2D, { y, r, seed }: Cap, pts: readonly P[], ink: CapInks, line: number): void {
   const last = pts.length - 1
   ctx.beginPath()
-  pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)))
+  traceTop(ctx, pts)
   ctx.closePath()
   // Gone at the higher end, so that the side that closes it never shows: the light comes down on every cap alike.
   const wipe = ctx.createLinearGradient(0, y - r * 1.05, 0, Math.min(y - 0.1 * r, pts[0][1], pts[last][1]))
