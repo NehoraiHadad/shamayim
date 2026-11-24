@@ -12,7 +12,8 @@ export function whitened(lit: RGB): RGB {
   return mix(lit, [1, 1, 1], WHITEN * smoothstep(0.55, 0.85, Math.min(...lit)))
 }
 
-/** How low the light stands, read from its own colour (0 high … 1 low): a low sun's is warm against the cloud's body. */
-export function lowLight({ lit, body }: { lit: RGB; body: RGB }): number {
-  return smoothstep(0.08, 0.3, lit[0] - lit[2] - (body[0] - body[2]))
+/** How low the light stands, read from its own colour (0 high … 1 low): a low sun's is warm against the cloud's body. By day a
+ *  warm light still comes from above. */
+export function lowLight({ lit, body, daylit = 0 }: { lit: RGB; body: RGB; daylit?: number }): number {
+  return (1 - daylit) * smoothstep(0.08, 0.3, lit[0] - lit[2] - (body[0] - body[2]))
 }

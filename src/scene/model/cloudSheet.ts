@@ -19,7 +19,7 @@ export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSh
 export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
 const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
-type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number }
+type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number; daylit?: number }
 
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()
 
@@ -132,20 +132,21 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
         localTone += thick * (baseTone - thinTone)
       }
       tone[index] = unit(cellular && opacity ? (resolved * localTone + unresolved * farTone) / opacity : localTone)
-      ;(globalThis as { diag?: unknown[][] }).diag?.push([layer.lattice, row, col, +ys[row].toFixed(0), +xs[col].toFixed(0), +local.toFixed(2), +multiplier.toFixed(2), +thinned.toFixed(2), +alpha[index].toFixed(3), +tone[index].toFixed(3), +(1 - 1 / (1 + DIFFUSE_EXTINCTION * depth * multiplier * thinned)).toFixed(3), f])
+      ;(globalThis as { diag?: unknown[][] }).diag?.push([layer.lattice, row, col, +ys[row].toFixed(0), +xs[col].toFixed(0), +local.toFixed(2), +multiplier.toFixed(2), +thinned.toFixed(2), +alpha[index].toFixed(3), +tone[index].toFixed(3), +(1 - 1 / (1 + DIFFUSE_EXTINCTION * depth * multiplier * thinned)).toFixed(3), f, cellular ? 1 : 0])
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }
-  const { body, shade, lit } = colours
+  const { body, shade, lit, daylit } = colours
   const through = sheetThrough(world.air, layer.baseKm, altitudes)
   const sheet: LayerOf<'cloudSheet'> = {
     kind: 'cloudSheet', id: `cloudSheet.${layer.lattice}`, lattice: layer.lattice, genus,
     surface: 'sky', z: sheetZ[layer.lattice], soft: true, bounds: { x: 0, y: 0, w: geom.width, h: geom.horizon },
     xs: xs.slice(), ys: ys.slice(), alpha: alpha.slice(), tone: tone.slice(), body, shade, lit,
     ...(through && { through }),
+    ...(daylit && { daylit }),
     ...(city && { city: { rgb: CITY_RGB, weight: city } }),
     speeds: rowSpeeds(geom, layer.vel, east, north, ranges.map((range) => Math.hypot(range, heightKm))),
-    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit, ...(through ? [through] : [])),
+    key: layerKey('cloudSheet', fingerprint, xs.length, ys, geom.width, body, shade, lit, ...(through ? [through] : []), ...(daylit ? [daylit] : [])),
   }
   sheetCache.set(snapshot, { world, key, sheet })
   return sheet
