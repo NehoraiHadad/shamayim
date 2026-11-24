@@ -62,8 +62,9 @@ export async function openAppPage(browser, base, { id, at, dpr, wx }) {
       window.Date = ShiftedDate
     }, { place, panorama, timestamp: instant.getTime() })
     // The app only reads the weather override on the dev server.
-    const query = wx ? `?${new URLSearchParams({ wx })}` : ''
-    await page.goto(`${base}/${query}`)
+    const asked = { wx, label: process.env.SCENE_LABEL, style: process.env.SCENE_STYLE }
+    const query = new URLSearchParams(Object.entries(asked).filter(([, value]) => value))
+    await page.goto(`${base}/?${query}`)
     return { context, page, refused, errors }
   } catch (error) {
     await context.close()

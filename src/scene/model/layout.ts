@@ -1,6 +1,7 @@
 //# allFunctionsCalledOnLoad
 import { SCENE_W } from '../../world/sceneBox'
 import { heightLabelBox, sceneClearance, type ScreenBox } from '../../world/sceneClearance'
+import { captionItem } from './captionItem'
 import { heightLeader } from './heightLeader'
 import type { WorldState } from '../../world/types'
 import type { OverlayItem, SceneBox } from './types'
@@ -15,12 +16,11 @@ export function layoutOf(world: WorldState, box: SceneBox): { overlay: OverlayIt
   const { height, notes } = world.labels
   const dot = world.place3.dot
   const overlay: OverlayItem[] = [
-    { kind: 'dot', x: dot.x * sx, y: dot.y },
-    {
-      kind: 'height', text: height.text, x: height.x * sx, y: height.y, below: height.below,
+    ...(height.caption ? [captionItem(height.caption, world, box.width)] : [{ kind: 'dot', x: dot.x * sx, y: dot.y } as const, {
+      kind: 'height' as const, text: height.text, x: height.x * sx, y: height.y, below: height.below,
       leader: height.backed ? heightLeader(dot, heightLabelBox(height, box.width), box.width) : null,
       ...(height.backed ? { backed: true } : {}),
-    },
+    }]),
     ...notes.map((note): OverlayItem => ({ kind: note.kind, text: note.text, x: note.left * sx, y: note.top })),
   ]
   return { overlay, clear: sceneClearance(world.labels, dot, box.width) }

@@ -22,6 +22,7 @@ import { glideAt, strikes } from '../scene/model/anim'
 import type { LandClock, LayerOf, SceneBox } from '../scene/model/types'
 import type { Surface } from '../scene/compose/surface'
 import { SceneOverlay } from '../scene/react/SceneOverlay'
+import { forcedCaption } from '../scene/react/forcedCaption'
 import { onSkyCanvas } from '../scene/paint/shared/sky/skyBackground'
 import { DEFAULT_STYLE } from '../scene/paint/painters'
 import { STYLES } from '../scene/paint/styles'
@@ -30,6 +31,7 @@ import { SkyCanvas } from '../scene/react/SkyCanvas'
 import { SCENE_STATS, useSurface } from '../scene/react/useSurface'
 import { SCENE_H } from '../world/sceneBox'
 import type { WorldInput, WorldState } from '../world/types'
+import { withCaption } from '../world/caption/withCaption'
 import { withVisibleSun } from '../world/visibleSun'
 import { makeWorldBuilder } from '../world/world'
 import { UNKNOWN_EYE_Y } from '../world/terrain'
@@ -168,7 +170,7 @@ function Scene({ input: given }: { input: WorldInput }) {
     [given, moment])
   const box: SceneBox = useMemo(() => ({ width: window.innerWidth, skyHeight: LAND_TOP + SCENE_H, landTop: LAND_TOP,
     landHeight: SCENE_H, dpr: window.devicePixelRatio || 1 }), [])
-  const world = useMemo(() => SCENE_STATS.time('worldCold', () => build(input)), [build, input])
+  const world = useMemo(() => SCENE_STATS.time('worldCold', () => withCaption(build(input), forcedCaption())), [build, input])
   const style = forcedStyle() ?? DEFAULT_STYLE
   const model = useMemo(() => SCENE_STATS.time('modelCold', () =>
     hideLayers(sceneModel(world, box, moment.clock, undefined, STYLES[style].light), params.get('hide'))), [world, box, moment, style])
@@ -249,7 +251,7 @@ function Scene({ input: given }: { input: WorldInput }) {
       <SkyCanvas layers={sky} size={{ width: box.width, height: box.skyHeight, dpr: box.dpr, style }} onReady={onSky} surfaceRef={skySurface} />
       <div style={{ position: 'absolute', left: 0, top: box.landTop, width: box.width, height: box.landHeight, color: 'var(--ink)' }}>
         <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} />}
+        {overlay && <SceneOverlay items={model.overlay} width={box.width} style={labelsShown ? undefined : { opacity: 0 }} hand={style} />}
       </div>
     </div>
   )

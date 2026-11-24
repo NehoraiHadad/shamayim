@@ -6,6 +6,8 @@ export interface ScreenBox { x: number; y: number; w: number; h: number }
 
 /** Text and backing stay the same size in screen px as the label moves with the viewport. */
 export function heightLabelBox(height: WorldLabels['height'], width: number): ScreenBox {
+  const caption = height.caption
+  if (caption) return { x: caption.x * (width / SCENE_W) - caption.w / 2, y: caption.y, w: caption.w, h: caption.h }
   const pad = height.backed ? BACKING_PAD : 0
   const w = textWidth(height.text, LABEL_PX) + 2 * pad
   return { x: height.x * (width / SCENE_W) - w / 2, y: height.y - pad, w, h: LABEL_PX + 2 * pad }

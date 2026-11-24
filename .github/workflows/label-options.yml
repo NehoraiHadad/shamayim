@@ -1,0 +1,61 @@
+name: Label options
+# Temporary: the three design options of the height label, as stills (dev switch `?label=`). Not for merging.
+on:
+  push:
+    branches: [claude/found-label-opt]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: 'Render the stills of another commit instead of the options'
+        default: ''
+      stills:
+        description: 'Places and hours (empty = the set)'
+        default: ''
+concurrency:
+  group: label-options-${{ github.ref }}-${{ inputs.base }}
+  cancel-in-progress: true
+env:
+  PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+  PLACES: karmei-tzur haifa jerusalem tel-aviv rosh-pina
+  EXTRA: bardala@12:00 ein-gedi@12:00 masada@12:00 tiberias@12:00 mitzpe-ramon@12:00 haifa@17:00 jerusalem@12:00@dust haifa@12:00@fog
+jobs:
+  stills:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        label: ${{ fromJSON(inputs.base && '[""]' || '["a","b","c"]') }}
+    env:
+      SCENE_LABEL: ${{ matrix.label }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.base || github.sha }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - name: Stills
+        env:
+          STILLS: ${{ inputs.stills }}
+        run: |
+          list="$STILLS"
+          if [ -z "$list" ]; then
+            for p in $PLACES; do for h in 12:00 21:00; do list="$list $p@$h $p@$h#drawn"; done; done
+            for m in $EXTRA; do list="$list $m $m#drawn"; done
+          fi
+          node e2e/scene.stills.mjs out $list --dpr=2 || { for m in $list; do node e2e/scene.stills.mjs out $m --dpr=2 || echo "no $m"; done; }
+      - name: Whole screens
+        if: ${{ !cancelled() }}
+        run: |
+          for style in real drawn; do
+            for p in $PLACES; do SCENE_STYLE=$style node e2e/scene.app.mjs out/app-$style $p@12:00 $p@21:00 --page --dpr=2 || true; done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: options-${{ inputs.base || matrix.label }}-${{ github.sha }}
+          path: out/
+          retention-days: 14

@@ -3,6 +3,7 @@ import type { SceneNote } from '../data/terrain/sceneNotes'
 import type { LandStatus, SceneTerrain } from '../data/terrain/terrain'
 import type { Glint, WaterLight } from '../data/water/glint'
 import type { WaterSpan } from '../data/water/waterInView'
+import type { Caption } from './caption/types'
 import type { Datum } from './datum'
 import type { PlaneFace } from './face'
 import type { LandForm } from './land'
@@ -91,7 +92,7 @@ export interface OutsideView {
 
 /** The text the scene keeps on the land: place height label, notes and sea-level datum. */
 export interface WorldLabels {
-  height: { text: string; below: boolean; x: number; y: number; backed?: boolean }
+  height: { text: string; below: boolean; x: number; y: number; backed?: boolean; caption?: Caption }
   notes: SceneNote[]
   datum?: Datum | null
 }

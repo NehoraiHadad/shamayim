@@ -64,7 +64,7 @@ export function launch({ gpu = false } = {}) {
 }
 
 export function sceneUrl(base, { place, at, weather = '', overlay = false, phase = '0', land = '', wear = '', hide = '', style = '',
-  paint = process.env.SCENE_PAINT }) {
+  paint = process.env.SCENE_PAINT, label = process.env.SCENE_LABEL }) {
   const q = new URLSearchParams({ place, at, phase: String(phase) })
   if (wear) q.set('wear', wear)
   if (weather) q.set('weather', weather)
@@ -72,6 +72,8 @@ export function sceneUrl(base, { place, at, weather = '', overlay = false, phase
   if (hide) q.set('hide', hide)
   if (style) q.set('style', style)
   if (overlay) q.set('overlay', '1')
+  // label (or SCENE_LABEL) = a | b | c: the height told by one of the design options.
+  if (label) q.set('label', label)
   // paint (or SCENE_PAINT) = main: the layers painted on the main thread (the fallback where a browser has no paint worker).
   if (paint === 'main') q.set('paint', 'main')
   return `${base}/scene.html?${q}`

@@ -8,11 +8,13 @@ import { useWidth } from './useWidth'
 import styles from './Scene.module.css'
 import { SCENE_H } from '../../world/sceneBox'
 import type { WorldState } from '../../world/types'
+import { withCaption } from '../../world/caption/withCaption'
 import { DEFAULT_STYLE, type SceneStyle } from '../paint/painters'
 import { STYLES } from '../paint/styles'
 import { layersOn, sceneModel, type LifeClock } from '../model'
 import { PerfHud } from './PerfHud'
 import { sceneLabel } from './sceneLabel'
+import { forcedCaption } from './forcedCaption'
 import { SceneOverlay } from './SceneOverlay'
 import { SkyCanvas } from './SkyCanvas'
 import { useLandClock } from './useLandClock'
@@ -56,7 +58,7 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
     skyWidth: host?.width ?? width, landLeft: host?.landLeft ?? 0 }), [width, dpr, host])
   const { clock, labelStyle, ready } = useLandClock(world)
   const still = typeof window !== 'undefined' && reducedMotion()
-  const model = useMemo(() => sceneModel(world, box, clock, { ...life, still }, STYLES[style].light), [world, box, clock, life, still, style])
+  const model = useMemo(() => sceneModel(withCaption(world, forcedCaption()), box, clock, { ...life, still }, STYLES[style].light), [world, box, clock, life, still, style])
   const land = useMemo(() => layersOn(model, 'land'), [model])
   const sky = useMemo(() => layersOn(model, 'sky'), [model])
   const label = sceneLabel(world, forecast, now, selected, { temperature, hasLightning: sky.some((layer) => layer.kind === 'flash') })
@@ -72,7 +74,7 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
         data-scene data-canvas>
         <canvas ref={ref} aria-hidden="true"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }} />
-        <SceneOverlay items={model.overlay} width={width} style={labelStyle} />
+        <SceneOverlay items={model.overlay} width={width} style={labelStyle} hand={style} />
         <SceneScrubber at={selected} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
           onNow={onNow} />
       </figure>

@@ -2,6 +2,8 @@ import { Fragment, type CSSProperties } from 'react'
 import styles from './Scene.module.css'
 import own from './SceneOverlay.module.css'
 import type { OverlayItem } from '../model/types'
+import { DEFAULT_STYLE, type SceneStyle } from '../paint/painters'
+import { CaptionOverlay } from './caption/CaptionOverlay'
 
 const pct = (x: number, width: number) => `${(x / width * 100).toFixed(2)}%`
 
@@ -10,10 +12,13 @@ const pct = (x: number, width: number) => `${(x / width * 100).toFixed(2)}%`
  * note and the water's names, in the SVG scene's classes (`Scene.module.css`); x in % of the figure, y in px. `style` is laid on every item (C8:
  * hidden while the land arrives, then faded in).
  */
-export function SceneOverlay({ items, width, style }: { items: readonly OverlayItem[]; width: number; style?: CSSProperties }) {
+export function SceneOverlay({ items, width, style, hand = DEFAULT_STYLE }: { items: readonly OverlayItem[]; width: number; style?: CSSProperties
+  hand?: SceneStyle }) {
   const at = (item: { x: number; y: number }): CSSProperties => ({ left: pct(item.x, width), top: item.y, ...style })
   return items.map((item) => {
     switch (item.kind) {
+      case 'caption':
+        return <CaptionOverlay key="caption" item={item} width={width} style={style} hand={hand} />
       case 'dot':
         return <span key="dot" className={styles.village} style={at(item)} aria-hidden="true" />
       case 'height':
