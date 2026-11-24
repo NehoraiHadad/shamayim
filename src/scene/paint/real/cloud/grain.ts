@@ -42,7 +42,9 @@ const CORE = [0.75, 1] as const
 /** A cloud's noise by place (px). A row first: its size steps down the sky in octaves, two blended (a size sliding with the
  *  row would shear to streaks). */
 export function cloudGrain(make: Make, seed: number) {
-  const { u, v } = placeOf(seed), puffs = puffTile(), wisps = wispTile(), swell = swellTile()
+  const { u, v } = placeOf(seed)
+  // Each tile as it is first read: a closed deck reads none, a veil the wisps alone.
+  let puffs: Float32Array | undefined, wisps: Float32Array | undefined, swell: Float32Array | undefined
   let part = 0, ax = 1, ay = 1, au = 0, av = 0, bx = 1, by = 1, bu = 0, bv = 0
   const read = (tile: Float32Array, x: number, y: number, rate: number, a: number, b: number) => {
     if (part === 1) return noiseAt(tile, x * rate * bx + a + bu, y * rate * by + b + bv)
@@ -64,19 +66,19 @@ export function cloudGrain(make: Make, seed: number) {
       bv = av + 0.61
     },
     /** What bends the noise there, about 0. */
-    bend: (x: number, y: number) => read(wisps, x, y, 0.5, 0.31, 0.17) - 0.5,
-    wisp: (x: number, y: number, bend: number) => read(wisps, x, y, 1, bend * 0.22, bend * 0.16),
+    bend: (x: number, y: number) => read(wisps ??= wispTile(), x, y, 0.5, 0.31, 0.17) - 0.5,
+    wisp: (x: number, y: number, bend: number) => read(wisps ??= wispTile(), x, y, 1, bend * 0.22, bend * 0.16),
     /** The whole noise, over its `wisp`. */
     noise: (x: number, y: number, bend: number, wisp: number) =>
-      wisp + (read(puffs, x, y, 1.1, bend * 0.1 + 0.2, -bend * 0.08) - wisp) * make.puff,
+      wisp + (read(puffs ??= puffTile(), x, y, 1.1, bend * 0.1 + 0.2, -bend * 0.08) - wisp) * make.puff,
     /** The fine noise of a rim, about 0. */
-    fine: (x: number, y: number, bend: number) => FINE * (read(wisps, x, y, FINE_RATE, bend * 0.3, bend * 0.2) - 0.5),
+    fine: (x: number, y: number, bend: number) => FINE * (read(wisps ??= wispTile(), x, y, FINE_RATE, bend * 0.3, bend * 0.2) - 0.5),
     /** How far the heads face away from the light at (ux, uy): a slope that rises toward it is a head's far side. */
     relief(x: number, y: number, ux: number, uy: number, bend: number) {
       let sum = 0
       for (const [rate, slope, weight] of HEADS) {
-        sum += weight * (read(swell, x, y, rate, bend * 0.05 + slope * ux, slope * uy - bend * 0.04)
-          - read(swell, x, y, rate, bend * 0.05, -bend * 0.04))
+        sum += weight * (read(swell ??= swellTile(), x, y, rate, bend * 0.05 + slope * ux, slope * uy - bend * 0.04)
+          - read(swell ??= swellTile(), x, y, rate, bend * 0.05, -bend * 0.04))
       }
       return sum
     },
