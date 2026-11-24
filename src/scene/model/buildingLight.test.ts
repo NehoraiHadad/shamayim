@@ -9,6 +9,7 @@ import { landIrradiance, skyView } from './landIrradiance'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { hazeAt, hazeOf } from './landVeil'
 import { metalLight } from './metalLight'
+import { skyLayer } from './sky'
 import { mixLight } from './tone'
 
 const y = (srgb: RGB) => linearLuminance(srgbRgbToLinear(srgb))
@@ -137,6 +138,10 @@ describe('building receiver', () => {
       const a = scene(252, cutoff - .001), b = scene(252, cutoff + .001)
       if (cutoff < 0) a.light.afterglow = null
       else b.light.afterglow = null
+      const box = { width: 375, skyHeight: 180, landTop: 0, landHeight: 128, dpr: 1 }
+      // The ridge glow is the final glow with the moon below the horizon.
+      const ridgeColor = (world: WorldState) => skyLayer(world, box)!.glow.at(-1)!.rgb
+      ridgeColor(a).forEach((value, i) => expect(Math.abs(value - ridgeColor(b)[i])).toBeLessThan(.002))
       const normal = [.70, -.71, .05] as const
       const difference = Math.abs(y(metalLight(a, 0)(normal)) - y(metalLight(b, 0)(normal)))
       expect(difference).toBeLessThan(.012)

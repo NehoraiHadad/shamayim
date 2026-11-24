@@ -5,6 +5,7 @@ import type { Surroundings } from './buildingGround'
 import { facadeTwilight } from './buildingExposure'
 import { linearLuminance } from './landRadiance'
 import { skyReflection } from './landSkyIrradiance'
+import { reflectedSkyLobe } from './reflectedSkyLobe'
 import type { TwilightScreen } from './styleLight'
 
 // Four incoherent air/glass interfaces in series. Each adds R/(1−R)
@@ -22,7 +23,7 @@ function paneAndBand(pane: RGB): Returns {
 export function glassIncidence(world: WorldState, { irr }: Surroundings, screenOf?: TwilightScreen) {
   // Use the broad directional sky. The gilding's concentrated forward
   // accent would paint the warm horizon across whole panes.
-  const sky = skyReflection(world.light, irr.sunAlt, .099 + aerosolDepth(world.air)[1], irr.eSkyVec, 0, true)
+  const sky = skyReflection(world.light, irr.sunAlt, .099 + aerosolDepth(world.air)[1], irr.eSkyVec, reflectedSkyLobe(world))
   // Keep the passive pane within its facade's tonal range at twilight.
   // Fade the bound into daylight and as the scene reaches full night.
   const twilight = screenOf ? 0 : facadeTwilight(irr.sunAlt)
