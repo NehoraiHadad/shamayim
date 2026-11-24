@@ -13,7 +13,7 @@ it('leaves every house of a low-rise row on its site', () => {
 })
 
 it('leaves out only blocks drawn wider than their sites, behind another such block', () => {
-  const front = site(100, 100, .8, 25, 1, 9), hidden = site(100.2, 99, .7, 25, 1, 8)
+  const front = site(100, 100, .8, 25, 1, 9), hidden = site(100.2, 99, .7, 20, 1, 8)
   const own = site(100, 99.2, .72, 25, 8, 8), house = site(100, 99.5, .78, 7.7, 5, 5)
   expect(composeBodies([hidden, house, own, front], HOUSE_TOP_M)).toEqual([house.body, own.body, front.body])
 })

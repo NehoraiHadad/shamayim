@@ -41,7 +41,7 @@ it('prints', () => {
       + ' boxes ' + skyline.boxes.length + ' low ' + low.length + ' tall ' + tall.length + ' items ' + items.length + ' houses ' + items.filter(b => b.roof).length
       + ' hw low ' + hw(low) + ' tall ' + hw(tall) + ' >3 ' + tall.filter(b => (b.foot - b.top) / b.w > 3).length
       + ' towers ' + skyline.towers.length + ' seeds ' + skyline.towers.map(t => t.seed % 9973).sort((a, b) => a - b).join(',')
-      + ' ms ' + med(ms.get(id)!).toFixed(0))
+      + ' storeys27 ' + (a => a.reduce((t, b) => t + Math.round((b.heightM! - 1) / 3), 0) / a.length)(tall.filter(b => b.heightM! <= 27)).toFixed(2) + ' ms ' + med(ms.get(id)!).toFixed(0))
   }
   for (const id of IDS) {
     const { frame, skyline } = buildWorld(worldInput(places.get(id)!, '2026-11-17T12:00')).place3 as OutsideView
@@ -57,7 +57,7 @@ it('prints', () => {
       if (!at || at.built >= .2) continue
       const key = Math.floor(t.lat * 480) + ':' + Math.floor(t.lon * 800)
       const s = squares.get(key) ?? { b: Math.round(at.built * 15), l: at.levels, p: at.p90, f: Math.round(city!.raster!.front!(t.lat, t.lon)), t: [] }
-      s.t.push(t.heightM + 'm' + JSON.stringify((t as unknown as Record<string, unknown>).width ?? (t as unknown as Record<string, unknown>).w))
+      s.t.push(t.heightM + 'm' + t.wClass)
       squares.set(key, s)
     }
     console.log('SPARSE ' + id + ' ' + [...squares.values()].map(s => s.b + '/15 l' + s.l + ' p' + s.p + ' f' + s.f + ' [' + s.t.join(',') + ']').join(' ; '))

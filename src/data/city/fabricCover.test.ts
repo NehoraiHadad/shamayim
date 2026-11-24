@@ -22,13 +22,13 @@ it('keeps a taller block behind a lower one, however their fronts line up', () =
   }
 })
 
-it('leaves a block out once less than a px of it shows, beside a wall or over a roof', () => {
+it('leaves a block out once less than the narrowest building of it shows, beside a wall or over a roof', () => {
   const front = body(100, 9, 10), behind = (w: number, h: number) => shownBlocks([front, body(100, w, h, .4, 99.9, 2)]).size
   expect(behind(9, 9.9)).toBe(1)
-  expect(behind(9.9, 5)).toBe(1)
-  expect(behind(10.1, 5)).toBe(2)
-  expect(behind(9, 9.9 + .9 / 9)).toBe(1)
-  expect(behind(9, 9.9 + 1.1 / 9)).toBe(2)
+  for (const [share, count] of [[.95, 1], [1.05, 2]]) {
+    expect(behind(9 + share * LEAST_SHOWN_PX, 5)).toBe(count)
+    expect(behind(9, 9.9 + share * LEAST_SHOWN_PX / 9)).toBe(count)
+  }
 })
 
 it('shows no less when what stands in front is narrower, lower or fewer', () => {

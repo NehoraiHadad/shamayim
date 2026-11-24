@@ -11,7 +11,7 @@ export const frontFirst = (a: OutsideBox, b: OutsideBox) => rowY(b) - rowY(a) ||
  * counts by its share of a px, so a sliver beside a wall and one over a roof are measured alike). Less is under the px
  * both painters draw with, and reads as a spike or a bright line, not as a building.
  */
-export const LEAST_SHOWN_PX = 1
+export const LEAST_SHOWN_PX = 2.2
 
 /** The px of width over which `body` shows a whole px of wall over the bodies in front (their true spans and roofs). */
 export function shownWidth(body: OutsideBox, front: readonly OutsideBox[]) {

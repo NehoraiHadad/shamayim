@@ -1,8 +1,6 @@
 import { buildingMasks } from './buildingMasks.mjs'
 import { CLIP, launch, loadScene, openPage, sceneUrl, startServer } from './harness.mjs'
-const V = [...[1.6, 2.2].flatMap(least => [0, 1, 2, 3, 4, 5].map(salt => ({ least, salt }))),
-  ...[0, 1, 2, 3, 4, 5].map(salt => ({ least: 2.2, salt, coll: .11 })), ...[0, 1, 2].map(salt => ({ least: 2.2, salt, coll: .16 })),
-  ...[0, 1, 2].map(salt => ({ least: 1.6, salt, coll: .11 })), ...[0, 1, 2].map(salt => ({ least: 1, salt, coll: .11 }))]
+const V = [0, .11, .14].flatMap(coll => [0, 1, 2, 3].map(salt => ({ least: 2.2, salt, coll })))
 const cases = ['haifa-0620', 'haifa-1630', 'haifa-1200-overcast', 'tiberias-1200', 'haifa-1200', 'jerusalem-1200', 'tel-aviv-1200', 'rosh-pina-1200', 'jerusalem-0620']
 const browser = await launch()
 for (const v of V) {
