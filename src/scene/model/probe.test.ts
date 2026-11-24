@@ -4,7 +4,7 @@ import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES } from '
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { CELLULAR_LOW_EDGE, CELLULAR_LOW_POWER, CELLULAR_LOW_ROWS } from '../../world/field/cells'
 import { genusOf } from '../../world/field/genus'
-import { groundRangeAt } from '../../world/field/project'
+import { altitudeOf, groundRangeAt } from '../../world/field/project'
 import { transmitAlong } from '../../world/field/transmit'
 import { makeWorldBuilder } from '../../world/world'
 import type * as Grid from './cloudSheetGrid'
@@ -15,6 +15,7 @@ import type * as Seen from './cloudSheetSeen'
 import { seenDepth } from './cloudSheetSeen'
 import type * as Dome from './dome'
 import { skyGeom } from './sky'
+import { openness, shapeOf } from './cloudSheetShape'
 
 const on = vi.hoisted(() => ({ dome: true, rows: true, cells: true, noise: true }))
 vi.mock('./cloudSheetSeen', async (load) => {
@@ -99,6 +100,14 @@ it('finds the ball and the towers', () => {
     }
   }
   console.info(lines.join('\n'))
+  const tel = worldAt('tel-aviv', '2026-11-17T12:00'), sky = skyGeom(tel, box), rows = ['TEL']
+  for (const { layer, cells, heightKm } of tel.cloudField!.snapshot) if (layer?.lattice === 'low' || layer?.lattice === 'mid') for (const c of cells) {
+    const d = Math.hypot(c.x, c.y), shape = shapeOf(c, heightKm, sky, 1.5 * 180 / Math.PI, () => openness(c, cells))
+    if (d > 8 * heightKm && d > 10) continue
+    const x = sky.x((Math.atan2(c.x, c.y) / RAD + 360) % 360)
+    rows.push(`  ${layer.lattice} ${c.genus} x ${x.toFixed(0)} y ${sky.dome(altitudeOf(heightKm, d)).toFixed(0)} d ${d.toFixed(2)} r ${c.r.toFixed(2)} h ${heightKm.toFixed(2)} alts ${altitudeOf(heightKm, d + c.r).toFixed(0)}..${altitudeOf(heightKm, Math.max(0, d - c.r)).toFixed(0)} open ${openness(c, cells).toFixed(2)} ${shape ? `wide ${shape.wide.toFixed(2)} firm ${shape.firm.toFixed(2)} foot ${(3 * shape.bend * shape.far ** 2 / shape.wide).toFixed(2)}` : 'none'}`)
+  }
+  console.info(rows.join('\n'))
   const storm = worldAt('haifa', '2026-03-15T14:00')
   for (const layer of cloudLayersOf(storm, box, skyGeom(storm, box))) if (layer.kind === 'cloudCells') {
     console.info('TOWERS\n' + layer.cells.map(({ sprite: s, x, y }) => `  ${s.genus} x ${x.toFixed(0)} y ${y.toFixed(0)} w ${s.w.toFixed(0)} tall ${s.tall.toFixed(0)} anvil ${s.anvil ?? 0}`).join('\n'))

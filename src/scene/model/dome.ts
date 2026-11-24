@@ -14,8 +14,30 @@ const DOME_TOP = 18
 const STEP = 1e-3
 /** A Hermite cubic is monotone while neither end is steeper than three times its mean slope (Fritsch and Carlson 1980). */
 const STEEPEST = 3
-/** Halvings of a range of altitudes that take it past a double's precision. */
-const HALVINGS = 50
+/** A root is found to this (px): some 1e-10°. The scale has no flat stretch, so a few steps find it; more only guard it. */
+const CLOSE = 1e-10, STEPS = 60
+
+/** Where a falling function crosses `px` between two altitudes: false position, an end kept twice counting half (Illinois). */
+function crossing(y: (altitude: number) => number, px: number, low: number, high: number): number {
+  let under = y(low) - px, over = y(high) - px, kept = 0, at = low
+  for (let i = 0; i < STEPS; i++) {
+    at = (low * over - high * under) / (over - under)
+    const off = y(at) - px
+    if (Math.abs(off) < CLOSE) break
+    if (off > 0) {
+      low = at
+      under = off
+      if (kept === 1) over /= 2
+      kept = 1
+    } else {
+      high = at
+      over = off
+      if (kept === -1) under /= 2
+      kept = -1
+    }
+  }
+  return at
+}
 
 /**
  * Up to `DOME_ALT` the relief (`y`). Above, the rest of the dome over the sky the screen shows; it leaves the relief at the
@@ -35,15 +57,12 @@ export function domeOf(y: (altitude: number) => number) {
   }
   const domeAltitudeAt = (px: number) => {
     if (px <= top) return 90
-    if (px === y(0)) return 0
+    const level = y(0)
+    if (px === level) return 0
     // The relief combines sine and tanh, the dome is a cubic: both are monotone, so invert them numerically.
-    let low = px < join ? DOME_ALT : -90, high = px < join ? 90 : DOME_ALT
-    for (let i = 0; i < HALVINGS; i++) {
-      const mid = (low + high) / 2
-      if (dome(mid) > px) low = mid
-      else high = mid
-    }
-    return (low + high) / 2
+    if (px < join) return crossing(dome, px, DOME_ALT, 90)
+    if (px < level) return crossing(y, px, 0, DOME_ALT)
+    return px < y(-90) ? crossing(y, px, -90, 0) : -90
   }
   return { dome, domeAltitudeAt }
 }

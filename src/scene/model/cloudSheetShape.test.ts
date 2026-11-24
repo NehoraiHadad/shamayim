@@ -5,6 +5,7 @@ import type * as Edges from '../../world/field/edges'
 import { groundRangeAt } from '../../world/field/project'
 import { terrainY } from '../../world/terrain'
 import type { WorldState } from '../../world/types'
+import { pxPerRadAt } from './advect'
 import { cloudSheetOf } from './cloudSheet'
 import { sheetAlphaAt } from './cloudSheetGrid'
 import { seenDepth } from './cloudSheetSeen'
@@ -28,6 +29,18 @@ const worldOf = (id: string) => ({
   relief: { y: (altitude: number) => terrainY(box.landHeight, altitude) },
 }) as WorldState
 const geom = skyGeom(worldOf('shape'), box)
+const PX = Math.abs(pxPerRadAt(geom.azimuthAt, geom.width / 2)) * RAD
+
+/** The altitude drawn at `y`: the dome falls with it all the way. */
+function altitudeAt(y: number) {
+  let low = 0, high = 90
+  for (let i = 0; i < 30; i++) {
+    const middle = (low + high) / 2
+    if (geom.dome(middle) > y) low = middle
+    else high = middle
+  }
+  return low
+}
 
 /** The painted widths (px) of a lone cloud at half its opacity, half a pixel a row, top to bottom. */
 function widths(sheet: LayerOf<'cloudSheet'>) {
@@ -40,18 +53,41 @@ function widths(sheet: LayerOf<'cloudSheet'>) {
   return rows
 }
 
-/** A lone cell's painted body: less than a quarter as wide as its widest, a row is a lobe's tip (an oval loses a thirtieth). */
-function bodyOf(id: string, genus: 'ac' | 'cu', heightKm: number, r: number, vKm: number, elevation: number, azimuth: number) {
-  const range = groundRangeAt(heightKm, elevation)
-  const rows = widths(cloudSheetOf(worldOf(id), geom,
-    loneCell(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm), neutral)!)
-  const widest = Math.max(...rows), body = rows.filter((wide) => wide >= widest / 4)
-  const low = body.slice(body.indexOf(widest))
+/** A shape's height over its widest row, its width near its foot, and how far it widens again under a waist (a vase). */
+function shapeOf(rows: readonly number[], rowPx: number) {
+  const widest = Math.max(...rows), low = rows.slice(rows.indexOf(widest))
   return {
-    aspect: body.length / 2 / widest, foot: rows[Math.floor(0.85 * rows.length)] / widest,
-    // A vase: how far it widens again under a waist, below its widest.
+    aspect: rows.length * rowPx / widest, foot: rows[Math.floor(0.85 * rows.length)] / widest,
     flare: Math.max(0, ...low.map((wide, i) => Math.max(...low.slice(i)) - wide)) / widest,
   }
+}
+
+const place = (genus: 'ac' | 'cu', heightKm: number, r: number, vKm: number, elevation: number, azimuth: number) => {
+  const range = groundRangeAt(heightKm, elevation)
+  return loneCell(genus, range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD), r, vKm, heightKm)
+}
+
+/** A lone cell as it is painted. Less than a quarter as wide as its widest, a row is a lobe's tip (an oval loses a thirtieth). */
+function painted(id: string, genus: 'ac' | 'cu', heightKm: number, r: number, vKm: number, elevation: number, azimuth: number) {
+  const rows = widths(cloudSheetOf(worldOf(id), geom, place(genus, heightKm, r, vKm, elevation, azimuth), neutral)!)
+  const widest = Math.max(...rows)
+  return { ...shapeOf(rows, 0.5), aspect: shapeOf(rows.filter((wide) => wide >= widest / 4), 0.5).aspect }
+}
+
+/** A lone cell as it is shaped, at half its opacity, whatever the rows it is painted on: half a pixel a row. */
+function shaped(genus: 'ac' | 'cu', heightKm: number, r: number, vKm: number, elevation: number) {
+  const snapshot = place(genus, heightKm, r, vKm, elevation, 180)
+  const seen = seenDepth('a', 960, snapshot, geom, snapshot.densityGrid.tauAt)
+  const rows = []
+  for (let y = geom.dome(90); y < geom.dome(DOME_ALT / 2); y += 0.5) {
+    const altitude = altitudeAt(y), range = groundRangeAt(heightKm, altitude), depthAt = seen(range, altitude)
+    let count = 0
+    for (let azimuth = 90; azimuth < 270; azimuth += 0.25) {
+      count += Number(depthAt(range * Math.sin(azimuth * RAD), range * Math.cos(azimuth * RAD)) >= Math.LN2)
+    }
+    if (count) rows.push(count / 4 * PX)
+  }
+  return shapeOf(rows, 0.5)
 }
 
 const cases = [['ac', 5, 1.5, 0.4], ['cu', 1.4, 0.35, 0.36]] as const
@@ -61,30 +97,27 @@ it.each(cases)('draws a lone %s cell as wide as it is tall, on a broad foot', (g
   for (const elevation of ELEVATIONS) {
     // Round the sky of several places, as each has its own lobes, and over a row's span (5°), as a rim is drawn on the rows.
     const shapes = ['a', 'b', 'c'].flatMap((id) => [150, 180, 210].flatMap((azimuth) => STEPS.map((step) =>
-      bodyOf(id, genus, heightKm, r, vKm, elevation + step, azimuth))))
+      painted(id, genus, heightKm, r, vKm, elevation + step, azimuth))))
     const mean = (of: (shape: (typeof shapes)[number]) => number) => shapes.reduce((sum, shape) => sum + of(shape), 0) / shapes.length
     const aspect = mean((shape) => shape.aspect), foot = mean((shape) => shape.foot)
-    console.info('PAINTED', genus, elevation, { aspect, foot }, 'each', {
-      aspect: Math.max(...shapes.map((shape) => shape.aspect)), foot: Math.min(...shapes.map((shape) => shape.foot)),
-      flare: Math.max(...shapes.map((shape) => shape.flare)),
-    })
+    const flare = Math.max(...shapes.map((shape) => shape.flare))
+    console.info('PAINTED', genus, elevation, { aspect, foot, flare })
+    // Not one of them a vase.
+    expect.soft(flare, `${genus} ${elevation}`).toBeLessThanOrEqual(0.1)
     expect.soft(aspect, `${genus} ${elevation}`).toBeLessThanOrEqual(1.1)
     // An oval is .71 of its width there: no cone, no drop hanging from its tip.
     expect.soft(foot, `${genus} ${elevation}`).toBeGreaterThanOrEqual(0.6)
   }
 }, 60_000)
 
-it.each(cases)('draws each lone %s cell on its own broad foot, none a cone or a vase, in still air', (genus, heightKm, r, vKm) => {
+it.each(cases)('shapes each lone %s cell on its own broad foot, none a cone or a vase', (genus, heightKm, r, vKm) => {
   air.still = true
-  const sizes = [0.6, 1, 1.4].map((size) => size * r)
-  for (const elevation of ELEVATIONS) for (const size of sizes) {
-    const shapes = [0, 1, 2, 3, 4].flatMap((turn) => STEPS.map((step) => bodyOf('a', genus, heightKm, size, vKm, elevation + step, 180 + turn / 2)))
-    const worst = { aspect: Math.max(...shapes.map((shape) => shape.aspect)), foot: Math.min(...shapes.map((shape) => shape.foot)),
-      flare: Math.max(...shapes.map((shape) => shape.flare)) }
-    console.info('STILL', genus, elevation, size, worst)
-    expect.soft(worst.aspect, `${genus} ${elevation} ${size}`).toBeLessThanOrEqual(1.1)
-    expect.soft(worst.foot, `${genus} ${elevation} ${size}`).toBeGreaterThanOrEqual(0.6)
-    expect.soft(worst.flare, `${genus} ${elevation} ${size}`).toBeLessThanOrEqual(0.1)
+  for (const elevation of ELEVATIONS) for (const size of [0.6, 1, 1.4]) {
+    const shape = shaped(genus, heightKm, size * r, vKm, elevation)
+    console.info('STILL', genus, elevation, size, JSON.stringify(shape))
+    expect.soft(shape.aspect, `${genus} ${elevation} ${size}`).toBeLessThanOrEqual(1.1)
+    expect.soft(shape.foot, `${genus} ${elevation} ${size}`).toBeGreaterThanOrEqual(0.6)
+    expect.soft(shape.flare, `${genus} ${elevation} ${size}`).toBeLessThanOrEqual(0.1)
   }
   air.still = false
 }, 60_000)

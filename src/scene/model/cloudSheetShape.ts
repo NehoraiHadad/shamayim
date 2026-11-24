@@ -22,10 +22,11 @@ import type { SkyGeom } from './sky'
  *  all there over it (`LOBED_ALT`, by when they are all its own): it crosses the join as one. */
 export const SHAPED_ALT = DOME_ALT / 1.5
 /**
- * Look. How much wider than its crown's an open cell's foot is stretched: .8 keeps an oval's sides within a tenth of its
- * widest down to .85 of the way to the far rim (an oval alone is half as wide there), and rounds the rest off.
+ * Look. How much wider than its crown's an open cell's foot is stretched: half as wide again keeps an oval's sides within a
+ * quarter of its widest down to .85 of the way to the far rim (an oval alone is half as wide there), and rounds the rest
+ * off: a foot, not a box's two corners.
  */
-const FLAT = 0.8
+const FLAT = 0.5
 
 export interface Shape {
   cell: FieldCell
@@ -47,7 +48,8 @@ export interface Shape {
 }
 
 /** How open the sky is before a cell's far rim (0 covered … 1 open): no foot shows where another cell still hides it, as it
- *  does up to some .8 of its radius (a third of its depth is left there) and no more at its rim. */
+ *  does up to some .8 of its radius (a third of its depth is left there) and no more at its rim, and as much of it as the
+ *  other is wide. */
 export function openness(cell: FieldCell, cells: readonly FieldCell[]): number {
   const d = Math.hypot(cell.x, cell.y), far = 1 + cell.r / d
   const x = cell.x * far, y = cell.y * far
@@ -55,7 +57,7 @@ export function openness(cell: FieldCell, cells: readonly FieldCell[]): number {
   for (const other of cells) {
     if (other === cell || !open) continue
     const dx = x - other.x, dy = y - other.y, r = other.r
-    if (dx * dx + dy * dy < r * r) open *= smoothstep(0.7, 1, Math.sqrt(dx * dx + dy * dy) / other.r)
+    if (dx * dx + dy * dy < r * r) open *= 1 - Math.min(1, r / cell.r) * smoothstep(1, 0.7, Math.sqrt(dx * dx + dy * dy) / r)
   }
   return open
 }
