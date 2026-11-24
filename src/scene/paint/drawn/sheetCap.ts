@@ -2,7 +2,7 @@ import { smoothstep } from '../../../domain/smoothstep'
 import { rng } from '../shared/base/core'
 import type { Cap } from './cloudCaps'
 import type { Cut, Eased } from './sheetEdge'
-import { fieldAt, type SheetField } from './sheetField'
+import { fieldAt, spacingAt, type SheetField } from './sheetField'
 
 /*
  * The heads inside a broken sheet's mass, each with the smaller ones that crowd round it, so that a mass is built of groups.
@@ -33,10 +33,7 @@ const ROUND = [[-0.44, -0.62, 0.42], [0.36, -0.7, 0.36], [-0.8, 0.24, 0.6], [0.7
 const ASTRAY = 0.22, CROWD = [8, 15] as const, ROUND_SEED = 15_485_863
 
 /** The size (px) the hand has at a row of the field. */
-export function sizeAt({ rows, spacing }: SheetField, gy: number): number {
-  const r = Math.min(rows - 2, Math.max(0, Math.floor(gy))), u = Math.min(1, gy - r)
-  return Math.min(MOST, Math.max(LEAST, SIZE * (spacing[r] + (spacing[r + 1] - spacing[r]) * u)))
-}
+export const sizeAt = (f: SheetField, gy: number) => Math.min(MOST, Math.max(LEAST, SIZE * spacingAt(f, gy)))
 
 /** A place (px) on the field's grid. */
 export const onGrid = (f: SheetField, x: number, y: number) => ({ gx: ((x - f.x0) / f.width) * (f.cols - 1), gy: ((y - f.y0) / f.height) * (f.rows - 1) })
@@ -75,7 +72,7 @@ function crowd(f: SheetField, cut: Cut, head: SheetCap): SheetCap[] {
 
 /** Which way the mass faces at a place (-1 left … 1 right), from the cloud on either side of it. */
 export function leanAt(wide: Float32Array, f: SheetField, gx: number, gy: number): number {
-  const by = (ABOUT * f.spacing[Math.min(f.rows - 1, Math.max(0, Math.round(gy)))] * (f.cols - 1)) / f.width
+  const by = (ABOUT * spacingAt(f, gy) * (f.cols - 1)) / f.width
   const l = fieldAt(wide, f.cols, f.rows, Math.max(0, gx - by), gy), r = fieldAt(wide, f.cols, f.rows, Math.min(f.cols - 1, gx + by), gy)
   return (l - r) / (l + r + 0.1)
 }

@@ -31,10 +31,11 @@ const OUTER = 1.4
 /** The steps of the key line's fade down the sky. */
 const STEPS = 12
 
-export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv): void {
+/** Prints it at its share (`open`); `beneath` lays what is not printed, over the key line and under the print. */
+export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv, open: number, beneath: () => void): void {
   const { f } = read, frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }, seed = hashId(desc.id)
   const cut = cutOf(read, seed)
-  if (!cut.edge.at.some((v) => v > 0)) return
+  if (!cut.edge.at.some((v) => v > 0)) return beneath()
   const light = sheetLight(desc, read), { t } = light, caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), key = new Path2D()
   const air = desc.through ? rowValues(desc.ys, desc.through, 1) : () => 1
   const opaque: Opaque = (gx, gy) => air(f.y0 + (gy / (f.rows - 1)) * f.height) * (THIN + (THICK - THIN) * Math.min(1, fieldAt(read.alpha, f.cols, f.rows, gx, gy)))
@@ -45,10 +46,19 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
     traceCap(block, cap, tops[i])
     traceTop(key, tops[i])
   })
+  const alpha = ctx.globalAlpha * open
   ctx.save()
-  ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * ctx.globalAlpha * t.line * (FAR + (1 - FAR) * near)))
+  ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * open * t.line * (FAR + (1 - FAR) * near)))
   ctx.lineWidth = LINE
   ctx.stroke(key)
+  // The line is the mass's outline alone: none of it is seen through a thin print.
+  ctx.globalAlpha = 1
+  ctx.globalCompositeOperation = 'destination-out'
+  ctx.fill(block)
+  ctx.restore()
+  beneath()
+  ctx.save()
+  ctx.globalAlpha = alpha
   const wash = blockOf(read, cut, light, opaque, env), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')
   if (ink) {
     const a = f.width / (wash.width - 1), d = f.height / (wash.height - 1)
@@ -56,7 +66,6 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
     ctx.fillStyle = ink
     ctx.fill(block)
   }
-  const alpha = ctx.globalAlpha
   caps.forEach((cap, i) => {
     if (!cap.lit) return
     const inks = capInks(t, light.at(cap.gx, cap.gy, cap.side), light.crest), under = (rgb: RGB) => light.under(rgb, cap.gx, cap.gy)

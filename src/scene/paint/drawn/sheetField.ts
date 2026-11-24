@@ -82,3 +82,9 @@ export function fieldAt(grid: Float32Array, cols: number, rows: number, gx: numb
   const low = grid[n + cols] + (grid[n + cols + 1] - grid[n + cols]) * tx
   return top + (low - top) * ty
 }
+
+/** The px between the rows round a place down the field. */
+export function spacingAt({ rows, spacing }: Pick<SheetField, 'rows' | 'spacing'>, gy: number): number {
+  const r = Math.min(rows - 2, Math.max(0, Math.floor(gy))), u = Math.min(1, Math.max(0, gy - r))
+  return spacing[r] + (spacing[r + 1] - spacing[r]) * u
+}

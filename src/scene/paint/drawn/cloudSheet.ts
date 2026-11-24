@@ -50,9 +50,9 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = open < 1 ? 'high' : 'low'
-  ctx.drawImage(scratch.canvas, 0.5, 0.5, w - 1, h - 1, field.x0, field.y0, field.width, field.height)
-  ctx.globalAlpha *= open
-  if (read) printSheet(ctx, desc, read, env)
+  const soft = () => ctx.drawImage(scratch.canvas, 0.5, 0.5, w - 1, h - 1, field.x0, field.y0, field.width, field.height)
+  if (read) printSheet(ctx, desc, read, env, open, soft)
+  else soft()
   ctx.restore()
 }
 

@@ -3,7 +3,7 @@ import type { Grid } from './kit/contour'
 import { distances } from './kit/distance'
 import { ease } from './kit/ease'
 import { farRows } from './sheetFar'
-import { fieldAt, type SheetField } from './sheetField'
+import { fieldAt, spacingAt, type SheetField } from './sheetField'
 
 /*
  * Where a broken sheet is cut: the model's alpha eased over its own rows, and far off low arches over level feet. Pure: the
@@ -32,7 +32,7 @@ export function easedField(f: SheetField): Eased {
 }
 
 /** How near a row is (0 far … 1). */
-export const nearAt = (f: SheetField, gy: number) => Math.min(1, f.spacing[Math.min(f.rows - 1, Math.max(0, Math.round(gy)))] / NEAR)
+export const nearAt = (f: SheetField, gy: number) => Math.min(1, spacingAt(f, gy) / NEAR)
 
 export function cutOf({ f, alpha }: Eased, seed: number): Cut {
   const cols = Math.ceil(f.width / CELL) + 1, rows = Math.ceil(f.height / CELL) + 1, edge: Grid = { cols, rows, at: new Float32Array(cols * rows) }
