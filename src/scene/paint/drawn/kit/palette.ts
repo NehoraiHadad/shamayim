@@ -32,6 +32,15 @@ export function pigment(rgb: RGB, turn = 0, gain = GAIN): RGB {
   })
 }
 
+/** The cool (Oklab -b) over which a colour is cool already. */
+const COOLED = 0.03
+
+/** A pigment for small things among the snow or in a cool air: what is cool already is made no bluer. */
+export function calm(rgb: RGB, turn = 0): RGB {
+  const cool = smoothstep(0, COOLED, -labOf(rgb).b)
+  return pigment(rgb, turn < 0 ? turn * (1 - cool) : turn, GAIN + (1 - GAIN) * cool)
+}
+
 /** The paper, seen where the ink is thin: a warm cream (Oklab), as bright as the light lets it be; the values it comes through. */
 const PAPER = { l: 0.965, a: 0.004, b: 0.024 }, SHOWS = { from: 0.35, over: 0.45 } as const
 

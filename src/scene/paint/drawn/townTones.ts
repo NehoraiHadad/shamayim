@@ -1,6 +1,6 @@
 import type { IllustratedTones } from '../../model/illustratedTones'
 import type { OutsideLandDesc, SeaDesc, Tones } from '../../model/types'
-import { papered, pigment, valued } from './kit/palette'
+import { calm, papered, pigment, valued } from './kit/palette'
 
 /* A town's tones as the block's inks: lit planes warm and a step up, shades cool and a step down; its lamps and air as they are. */
 
@@ -10,7 +10,7 @@ const TURN: Partial<Record<keyof IllustratedTones, readonly [number, number]>> =
   roof: [0.6, 0], roofLit: [1, 0.05], glass: [-0.4, 0], glassLit: [0, 0.03], green: [-0.1, -0.02], greenLit: [0.6, 0.05], gold: [0.8, 0.12],
 }
 /** How far the paper shows through a lit wall. */
-const PAPERED: Partial<Record<keyof IllustratedTones, number>> = { wall: 0.12, lit: 0.35, stone: 0.12, stoneLit: 0.3 }
+const PAPERED: Partial<Record<keyof IllustratedTones, number>> = { wall: 0.3, lit: 0.6, stone: 0.3, stoneLit: 0.5 }
 /** A step of value fades with the light: a night's planes stay as close as they are. */
 const BRIGHT = 1.3
 
@@ -18,7 +18,7 @@ export function inkedTones<T extends Tones>(tones: T): T {
   const all: Partial<IllustratedTones> = tones, out = { ...all }
   for (const [key, [turn, step]] of Object.entries(TURN) as [keyof IllustratedTones, readonly [number, number]][]) {
     const rgb = all[key]
-    if (rgb) out[key] = papered(pigment(valued(rgb, step * Math.min(1, Math.max(...rgb) * BRIGHT)), turn), PAPERED[key] ?? 0)
+    if (rgb) out[key] = papered(calm(valued(rgb, step * Math.min(1, Math.max(...rgb) * BRIGHT)), turn), PAPERED[key] ?? 0)
   }
   return out as T
 }
