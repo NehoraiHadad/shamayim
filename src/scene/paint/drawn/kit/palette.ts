@@ -41,10 +41,10 @@ export const skied = (rgb: RGB, turn = 0, air = 1): RGB => pigment(rgb, turn, GA
 /** The cool (Oklab -b) over which a colour is cool already. */
 const COOLED = 0.03
 
-/** A pigment for small things among the snow or in a cool air: what is cool already is made no bluer. */
-export function calm(rgb: RGB, turn = 0): RGB {
+/** A pigment for small things among the snow or in a cool air: what is cool already is made no bluer, what stands in dust (`dust` 0 … 1) no warmer. */
+export function calm(rgb: RGB, turn = 0, dust = 0): RGB {
   const cool = smoothstep(0, COOLED, -labOf(rgb).b)
-  return pigment(rgb, turn < 0 ? turn * (1 - cool) : turn, GAIN + (1 - GAIN) * cool)
+  return pigment(rgb, turn * (1 - (turn < 0 ? cool : dust)), GAIN + (1 - GAIN) * Math.max(cool, dust))
 }
 
 /** The paper, seen where the ink is thin: a warm cream (Oklab), as bright as the light lets it be; the values it comes through. */
