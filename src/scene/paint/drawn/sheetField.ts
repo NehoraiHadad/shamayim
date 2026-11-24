@@ -1,7 +1,7 @@
 import type { LayerOf } from '../../model/types'
 import { deckOpenness } from '../shared/cloud/deck'
 import { resampleRows, ROW } from '../shared/cloud/resampleRows'
-import { soften } from '../shared/base/soften'
+import { ease } from './kit/ease'
 
 /*
  * A field layer's sheet as the drawn hand reads it: the model's own alpha and tone on an even grid, softened into calm
@@ -44,18 +44,15 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField | null {
   const { buf, spacing: stepped } = resampleRows(texels, cols, ys, rows)
   const spacing = eased(stepped)
   const colPx = width / (cols - 1), rowPx = height / (rows - 1)
-  const down = spacing.map((s) => Math.min(SOFT_MAX, SOFT * s))
-  soften(buf, cols, rows, down.map((r) => (STRETCH * r) / colPx), down.map((r) => r / rowPx))
-  const n = cols * rows
-  const alpha = new Float32Array(n), tone = new Float32Array(n), city = new Float32Array(n), source = desc.source ? new Float32Array(n).fill(1) : null
-  for (let i = 0; i < n; i++) {
-    alpha[i] = buf[i * 4 + 3]
-    if (alpha[i] > 1e-3) {
-      tone[i] = buf[i * 4] / alpha[i]
-      city[i] = buf[i * 4 + 1] / alpha[i]
-      if (source) source[i] = buf[i * 4 + 2] / alpha[i]
-    }
+  const down = spacing.map((s) => Math.min(SOFT_MAX, SOFT * s)), rx = down.map((r) => (STRETCH * r) / colPx), ry = down.map((r) => r / rowPx)
+  const channel = (k: number) => {
+    const at = new Float32Array(cols * rows)
+    for (let i = 0; i < at.length; i++) at[i] = buf[i * 4 + k]
+    ease(at, cols, rows, rx, ry)
+    return at
   }
+  const alpha = channel(3), over = (k: number, none: number) => channel(k).map((v, i) => (alpha[i] > 1e-3 ? v / alpha[i] : none))
+  const tone = over(0, 0), city = desc.city ? over(1, 0) : new Float32Array(cols * rows), source = desc.source ? over(2, 1) : null
   const side = sides(alpha, cols, spacing.map((s) => Math.exp(-rowPx / (DEEP * s))))
   return { cols, rows, x0: xs[0], y0: ys[0], width, height, open: deckOpenness(desc), alpha, tone, city, side, source, spacing }
 }

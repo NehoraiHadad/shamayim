@@ -1,13 +1,14 @@
 import type { LayerOf } from '../../model/types'
 import { rng } from '../shared/base/core'
-import { capsAt, COMES, DRAWN, FINER, GOES, HEAD, sizeAt, SIZES, type SheetCap } from './sheetCap'
+import { DRAWN, HEADS, headsAt, sizeAt, type SheetCap } from './sheetCap'
 import type { Cut, Eased } from './sheetEdge'
 import { placesOf, type Places } from './sheetPlaces'
+import { OUT, rimAt, RIMS } from './sheetRim'
 
 /*
  * Where a broken sheet's caps stand: on lattices of the cloud's own air, each twice as wide as the one before, so that a cap
- * goes with its cloud as the wind carries it and never jumps. A lattice comes in where its caps have the size the hand has
- * there, and lets go where the next one has. Pure: the desc, its field and its seed.
+ * goes with its cloud as the wind carries it and never jumps. Where a lattice is wide for the hand's size there its places are
+ * heads, where it is narrow they are the rim's. Pure: the desc, its field and its seed.
  */
 
 type Sheet = LayerOf<'cloudSheet'>
@@ -16,6 +17,8 @@ type Sheet = LayerOf<'cloudSheet'>
 const STRAY = 0.85
 /** Keeps the lattices' places apart in the seed. */
 const EAST = 7919, NORTH = 104_729, TIER = 1_299_709, LOWEST = 64
+/** The places along and across that are one group on a rim, and its own seed. */
+const GROUP = 3, GROUPS = 179_424_673
 
 /** The caps, the mass's top first, so that a lower one stands before it. */
 export function sheetCaps(desc: Sheet, read: Eased, cut: Cut, seed: number): SheetCap[] {
@@ -30,7 +33,11 @@ export function sheetCaps(desc: Sheet, read: Eased, cut: Cut, seed: number): She
         if (!places.near((i + 0.5) * pitch + d[0], (j + 0.5) * pitch + d[1], pitch, from, to)) continue
         const own = seed + i * EAST + j * NORTH + (level + LOWEST) * TIER, random = rng(own)
         const at = places.seen((i + 0.5 + STRAY * (random() - 0.5)) * pitch + d[0], (j + 0.5 + STRAY * (random() - 0.5)) * pitch + d[1])
-        if (at) out.push(...capsAt(read, cut, { x: at.x, y: at.y, half: (pitch / 2) * at.perKm, weight: weight * at.there, seed: own }, random))
+        if (!at) continue
+        const spot = { x: at.x, y: at.y, half: (pitch / 2) * at.perKm, weight: weight * at.there, seed: own }
+        const rim = rimAt(read, cut, spot, random, () => rng(seed + GROUPS + Math.floor(i / GROUP) * EAST + Math.floor(j / GROUP) * NORTH + level)())
+        if (rim) out.push(rim)
+        else out.push(...headsAt(read, cut, spot, random))
       }
     }
   }
@@ -42,8 +49,8 @@ function tiersOf({ perKm, nearest }: Places, ranges: readonly number[], sizes: r
   const at = new Map<number, { from: number; to: number }>()
   for (let r = 0; r < ranges.length; r++) {
     if (!(perKm[r] > 0)) continue
-    const pitch = (2 * sizes[r]) / perKm[r], hi = Math.ceil(Math.log2(pitch * HEAD * GOES[1])), least = (2 * DRAWN) / (SIZES[2] * perKm[r])
-    for (let level = Math.floor(Math.log2(Math.max(least, pitch * COMES[0] * FINER))); level <= hi; level++) {
+    const pitch = (2 * sizes[r]) / perKm[r], lowest = Math.log2(pitch * RIMS[0]), hi = Math.ceil(Math.log2(pitch * HEADS[3]))
+    if (OUT[1] * sizes[r] > DRAWN) for (let level = Math.floor(lowest); level <= hi; level++) {
       const { from, to } = at.get(level) ?? { from: Infinity, to: 0 }
       at.set(level, { from: Math.min(from, Math.max(nearest, ranges[Math.max(0, r - 1)])), to: Math.max(to, ranges[Math.min(ranges.length - 1, r + 1)]) })
     }

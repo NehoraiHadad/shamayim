@@ -58,9 +58,9 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
   }
   const alpha = ctx.globalAlpha
   caps.forEach((cap, i) => {
-    if (cap.hangs) return
+    if (!cap.lit) return
     const inks = capInks(t, light.at(cap.gx, cap.gy, cap.side), light.crest), under = (rgb: RGB) => light.under(rgb, cap.gx, cap.gy)
-    ctx.globalAlpha = alpha * opaque(cap.gx, cap.gy)
+    ctx.globalAlpha = alpha * cap.lit * opaque(cap.gx, cap.gy)
     paintCap(ctx, cap, tops[i], { lit: under(inks.lit), local: under(inks.local), shade: under(inks.shade), key: inks.key }, t.line * nearAt(f, cap.gy))
   })
   ctx.restore()

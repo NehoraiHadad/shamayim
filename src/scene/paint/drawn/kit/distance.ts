@@ -13,18 +13,23 @@ export function distances(grid: Grid): Grid {
 function toEdge({ cols, rows, at }: Grid, sign: number): Float32Array {
   const d = Float32Array.from(at, (v) => ((v > 0) === (sign > 0) ? FAR : 0))
   for (const by of [1, -1]) {
-    for (let q = 0; q < rows * cols; q++) {
-      const n = by > 0 ? q : rows * cols - 1 - q, i = n % cols, j = (n - i) / cols
-      if (!d[n]) continue
-      const was = i - by >= 0 && i - by < cols, will = i + by >= 0 && i + by < cols
-      let v = was ? Math.min(d[n], d[n - by] + 1) : d[n]
-      if (j - by >= 0 && j - by < rows) {
-        const back = n - by * cols
-        v = Math.min(v, d[back] + 1)
-        if (was) v = Math.min(v, d[back - by] + DIAG)
-        if (will) v = Math.min(v, d[back + by] + DIAG)
+    const [i0, i1] = by > 0 ? [0, cols - 1] : [cols - 1, 0]
+    for (let k = 0, n = by > 0 ? 0 : rows * cols - 1; k < rows; k++) {
+      for (let i = i0; ; i += by, n += by) {
+        let v = d[n]
+        if (v) {
+          const back = n - by * cols
+          if (i !== i0) v = Math.min(v, d[n - by] + 1)
+          if (k) {
+            v = Math.min(v, d[back] + 1)
+            if (i !== i0) v = Math.min(v, d[back - by] + DIAG)
+            if (i !== i1) v = Math.min(v, d[back + by] + DIAG)
+          }
+          d[n] = v
+        }
+        if (i === i1) break
       }
-      d[n] = v
+      n += by
     }
   }
   return d
