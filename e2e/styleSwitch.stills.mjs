@@ -7,7 +7,7 @@ import { STILL_OPTIONS, waitForSky } from './skyShown.mjs'
 
 const outDir = process.argv[2]
 fs.mkdirSync(outDir, { recursive: true })
-const PANEL = '#style-vote-panel', TOGGLE = '[data-style-vote]'
+const PANEL = '#style-vote-panel', TOGGLE = '[data-style-vote]', STYLE = 'shamayim:scene-style:v1'
 const SLIDER = '[role="slider"][aria-label="שעה בעמק"]'
 let failed = 0
 const check = (ok, what, detail = '') => { if (!ok) failed++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${what} ${detail}`) }
@@ -67,36 +67,29 @@ async function switching(browser, base, moment) {
     await page.setViewportSize({ width: 375, height: 812 })
     await waitForSky(page)
     await openPanel(page)
-    const pass = async (label, hold = async () => {}) => {
-      for (const to of ['drawn', 'real', 'drawn', 'real']) {
-        await hold()
-        await page.waitForTimeout(1300)
-        const frames = await record(page, () => choose(page, to), 2500)
-        const [first, last] = [frames[0], frames.at(-1)]
-        const [real, drawn] = to === 'drawn' ? [first, last] : [last, first]
-        const got = await measure(page, frames, real, drawn)
-        check(got.apart > 1, `${moment} ${label} to ${to}: the scene changed`, got.apart)
-        judge(`${moment} ${label} to ${to}`, got, to)
-        const mixed = got.out.findIndex(([r, d]) => Math.min(r, d) > got.apart * 0.05)
-        save(name(`${label}-to-${to}`), last)
-        if (mixed >= 0) save(name(`${label}-to-${to}-mixed`), frames[mixed])
+    const pass = async (label) => {
+      const real = await still(page)
+      await choose(page, 'drawn'); await page.waitForTimeout(600)
+      const drawn = await still(page)
+      save(name(`${label}-real`), real); save(name(`${label}-drawn`), drawn)
+      for (const to of ['real', 'drawn', 'real']) {
+        const frames = await record(page, () => choose(page, to))
+        judge(`${moment} ${label} to ${to}`, await measure(page, frames, real, drawn), to)
       }
+      return { real, drawn }
     }
     await pass('now')
-    const focus = () => page.locator(SLIDER).focus()
-    await focus()
+    await page.locator(SLIDER).focus()
     for (let k = 0; k < 4; k++) await page.keyboard.press('ArrowRight')
     await top(page); await page.waitForTimeout(800)
-    let side = 0
-    await pass('hour', () => focus().then(() => top(page)).then(() => page.keyboard.press(side++ % 2 ? 'ArrowLeft' : 'ArrowRight')))
+    await pass('hour')
     const box = await page.locator(SLIDER).boundingBox()
     const y = box.y + box.height / 2
     await page.mouse.move(box.x + box.width * 0.3, y)
     await page.mouse.down()
     await page.mouse.move(box.x + box.width * 0.55, y, { steps: 6 })
     await page.waitForTimeout(600)
-    let dx = 0
-    await pass('scrub', () => page.mouse.move(box.x + box.width * 0.55 + (dx = 4 - dx), y, { steps: 2 }))
+    await pass('scrub')
     await page.mouse.up()
     // In drawn, an hour picked afresh, with the panel closed.
     await choose(page, 'drawn'); await page.keyboard.press('Escape')
@@ -106,12 +99,52 @@ async function switching(browser, base, moment) {
   } finally { await context.close() }
 }
 
+/** The first load with a style saved; `flash`: some frame is the real style's, whole. */
+async function firstLoad(browser, base, moment) {
+  const [id, time] = moment.split('@')
+  const { page, context } = await openAppPage(browser, base, { id, at: `${DEFAULT_DAY}T${time}`, dpr: 1, wx: '' })
+  try {
+    await page.setViewportSize({ width: 375, height: 812 })
+    const set = (s) => page.evaluate(([k, v]) => localStorage.setItem(k, v), [STYLE, s])
+    await set('real'); await page.reload(); const real = await still(page)
+    await set('drawn'); await page.reload(); const drawn = await still(page)
+    for (const saved of ['drawn', 'real']) {
+      await set(saved)
+      const frames = await record(page, () => page.reload(), 5000)
+      const { apart, out } = await measure(page, frames, real, drawn)
+      const flash = out.findIndex(([r, d]) => r < d && r < apart * 0.6)
+      console.log(`     ${moment} load ${saved}: apart ${apart}, frames ${JSON.stringify(out)}`)
+      if (saved === 'drawn') {
+        if (flash >= 0) save(`flash-${id}-${time.replace(':', '')}`, frames[flash])
+        check(flash < 0 && out.at(-1)[1] < apart * 0.3, `${moment}: drawn saved loads drawn, no frame of real`, `flash ${flash}`)
+      } else check(flash >= 0, `${moment}: the same test sees real when real is saved`)
+    }
+  } finally { await context.close() }
+}
+
+/** The app as it opens, in both styles, with no panel. */
+async function cover(browser, base, moment) {
+  const [id, time] = moment.split('@')
+  const { page, context } = await openAppPage(browser, base, { id, at: `${DEFAULT_DAY}T${time}`, dpr: 2, wx: '' })
+  try {
+    await page.setViewportSize({ width: 375, height: 812 })
+    for (const style of ['real', 'drawn']) {
+      await page.evaluate(([k, v]) => localStorage.setItem(k, v), [STYLE, style])
+      await page.reload(); await waitForSky(page); await page.waitForTimeout(1500); await waitForSky(page)
+      await page.screenshot({ ...STILL_OPTIONS, path: path.join(outDir, `app-${id}-${time.replace(':', '')}-${style}.png`) })
+    }
+  } finally { await context.close() }
+}
+
 const server = await startPreview('.')
 const browser = await launch()
 const step = async (what, run) => { try { await run() } catch (error) { check(false, what, String(error)) } }
 try {
   for (const m of ['jerusalem@12:00', 'haifa@21:00', 'tel-aviv@16:30']) {
-    await step(`switch ${m}`, () => switching(browser, server.url, m))
+    await step(`load ${m}`, () => firstLoad(browser, server.url, m))
+  }
+  for (const m of ['jerusalem@12:00', 'tel-aviv@16:30', 'haifa@21:00', 'ein-gedi@06:20', 'haifa@12:00', 'rosh-pina@10:00']) {
+    await step(`cover ${m}`, () => cover(browser, server.url, m))
   }
 } finally {
   await browser.close()

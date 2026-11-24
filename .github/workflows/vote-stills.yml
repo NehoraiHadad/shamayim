@@ -15,7 +15,17 @@ jobs:
       - run: npm ci
       - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
       - run: npx vite build
-      - run: node e2e/styleSwitch.stills.mjs vote-out/switch
+      - name: Entry chunk against main
+        if: always()
+        run: |
+          git worktree add ../main origin/main
+          ln -s "$PWD/node_modules" ../main/node_modules
+          (cd ../main && npx vite build) | grep -E "assets/.*js" > ../main.txt
+          grep -o 'src="[^"]*js"' ../main/dist/index.html dist/index.html
+          echo main; cat ../main.txt; echo vote; ls -l dist/assets/*.js
+      - run: node e2e/styleVote.stills.mjs vote-out/after . after
+      - if: always()
+        run: node e2e/styleSwitch.stills.mjs vote-out/switch
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: vote-stills, path: vote-out/, retention-days: 14 }
