@@ -1,3 +1,4 @@
+import { N, T } from './tune.tmp'
 import type { OutsideBox } from './outsideView'
 
 /** A built cell on the screen. */
@@ -35,7 +36,7 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
 
 /** Whether `body` covers `other`: within one row, and so near its middle that only a strip of `other` would show. */
 const covers = (body: OutsideBox, other: OutsideBox, pitch: number) =>
-  Math.abs(body.x - other.x) < body.w / 4 && Math.abs(body.foot - other.foot) < pitch
+  Math.abs(body.x - other.x) < body.w * N('f') && Math.abs(body.foot - other.foot) < pitch * N('pitch')
 
 /**
  * The standing sites' bodies, where a block drawn wider than its site takes the ground it covers: a widened block that a
@@ -55,7 +56,7 @@ export function composeBodies(sites: readonly FabricSite[], pitch: number, house
   }
   const taken = (box: OutsideBox) => columns.get(Math.floor(box.x / pitch))?.some(other => covers(other, box, pitch))
   const blocks = sites.filter(({ body }) => (body.heightM ?? 0) >= houseTopM)
-  const widened = blocks.filter(({ box, body }) => body.w > box.w).sort((a, b) => b.body.near - a.body.near)
+  const widened = blocks.filter(({ box, body }) => body.w > box.w).sort((a, b) => T.order === 'near' ? b.body.near - a.body.near : T.order === 'tall' ? a.body.top - b.body.top : a.body.near - b.body.near)
   for (const { box, body } of blocks) if (body.w <= box.w) lay(body)
   const covered = new Set<OutsideBox>()
   for (const { body } of widened) {

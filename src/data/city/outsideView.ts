@@ -9,6 +9,7 @@ import { hashId, seeded } from '../landmarks/hash'
 import { distanceOf, offsetKm, type Coordinate } from '../landmarks/project'
 import { PORTRAIT_MARGIN_KM } from '../landmarks/portrait'
 import type { Landmark } from '../landmarks/types'
+import { N, T } from './tune.tmp'
 import { fabricFrontage } from './fabricFrontage'
 import { composeBodies, standingSites, type FabricSite } from './fabricSlots'
 import { MassIndex, visible } from './skylineMass'
@@ -391,7 +392,8 @@ function fabricBoxes(cells: readonly FabricCell[], { frame, ground, floor, width
     const foot = lieBaseY(lie, ground, x, near, floor, siteW, cell.dx, cell.dy)
     const roof = (m: number) => foot - Math.max(1, pxOf(look, m, k))
     const box = { x, w: siteW, top: roof(siteM), foot, near, kind, heightM: siteM, seed: cell.seed, dx: cell.dx, dy: cell.dy }
-    const mapped = look ? planPx(look, frame, Math.min(heightM, cell.frontM ?? 0), k) : 0
+    const mapped = !look ? 0 : T.cap === 'm' ? planPx(look, frame, Math.min(N('scale') * heightM, cell.frontM ?? 0), k)
+      : Math.min(planPx(look, frame, T.cap === 'both' ? Math.min(heightM, cell.frontM ?? 0) : cell.frontM ?? 0, k), N('scale') * pxOf(look, heightM, k))
     const bodyW = look ? fabricFrontage(w, house, mapped, heightM, HOUSE_TOP_M) : w
     sites.push({ box, slotW: w < legible ? legible : 0, body: { ...box, w: bodyW, top: roof(heightM), heightM } })
   }

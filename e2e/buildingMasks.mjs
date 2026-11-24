@@ -97,21 +97,11 @@ export async function buildingMasks(png) {
     }
   }
   const spreads = []
-  const dbg = {}, dbgItems = outside.items.filter(i => i.kind === 'box' && !i.beyond)
   for (const pair of contacts) {
     const a = blocks.get(pair & 65535), b = blocks.get(pair >>> 16)
     if (a?.length >= 2 && b?.length >= 2) {
       const left = q(a), right = q(b)
       spreads.push(2 * Math.abs(left - right) / (left + right))
-      const ia = dbgItems[(pair & 65535) - 1], ib = dbgItems[(pair >>> 16) - 1]
-      const cat = [ia, ib].map(i => i.roof ? 'h' : 'b').sort().join('')
-      ;(dbg[cat] ??= []).push(2 * Math.abs(left - right) / (left + right))
-      const same = Math.floor(ia.receiver / 10) === Math.floor(ib.receiver / 10) ? 'same' : 'diff'
-      ;(dbg[cat + same] ??= []).push(2 * Math.abs(left - right) / (left + right))
-      const ra = Math.floor(Math.floor(ia.receiver / 2) / 5), rb = Math.floor(Math.floor(ib.receiver / 2) / 5)
-      const cl = (ra < 4) === (rb < 4) ? 'sameCluster' : 'cross'
-      ;(dbg[cat + cl] ??= []).push(2 * Math.abs(left - right) / (left + right))
-      ;(dbg[cat + (ia.tier === ib.tier ? 'sameTier' : 'diffTier')] ??= []).push(2 * Math.abs(left - right) / (left + right))
     }
   }
   const groundY = q(samples.bare)
@@ -127,7 +117,6 @@ export async function buildingMasks(png) {
     tileRed: tileRed / horizonRed, horizonRed, highpass: Math.sqrt(highpass / count),
     chimney: q(samples.chimney) / horizon, cooling: q(samples.cooling) / horizon,
     pairs: spreads.length, spread: q(spreads),
-    dbg: Object.fromEntries(Object.entries(dbg).map(([k, v]) => [k, [v.length, q(v)?.toFixed(3)]])),
     n: Object.fromEntries(Object.entries(samples).map(([k, a]) => [k, a.length])),
     ...Object.fromEntries(['built', 'front', 'sun', 'side', 'roof', 'tile', 'dome'].map(k => [k, q(samples[k]) / groundY])),
     chroma: q(samples.chroma) }
