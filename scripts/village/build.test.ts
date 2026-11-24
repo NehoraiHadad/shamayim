@@ -69,17 +69,18 @@ describe('the tiles', () => {
     expect(credits([...street(9), house(0, 60, MICROSOFT)])).toHaveLength(2)
     expect(() => credits([...street(9), house(0, 60, 'Someone')])).toThrow('Someone')
   })
+  const keys = (lat: number, lon: number, place: LatLon = [lat, lon]) =>
+    [...tilesOf([{ places: [place], houses: [[lat, lon, 10, 10, 0, 100, OSM]] }], 'r', '2026-11-24').keys()]
   it('hold a group in every tile its places can stand in', () => {
-    const keys = (lat: number, lon: number, place: LatLon = [lat, lon]) =>
-      [...tilesOf([{ places: [place], houses: [[lat, lon, 10, 10, 0, 100, OSM]] }], 'r', '2026-11-24').keys()]
     expect(keys(31.65, 35.05)).toEqual(['316_350'])
     expect(keys(31.65, 35.0995)).toEqual(['316_350', '316_351'])
-    // A tile's corner 55 m east and 80 m north of the place point: 97 m away, between the eight winds.
-    expect(keys(31.6, 35.05, [31.7 - 80 / LAT_M, 35.1 - 55 / lonM(31.7)])).toContain('317_351')
-    // A house 60.6 m east of a tile's edge, stored on the grid 0.9 m nearer.
-    expect(keys(31.65, 35.10063948, [31.65, 35.105])).toContain('316_350')
-    expect(keys(-17, 179.9999)).toEqual(['-170_-1800', '-170_1799', '-171_-1800', '-171_1799'])
   })
+  it('hold it across a corner 55 m east and 80 m north of its place point, 97 m away', () =>
+    expect(keys(31.6, 35.05, [31.7 - 80 / LAT_M, 35.1 - 55 / lonM(31.7)])).toContain('317_351'))
+  it('hold it across an edge 60.6 m from its house, which is stored 0.9 m nearer', () =>
+    expect(keys(31.65, 35.10063948, [31.65, 35.105])).toContain('316_350'))
+  it('hold it across the date line', () =>
+    expect(keys(-17, 179.9999)).toEqual(['-170_-1800', '-170_1799', '-171_-1800', '-171_1799']))
   it('give each place point its own group, and none to a place that has none', () => {
     const raw = group(street(10), [point(0, 0)])
     const texts = textsOf(tilesOf([raw], 'r', '2026-11-24'), new Map())
