@@ -29,14 +29,17 @@ export function footCuts(c: Ctx2D, s: CloudSprite, mass: TowerMass, t: CloudInks
   c.fill()
 }
 
-/** The silver rim inside the edge, the key line outside it. */
-export function keyTower(c: Ctx2D, path: Path2D, s: CloudSprite, t: CloudInks, line: number): void {
+/** The silver rim inside the mass's own edge, under its caps. */
+export function silverTower(c: Ctx2D, path: Path2D, s: CloudSprite): void {
   if (s.silver > SILVER.least) {
     c.strokeStyle = css(whitened(s.lit), SILVER.alpha * s.silver)
     c.lineWidth = SILVER.wide
-    c.globalCompositeOperation = 'source-atop'
     c.stroke(path)
   }
+}
+
+/** The key line outside the caps and the mass. */
+export function keyTower(c: Ctx2D, path: Path2D, t: CloudInks, line: number): void {
   c.strokeStyle = css(t.key, STRONG * line)
   c.lineWidth = LINE
   c.globalCompositeOperation = 'destination-over'

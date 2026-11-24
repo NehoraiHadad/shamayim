@@ -28,10 +28,12 @@ const SOFT_CROWN = 0.2, SOFT = 0.3, SOFT_FAR = 0.4, SOFT_ANVIL = 0.42, SOFT_BASE
 const UNDER_FADE = { dry: 0.35, rains: 0.8 } as const, FADE_DEEP = 0.35
 /** A far tower's width (px), and the share of its height its foot melts into the haze over, to this share. */
 const FAR = 70, FOOT = 0.6, FOOT_LEFT = 0.1
+/** How far (px) the print may stand over the model's top, and under its near edge: the layer's own room. */
+export const OVER_TOP = 10, UNDER_FOOT = 6
 /** Room past a head's half width for the puffs. */
 const ROOM = 1.4
 
-export interface TowerPoint {
+interface TowerPoint {
   alpha: number
   /** The puff's light (+ its lit top). */
   light: number
@@ -80,6 +82,7 @@ export function towerMass(s: CloudSprite): TowerMass {
     if (mass < -HEADS) return null
     const p = puff(x / size, y / (size * PUFF_TALL))
     out.alpha = Math.max(smoothstep(0, soft, mass + rough * (p.high + SMALL * p.small)), smoothstep(CORE[0], CORE[1], mass))
+    out.alpha *= smoothstep(s.tall + OVER_TOP, s.tall, -y) * smoothstep(Math.max(depth, s.under) + UNDER_FOOT, s.under, y)
     out.light = p.light
     out.across = Math.max(-1, Math.min(1, across))
     out.edge = 1 - Math.min(1, Math.max(0, mass))

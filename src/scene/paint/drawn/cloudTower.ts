@@ -3,13 +3,13 @@ import type { CloudSprite } from '../../model/cloudSprite'
 import type { LayerOf } from '../../model/types'
 import { css, mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { towerOpacity } from '../shared/cloud/layTower'
-import { capTop, paintCap } from './cloudCaps'
+import { capTop, paintCap, traceCap } from './cloudCaps'
 import { capInks, cloudInks, printed, type CloudInks } from './cloudInks'
 import { whitened } from './cloudLight'
 import { traceOver, type Frame } from './kit/contour'
-import { towerCaps } from './towerCaps'
-import { fadeFoot, footCuts, keyTower } from './towerEdge'
-import { towerMass, type TowerMass } from './towerMass'
+import { FLAT, towerCaps } from './towerCaps'
+import { fadeFoot, footCuts, keyTower, silverTower } from './towerEdge'
+import { OVER_TOP, towerMass, UNDER_FOOT, type TowerMass } from './towerMass'
 
 /*
  * The field's towers as prints: the model's column, shoulders, base and anvil (`towerMass`) as one block with capped edges,
@@ -23,49 +23,58 @@ const CELLS = 3600, SHEET_PX = 1_600_000, EDGE = 0.36
 const ACROSS = 0.75, UP = 1.05, PUFF = 0.12, BASE = 0.3, DARK = 0.9, SIDE = 0.75
 /** How heavy a raining tower is at least; the chroma its inks take. */
 const RAINS = 0.6, GAIN = 1.35
-/** The width (px) of a tower that takes its key line whole; a scallop's flatness. */
-const WHOLE_AT = 90, FLAT = 0.4
-/** Room over the crown for the caps, against the height and the width; under the foot, against its depth. */
-const ROOM = { tall: 1.1, wide: 0.3, under: 1.3 } as const
+/** The width (px) of a tower that takes its key line whole; a print has no half-there block: the opacity it is whole from. */
+const WHOLE_AT = 90, FIRM = 0.4
+/** Room for the key line (px) and at the sides for the caps, against the width. */
+const ROOM = { line: 2, wide: 0.15 } as const
 
 export function paintDrawnCells(ctx: Ctx2D, desc: LayerOf<'cloudCells'>, env: PaintEnv): void {
-  for (const { sprite, x, y } of desc.cells) tower(ctx, sprite, x, y, env)
+  for (const { sprite, x, y } of desc.cells) tower(ctx, sprite, x, y, desc.bounds, env)
 }
 
-function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv) {
-  const opacity = towerOpacity(s)
+function tower(ctx: Ctx2D, s: CloudSprite, x: number, y: number, bounds: Frame, env: PaintEnv) {
+  const opacity = smoothstep(0, FIRM, towerOpacity(s))
   if (!opacity) return
   const mass = towerMass(s), t = inksOf(s), lightAt = lightOf(s, t), line = t.line * Math.min(1, s.w / WHOLE_AT)
-  const top = -s.tall * ROOM.tall - s.w * ROOM.wide, f: Frame = { x: -mass.reach, y: top, w: 2 * mass.reach, h: mass.depth * ROOM.under + 2 - top }
+  const top = -s.tall - OVER_TOP - ROOM.line, wide = mass.reach + ROOM.wide * s.w
+  const f: Frame = { x: -wide, y: top, w: 2 * wide, h: Math.max(mass.depth, s.under) + UNDER_FOOT + ROOM.line - top }, v = within(f, { ...bounds, x: bounds.x - x, y: bounds.y - y })
+  if (v.w < 1 || v.h < 1) return
   const { wash, at, cols, rows } = washOf(mass, t, lightAt, f, env)
-  const { caps, foot } = towerCaps(s, mass, EDGE), tops = caps.map(capTop), path = new Path2D()
-  traceOver(path, { cols, rows, at }, 0, f)
-  for (const pts of tops) {
-    pts.forEach(([px, py], i) => (i ? path.lineTo(px, py) : path.moveTo(px, py)))
-    path.closePath()
-  }
+  const { caps, foot } = towerCaps(s, mass, EDGE), tops = caps.map(capTop), body = new Path2D()
+  traceOver(body, { cols, rows, at }, 0, f)
+  const path = new Path2D(body)
+  caps.forEach((cap, i) => traceCap(path, cap, tops[i]))
   for (const { x: cx, y: cy, r } of foot) {
     path.moveTo(cx + r, cy)
     path.ellipse(cx, cy, r, r * FLAT, 0, 0, 2 * Math.PI)
   }
-  const k = Math.min(env.scale, Math.sqrt(SHEET_PX / (f.w * f.h))), w = Math.ceil(f.w * k), h = Math.ceil(f.h * k), { canvas, ctx: c } = env.canvas(w, h)
+  const k = Math.min(env.scale, Math.sqrt(SHEET_PX / (v.w * v.h))), w = Math.ceil(v.w * k), h = Math.ceil(v.h * k), { canvas, ctx: c } = env.canvas(w, h)
   c.save()
   c.scale(k, k)
-  c.translate(-f.x, -f.y)
+  c.translate(-v.x, -v.y)
   c.fillStyle = css(t.half)
   c.fill(path)
   c.globalCompositeOperation = 'source-atop'
   c.imageSmoothingQuality = 'high'
-  c.drawImage(wash, f.x, f.y, f.w, f.h)
+  // Read at its cells' corners, laid by their middles.
+  const sx = f.w / (cols - 1), sy = f.h / (rows - 1)
+  c.drawImage(wash, f.x - sx / 2, f.y - sy / 2, f.w + sx, f.h + sy)
+  silverTower(c, body, s)
   caps.forEach((cap, i) => paintCap(c, cap, tops[i], capInks(t, lightAt(cap.y, cap.across, cap.light)), line))
   footCuts(c, s, mass, t)
-  keyTower(c, path, s, t, line)
+  keyTower(c, path, t, line)
   fadeFoot(c, f, mass)
   c.restore()
   ctx.save()
   ctx.globalAlpha *= opacity
-  ctx.drawImage(canvas, x + f.x, y + f.y, w / k, h / k)
+  ctx.drawImage(canvas, x + v.x, y + v.y, w / k, h / k)
   ctx.restore()
+}
+
+/** The part of a frame inside another. */
+function within(a: Frame, b: Frame): Frame {
+  const x = Math.max(a.x, b.x), y = Math.max(a.y, b.y)
+  return { x, y, w: Math.min(a.x + a.w, b.x + b.w) - x, h: Math.min(a.y + a.h, b.y + b.h) - y }
 }
 
 /** The tower's one printing of ink, its light wiped over all of it; and how far each place is inside its edge. */

@@ -2,7 +2,7 @@ import { smoothstep } from '../../../domain/smoothstep'
 import type { CloudSprite } from '../../model/cloudSprite'
 import { rng } from '../shared/base/core'
 import type { Cap } from './cloudCaps'
-import type { TowerMass } from './towerMass'
+import { OVER_TOP, UNDER_FOOT, type TowerMass } from './towerMass'
 
 /*
  * Where a tower's caps stand: on two lattices of the tower's own width, each cap inscribed in the mass and stepping a little
@@ -12,17 +12,20 @@ import type { TowerMass } from './towerMass'
 export interface TowerCap extends Cap { across: number; light: number }
 
 /** The lattices: the width between caps against the tower's, the tower's width (px) they grow in over, how near the edge they stand, the share kept inside. */
-const TIERS = [{ every: 0.19, over: null, edge: 0, inside: 1 }, { every: 0.1, over: [90, 220], edge: 0.5, inside: 0.3 }] as const
+const TIERS = [{ every: 0.17, over: null, edge: 0, inside: 1 }, { every: 0.095, over: [90, 220], edge: 0.5, inside: 0.35 }] as const
 /** How far a cap strays from its place (against the lattice), its least and most size, how seldom it is large. */
-const STRAY = 0.9, SIZE = [0.4, 1.15] as const, SELDOM = 1.4
+const STRAY = 0.9, SIZE = [0.45, 1.2] as const, SELDOM = 1.4
 /** The most a cap steps out of the mass (of its size), and the mass's half width against the tower's. */
-const OVER = 0.45, HALF = 0.38
-/** The share of places left empty, and how high (of the tower's height) the caps begin. */
-const QUIET = 0.14, FROM = 0.05
+const OVER = 0.4, HALF = 0.38
+/** The share of places left empty, and how high (of the tower's height) the caps begin and a foot's scallops end. */
+const QUIET = 0.08, FROM = [0.03, 0.08] as const
+/** A cap comes up over this much of the mass and of its edge, and is drawn from this size (px); its reach against its size. */
+const EASE = 0.25, NEAR = 0.15, LEAST = 0.7, REACH = 1.25
 /** How far a cap leans out of its mass, and at random (rad). */
 const LEAN = 0.45, SWAY = 0.3
-/** A foot's scallop against its place's size. */
+/** A foot's scallop against its place's size, and its flatness. */
 const SCALLOP = 0.75
+export const FLAT = 0.4
 /** Keeps a lattice's places apart in the seed. */
 const ACROSS = 7919, UP = 104_729, TIER = 31, FIRST = 512
 
@@ -38,10 +41,12 @@ export function towerCaps(s: CloudSprite, mass: TowerMass, solid: number): { cap
       const x = (i + STRAY * (random() - 0.5)) * step, y = -(j + STRAY * (random() - 0.5)) * step
       const size = (SIZE[0] + (SIZE[1] - SIZE[0]) * random() ** SELDOM) * step * grown, keep = random(), sway = random() - 0.5
       const p = mass.at(x, y)
-      if (!p || p.alpha < solid || keep < QUIET || (p.edge < edge && keep > inside)) continue
-      const r = Math.min(size, (1 - p.edge) * HALF * s.w + OVER * size), tilt = LEAN * p.across * p.edge + SWAY * sway
-      if (-y > FROM * s.tall) caps.push({ x, y, r, tilt, seed, across: p.across, light: p.light })
-      else if (!tier) foot.push({ x, y, r: SCALLOP * size, tilt, seed })
+      if (!p || keep < QUIET) continue
+      const come = smoothstep(solid, solid + EASE, p.alpha) * (keep > inside ? smoothstep(edge - NEAR, edge, p.edge) : 1), high = smoothstep(...FROM, -y / s.tall)
+      const whole = Math.min(size, (1 - p.edge) * HALF * s.w + OVER * size), r = Math.min(whole * come * high, (y + s.tall + OVER_TOP) / REACH), tilt = LEAN * p.across * p.edge + SWAY * sway
+      if (r > LEAST) caps.push({ x, y, r, tilt, seed, across: p.across, light: p.light })
+      const low = tier ? 0 : Math.min(SCALLOP * size * come * (1 - high), (Math.max(mass.depth, s.under) + UNDER_FOOT - y) / FLAT)
+      if (low > LEAST) foot.push({ x, y, r: low, tilt, seed })
     }
   })
   caps.sort((a, b) => a.y - 0.2 * a.r - (b.y - 0.2 * b.r))

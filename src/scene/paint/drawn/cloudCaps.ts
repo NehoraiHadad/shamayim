@@ -10,7 +10,7 @@ import { carve, type P } from './kit/carve'
 
 export interface Cap { x: number; y: number; r: number; tilt: number; seed: number }
 
-const LINE = 0.62, LINE_ALPHA = 0.6
+const LINE = 0.62, LINE_ALPHA = 0.6, BELLY = 0.9
 /** The share of caps whose line runs the whole top. */
 const WHOLE = 0.35
 /** Where along a bump its points stand. */
@@ -39,6 +39,13 @@ export function capTop({ x: cx, y: cy, r, tilt, seed }: Cap): P[] {
   })
   return ends.flatMap((p, i) => (i < many ? bump(p, ends[i + 1], 0.16 + 0.2 * random()) : [p]))
     .map(([x, y]): P => [cx + x * c - y * s, cy + x * s + y * c])
+}
+
+/** A cap's shape: its top, and a round belly (of its size) where it hangs over the mass. */
+export function traceCap(path: CanvasPath, { x, y, r, tilt }: Cap, pts: readonly P[]): void {
+  pts.forEach(([px, py], i) => (i ? path.lineTo(px, py) : path.moveTo(px, py)))
+  path.quadraticCurveTo(x - Math.sin(tilt) * BELLY * r, y + Math.cos(tilt) * BELLY * r, ...pts[0])
+  path.closePath()
 }
 
 /** A cap laid over what stands behind it; `line`: how strong its key line is. */
