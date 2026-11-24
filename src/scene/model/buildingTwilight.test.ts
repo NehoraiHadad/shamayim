@@ -46,7 +46,7 @@ describe.each(places)('twilight in $id', place => {
       const fixture = build(worldInput(loaded.get(place.id)!, at))
       const view = fixture.place3 as OutsideView
       const albedo = view.land ? outsideGroundAlbedo(fixture, view.land, view.frame)
-        : planeSurfaceOf(fixture, 'near', fixture.terrain.near).median
+        : planeSurfaceOf(fixture, 'near', fixture.terrain.near).mean
       const shape = outsideShape(fixture, box, [])
       const ids = [...new Set(shape.items.flatMap(i => i.kind === 'box' && !i.beyond ? [i.receiver] : []))]
       expect(ids.length).toBeGreaterThan(8)

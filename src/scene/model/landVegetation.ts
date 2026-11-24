@@ -42,13 +42,13 @@ function cellSeed(seed: number, c: number, r: number): number {
 
 /** Builds and memoises the light-free `PlaneVegetation` descriptor for one terrain plane. */
 export function planeVegetationOf(
-  world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, medianLand: RGB, clear: readonly Box[],
+  world: WorldState, box: SceneBox, name: PlaneName, plane: Plane, meanLand: RGB, clear: readonly Box[],
 ): PlaneVegetation {
   if (name === 'back' || plane.points.length < 2) return EMPTY_VEGETATION
   let byKey = cache.get(world.land)
   if (!byKey) cache.set(world.land, byKey = new Map())
   const geom = planeGeomOf(world, name, plane, box.landHeight)
-  const key = `${name}:${geom.geomKey}:${medianLand.join(',')}:${cropEvidenceKey(world)}:${box.width}:${box.landHeight}:${groundClearKey(clear)}`
+  const key = `${name}:${geom.geomKey}:${meanLand.join(',')}:${cropEvidenceKey(world)}:${box.width}:${box.landHeight}:${groundClearKey(clear)}`
   const hit = byKey.get(key)
   if (hit) return hit
 
@@ -140,7 +140,7 @@ export function planeVegetationOf(
 
   const meanDry = dryN > 0 ? drySum / dryN : world.land.own.dryness
   const minClimateDry = seasonalDrynessRange(world.place.lat, world.place.lon, dryN > 0 ? elevSum / dryN : 0).min
-  const tones = buildVegPalette(medianLand, meanDry, {
+  const tones = buildVegPalette(meanLand, meanDry, {
     grassDryness: grassN > 0 ? grassDrySum / grassN : meanDry,
     minClimateDry,
     grassNdvi: grassN > 0 ? grassNdviSum / grassN : undefined,

@@ -5,7 +5,7 @@ import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, PALETTE_COLS, type PlaneName } from './faceProjection'
 import { COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
-import { linearLuminance, srgbRgbToLinear } from './landRadiance'
+import { linearLuminance, linearRgbToSrgb, srgbRgbToLinear } from './landRadiance'
 import { planeGeomOf } from './planeGeometry'
 import { labOf, rgbOfLab } from './tone'
 import type { PlanePalette } from './types'
@@ -17,7 +17,11 @@ import type { PlanePalette } from './types'
 export { quantiseTones } from './landPalette'
 export type { PlaneName } from './faceProjection'
 
-export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB }
+export interface PlaneSurfaceSpec {
+  palette: PlanePalette
+  /** The face's area mean (linear): its cells cover equal parts of the picture. */
+  mean: RGB
+}
 
 const SPEC: Record<PlaneName, { rows: number; maxColours: number }> = {
   near: { rows: 4, maxColours: 14 },
@@ -28,6 +32,9 @@ const SPEC: Record<PlaneName, { rows: number; maxColours: number }> = {
 const medianByLum = (tones: readonly RGB[]) =>
   [...tones].sort((a, b) => linearLuminance(srgbRgbToLinear(a)) - linearLuminance(srgbRgbToLinear(b)))[Math.floor(tones.length / 2)]
 
+const meanAlbedo = (tones: readonly RGB[]): RGB => linearRgbToSrgb([0, 1, 2].map((k) =>
+  tones.reduce((sum, rgb) => sum + srgbRgbToLinear(rgb)[k], 0) / tones.length) as [number, number, number])
+
 const planeCache = new WeakMap<LivingLand, Map<string, PlaneSurfaceSpec>>()
 const ownAlbedoCache = new WeakMap<LivingLand, RGB>()
 const dominantSource = (counts: Map<string, number>, fallback: string) => {
@@ -36,7 +43,7 @@ const dominantSource = (counts: Map<string, number>, fallback: string) => {
   return out
 }
 
-/** Builds and caches the compact quantised raw BOA sRGB `PlanePalette` and median BOA albedo for one plane. */
+/** Builds and caches the compact quantised raw BOA sRGB `PlanePalette` and area mean BOA albedo for one plane. */
 export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane, landHeight = SCENE_H): PlaneSurfaceSpec {
   let byPlane = planeCache.get(world.land)
   if (!byPlane) planeCache.set(world.land, byPlane = new Map())
@@ -81,10 +88,10 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const { palette, indices } = quantiseTones(smoothed, maxColours)
   const fallbackSrc = nonWaterLocalFallback(world.land).source
   const shownAlbedos = rawAlbedos.filter((_, i) => visible[i])
-  const med = roundRgb(medianByLum(shownAlbedos.length ? shownAlbedos : rawAlbedos) ?? nonWaterLocalFallback(world.land).albedo)
+  const mean = roundRgb(meanAlbedo(shownAlbedos.length ? shownAlbedos : rawAlbedos))
   const spec: PlaneSurfaceSpec = {
     palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
-    median: med,
+    mean,
   }
   if (byPlane.size > 12) byPlane.clear()
   byPlane.set(key, spec)
