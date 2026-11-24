@@ -12,7 +12,7 @@ import { cloudLayersOf } from './cloudLayers'
 import { horizonBand, skyStops, stopAt } from './sky'
 import { filterAt, skyGradeOf } from './skyGrade'
 import { SKY_FILTER_MID } from './skyFilter'
-import { hexOf, labOf } from './tone'
+import { hexOf, labOf, mixSrgb, rgbOf } from './tone'
 import type { LayerOf, RGB } from './types'
 
 const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -50,10 +50,6 @@ it('keeps the dusty sky tan and brightens toward its horizon band', () => {
   const grade = skyGradeOf(world, box)!
   const top = filterAt(grade, 0, sky[0])
   const colours = [top, sky.at(-1)!, band!.rgb]
-  const mid = filterAt(grade, SKY_FILTER_MID * grade.horizon,
-    stopAt(skyStops(world, box), SKY_FILTER_MID * grade.horizon / box.skyHeight))
-  console.info('Ramon noon dust', { k: grade.k,
-    top: [hexOf(top), labOf(top)], mid: [hexOf(mid), labOf(mid)], horizon: [hexOf(colours[1]), labOf(colours[1])] })
   const { a, b } = labOf(top)
   expect(Math.atan2(b, a) * 180 / Math.PI).toBeGreaterThanOrEqual(60)
   expect(Math.atan2(b, a) * 180 / Math.PI).toBeLessThanOrEqual(72)
@@ -93,7 +89,7 @@ it('keeps Hero and Sentence ink at 4.6:1 against the zenith and mid gradient anc
       const grade = skyGradeOf(state, box)
       const middle = SKY_FILTER_MID * (box.landTop + state.relief.horizonY)
       const stops = skyStops(state, box)
-      const anchors = [0, middle].map(y => filterAt(grade, y, stopAt(stops, y / box.skyHeight)))
+      const anchors = [0, middle].map(y => filterAt(grade, y, rgbOf(hexOf(stopAt(stops, y / box.skyHeight, mixSrgb)))))
       for (const [i, bg] of anchors.entries()) {
         for (const ink of i === 0 ? [palette.ink] : [palette.ink, '#E8F9FF']) {
           const actual = ratio(ink, hexOf(bg))

@@ -9,11 +9,10 @@ import { toneOf } from '../paint/shared/cloud/deck'
 import { mix } from '../paint/shared/base/hand'
 import { cloudLayersOf } from './cloudLayers'
 import { inDust } from './cloudDust'
-import { hazeOf, physicalHazeOf } from './landVeil'
 import { horizonBand, skyStops, stopAt } from './sky'
 import { filterAt, skyFilterLayer, skyGradeOf } from './skyGrade'
 import { SKY_FILTER_MID } from './skyFilter'
-import { hexOf, labOf } from './tone'
+import { hexOf, labOf, rgbOf } from './tone'
 
 const BOX = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
 const NOON = '2026-11-17T12:00'
@@ -54,7 +53,7 @@ it('keeps adjacent sky and band samples within .01 OKLab across dust onset and t
   }
 })
 
-it('keeps ink contrast over a dusty sheet at least as high as over the same clean deck', () => {
+it('keeps the ink at 4.6:1 over a dusty sheet', () => {
   const input = worldInput(places.get('jerusalem')!, '2026-11-17T15:00')
   const frame = (dust: number) => makeWorldBuilder()({ ...input, forcedLayers: { low: 0.99, mid: 0, high: 0 },
     forced: { cloudCover: 99, pm10: dust, dust, visibilityKm: 3 } })
@@ -69,14 +68,14 @@ it('keeps ink contrast over a dusty sheet at least as high as over the same clea
     return tone.flatMap((t, i) => {
       const row = Math.floor(i / xs.length)
       if (ys[row] > middle || alpha[i] < 0.9 || xs[i % xs.length] < 0 || xs[i % xs.length] > BOX.width) return []
-      const rgb = mix(stopAt(stops, ys[row] / BOX.skyHeight), toneOf(sheet, t), alpha[i] * (through?.[row] ?? 1))
-      return [ratio(world.light.palette.ink, hexOf(filterAt(grade, ys[row], rgb)))]
+      const rgb = mix(rgbOf(hexOf(stopAt(stops, ys[row] / BOX.skyHeight, mix))),
+        rgbOf(hexOf(toneOf(sheet, t))), alpha[i] * (through?.[row] ?? 1))
+      return [ratio(world.light.palette.ink, hexOf(filterAt(grade, ys[row], rgbOf(hexOf(rgb)))))]
     })
   }
-  const clean = contrast(frame(0)), dusty = contrast(frame(400))
-  expect(clean.length).toBeGreaterThan(0)
+  const dusty = contrast(frame(400))
   expect(dusty.length).toBeGreaterThan(0)
-  expect(Math.min(...dusty)).toBeGreaterThanOrEqual(Math.min(...clean))
+  expect(Math.min(...dusty)).toBeGreaterThanOrEqual(4.6)
 })
 
 it('keeps sheet diffuse light and far-land airlight physical', () => {
@@ -84,8 +83,6 @@ it('keeps sheet diffuse light and far-land airlight physical', () => {
   const world = makeWorldBuilder()({ ...input, forced: { pm10: 400, dust: 400, visibilityKm: 3 } })
   const clear = { ...world, air: { ...world.air, dustVeilPotential: 0 } }
   expect(skyFilterLayer(clear, BOX)).toBeNull()
-  expect(hazeOf(clear)).toEqual(physicalHazeOf(clear))
-  expect(hazeOf(world)).toEqual(physicalHazeOf(world))
   const cleanSheets = cloudLayersOf(clear, BOX)
   const sheets = cloudLayersOf(world, BOX).filter((l) => l.kind === 'cloudSheet')
   expect(sheets.length).toBeGreaterThan(0)

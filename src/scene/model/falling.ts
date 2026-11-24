@@ -26,8 +26,16 @@ const LEVEL_ALPHA: Record<CloudLevel, number> = { low: 1, mid: 0.85, high: 0.55 
 const CORE = 0.6
 
 /** A falling cloud before it is drawn: where it is, in degrees and km. */
-interface Source { id: string; level: CloudLevel; azimuth: number; wDeg: number; altitude: number; distanceKm: number
-  seed: number; share: number }
+interface Source {
+  id: string
+  level: CloudLevel
+  azimuth: number
+  wDeg: number
+  altitude: number
+  distanceKm: number
+  seed: number
+  share: number
+}
 
 /** What falls, from which clouds, where it stands in the stack, and how fast the wind carries it across (px/s). */
 export interface Falling { cells: FallingCloud[]; z: number; speed: number }

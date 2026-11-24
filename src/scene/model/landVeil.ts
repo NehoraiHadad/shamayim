@@ -32,7 +32,7 @@ export const HAZE_SLOPE = 0.006
  */
 const hazeCache = new WeakMap<WorldState, RGB>()
 
-export function physicalHazeOf(world: WorldState): RGB {
+export function hazeOf(world: WorldState): RGB {
   const hold = hazeCache.get(world)
   if (hold) return hold
   const { palette, afterglow } = world.light
@@ -58,8 +58,6 @@ export function physicalHazeOf(world: WorldState): RGB {
   hazeCache.set(world, rgb)
   return rgb
 }
-
-export const hazeOf = physicalHazeOf
 
 /** The illustrated palette retains the original aerial contrast floor. */
 export const illustratedHazeAt = (world: WorldState, km: number) => AERIAL * world.air.fade(km) ** 2

@@ -2,8 +2,9 @@ import type { WorldState } from '../../world/types'
 import { sheetZ } from './cloudSheet'
 import { edgeMark } from './edgeMark'
 import { fallingOf } from './falling'
-import { layerKey, skyBoxKey } from './keys'
+import { colourKey, layerKey, skyBoxKey } from './keys'
 import { skyAt, skyGeom, type SkyGeom } from './sky'
+import { skyGradeOf } from './skyGrade'
 import { column, farTilt, inView, NEAR_ALT, precipOf, shaftOf, tileMarks, type PrecipState } from './shafts'
 import { mixRgb } from './tone'
 import type { LayerDesc, SceneBox } from './types'
@@ -31,8 +32,7 @@ function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: Pre
   if (!found) return []
   const { cells: banks, z, speed } = found
   const out: LayerDesc[] = []
-  const sky = skyAt(world, box, true)
-  const horizonSky = sky(2)
+  const horizonSky = skyAt(world, box, true)(2)
   const dark = world.night.dark
   const drift = Math.abs(speed) > 0.01 ? { speed, period: geom.period } : {}
   const tilt = Math.tan(p.slant)
@@ -75,7 +75,8 @@ function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: Pre
   const near = seen.filter((f) => f.altitude >= NEAR_ALT)
   if (near.length) {
     const tw = whole(64, box.dpr), th = whole(96, box.dpr)
-    const rgb = p.precip === 'rain' ? mixRgb(sky(20), WHITE, 0.45 * (1 - dark)) : mixRgb(sky(20), WHITE, 0.85 * (1 - 0.7 * dark))
+    const behind = skyAt(world, box)(20)
+    const rgb = p.precip === 'rain' ? mixRgb(behind, WHITE, 0.45 * (1 - dark)) : mixRgb(behind, WHITE, 0.85 * (1 - 0.7 * dark))
     const fallV = p.precip === 'rain' ? 420 + 260 * p.strength : 30 + 16 * p.strength
     const marks = tileMarks(`${world.place.id}:fall.near:${p.precip}`, p, tw, th, true)
     const alphaOf = (s: number) => (p.precip === 'rain' ? 0.16 + 0.34 * p.strength : 0.4 + 0.45 * p.strength) * s * p.opacity
@@ -95,7 +96,8 @@ function precipLayersFor(world: WorldState, box: SceneBox, geom: SkyGeom, p: Pre
         alphas: columns.map((c) => alphaOf(c.a)), ...(p.precip === 'snow' ? { sway: 3, swayPeriod: 3.2 } : {}) }
     }
     const common = { kind: 'fall' as const, precip: p.precip, slant: tilt, rgb, marks, bounds: { x: 0, y: 0, w: tw, h: th } }
-    const key = (id: string) => layerKey(id, p.precip, tw, th, slantKey, q(p.strength, 0.05), tone(rgb), box.dpr)
+    const colour = skyGradeOf(world, box) ? colourKey(rgb) : tone(rgb)
+    const key = (id: string) => layerKey(id, p.precip, tw, th, slantKey, q(p.strength, 0.05), colour, box.dpr)
     out.push({ ...common, id: id('fall.near'), surface: 'sky', z: 11, animated: { mode: 'fall', ...drift, fall: fall('sky') }, key: key('fall.near') })
     out.push({ ...common, id: id('fall.land'), surface: 'land', z: 60, animated: { mode: 'fall', ...drift, fall: fall('land') }, key: key('fall.land') })
   }

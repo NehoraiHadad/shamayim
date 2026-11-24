@@ -1,19 +1,22 @@
-import { smoothstep } from '../../domain/smoothstep'
 import { skyContrastCeiling } from '../../theme/contrast'
 import type { WorldState } from '../../world/types'
 import { colourKey, layerKey, skyBoxKey } from './keys'
-import { cloudGradeDepth } from './skyGradeClouds'
-import { skyColours } from './skyColour'
-import { multiplySky, SKY_FILTER_MID, skyFilterDepth, skyFilterGradientRow, skyFilterTransmission } from './skyFilter'
-import { stopAt } from './skyGradient'
+import { inkSkySamples } from './skyGradeClouds'
+import { skyColours, stopAt } from './skyColour'
+import { multiplySky, SKY_FILTER_MID, skyFilterDepth, skyFilterGradientRow, skyFilterReserve, skyFilterTransmission } from './skyFilter'
+import { mixSrgb } from './tone'
 import type { LayerOf, RGB, SceneBox } from './types'
 
-interface Grade { k: number; horizon: number; stops: [number, RGB][] }
+type Stops = [number, RGB][]
+interface Grade { k: number; horizon: number; stops: Stops; rasterStops: Stops }
 const memo = new WeakMap<WorldState, { dimensions: string; grade: Grade | null }>()
-const BYTE = 1 / 255
+const byteRgb = (rgb: RGB): RGB => {
+  const [r, g, b] = colourKey(rgb)
+  return [r / 255, g / 255, b / 255]
+}
 
 export function skyGradeOf(world: WorldState, box: SceneBox): Grade | null {
-  const { top, mid, bandWeight } = skyColours(world)
+  const { bandWeight } = skyColours(world)
   if (!bandWeight || box.width <= 0 || box.skyHeight <= 0) return null
   const dimensions = skyBoxKey(box).join(',')
   const cached = memo.get(world)
@@ -21,18 +24,19 @@ export function skyGradeOf(world: WorldState, box: SceneBox): Grade | null {
   const horizon = box.landTop + world.relief.horizonY
   if (horizon <= 0) return null
   const ceiling = skyContrastCeiling(world.light.palette.ink)
-  // Two half-byte roundings (base raster and final blend); 2.4 / 1.055
-  // bounds the sRGB decoding slope. Ease the reserve in with the scattered veil.
-  const reserve = BYTE * (2.4 / 1.055) * smoothstep(0, 1, bandWeight)
-  const k = Math.max(skyFilterDepth(top, ceiling, reserve),
-    skyFilterDepth(mid, Math.min(ceiling, skyContrastCeiling('#E8F9FF')), reserve),
-    cloudGradeDepth(world, box, horizon * SKY_FILTER_MID, reserve))
-  const grade = k ? { k, horizon, stops: gradeStops(k) } : null
+  const middle = Math.min(box.skyHeight, horizon * SKY_FILTER_MID)
+  const sentence = Math.min(ceiling, skyContrastCeiling('#E8F9FF'))
+  let k = 0
+  for (const [row, rgb] of inkSkySamples(world, box, middle)) {
+    k = skyFilterDepth(rgb, row === middle ? sentence : ceiling, skyFilterReserve(rgb), k)
+  }
+  const stops = k ? gradeStops(k) : []
+  const grade: Grade | null = k ? { k, horizon, stops, rasterStops: stops.map(([row, rgb]) => [row, byteRgb(rgb)]) } : null
   memo.set(world, { dimensions, grade })
   return grade
 }
 
-function gradeStops(k: number): [number, RGB][] {
+function gradeStops(k: number): Stops {
   // One constant section and fourteen linear intervals sampling the cubic fade.
   const intervals = 14
   return [[0, skyFilterTransmission(k, 0)], ...Array.from({ length: intervals + 1 }, (_, i): [number, RGB] => {
@@ -43,7 +47,18 @@ function gradeStops(k: number): [number, RGB][] {
 
 /** Apply exactly the row interpolation the canvas uses. */
 export function filterAt(grade: Grade | null, y: number, rgb: RGB): RGB {
-  return grade ? multiplySky(rgb, stopAt(grade.stops, y / grade.horizon)) : rgb
+  return grade ? multiplySky(rgb, filterTransmissionAt(grade, y)) : rgb
+}
+
+function filterTransmissionAt(grade: Grade, y: number): RGB {
+  return byteRgb(stopAt(grade.rasterStops, y / grade.horizon, mixSrgb))
+}
+
+/** Recover the beam-lit disc at its centre while keeping it behind the clouds. */
+export function unfilterDisc(grade: Grade | null, y: number, rgb: RGB): RGB {
+  if (!grade) return rgb
+  const [r, g, b] = filterTransmissionAt(grade, y)
+  return [Math.min(1, rgb[0] / r), Math.min(1, rgb[1] / g), Math.min(1, rgb[2] / b)]
 }
 
 export function skyFilterLayer(world: WorldState, box: SceneBox): LayerOf<'skyFilter'> | null {
@@ -51,8 +66,7 @@ export function skyFilterLayer(world: WorldState, box: SceneBox): LayerOf<'skyFi
   if (!grade) return null
   const { horizon: h, stops } = grade
   const w = box.skyWidth ?? box.width
-  // Both solar parts precede the filter so they dim with the sky while retaining
-  // their relative brightness. Lightning at z=9 follows it.
+  // The aureole and rainbow dim with the sky. Lightning follows the filter.
   return { kind: 'skyFilter', id: 'skyFilter', surface: 'sky', z: 8.9, blend: 'multiply',
     bounds: { x: 0, y: 0, w, h: Math.min(box.skyHeight, h) }, horizon: h, stops,
     key: layerKey('skyFilter', stops.map(([row, rgb]) => [row * h, colourKey(rgb)])) }

@@ -38,7 +38,7 @@ export function labOf([r0, g0, b0]: RGB): Oklab {
 }
 
 /** Oklab → linear sRGB, retaining any out-of-gamut channels. */
-export function linearOfLab({ l, a, b }: Oklab): RGB {
+function linearOfLab({ l, a, b }: Oklab): RGB {
   const x = (l + 0.3963377774 * a + 0.2158037573 * b) ** 3
   const y = (l - 0.1055613458 * a - 0.0638541728 * b) ** 3
   const z = (l - 0.0894841775 * a - 1.291485548 * b) ** 3
@@ -56,6 +56,11 @@ export function rgbOfLab(lab: Oklab): RGB {
 export function mixRgb(from: RGB, to: RGB, amount: number): RGB {
   const a = labOf(from), b = labOf(to), t = Math.min(1, Math.max(0, amount))
   return rgbOfLab({ l: a.l + (b.l - a.l) * t, a: a.a + (b.a - a.a) * t, b: a.b + (b.b - a.b) * t })
+}
+
+/** Source-over mixing in the canvas's encoded sRGB channels. */
+export function mixSrgb([r, g, b]: RGB, [rr, gg, bb]: RGB, t: number): RGB {
+  return [r + (rr - r) * t, g + (gg - g) * t, b + (bb - b) * t]
 }
 
 /**

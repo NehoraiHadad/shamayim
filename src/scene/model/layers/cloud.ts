@@ -17,7 +17,6 @@ export type CloudLayers =
       speeds: number[]
       /** In a dusty air, per row of `ys`: the share of the sheet's light the dust before it lets through (0–1). */
       through?: number[]
-      /** Display white seen through the dust, for highlights mixed toward white. */
       /** By day, how far the sun stands above the twilight's last degrees (0–1). */
       daylit?: number }
   /** The field's towers as sprites (sky px, far first), each at its cell's place and its across-wind speed (px/s). */

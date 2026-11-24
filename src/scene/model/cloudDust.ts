@@ -14,7 +14,7 @@ import type { RGB } from './types'
 /** The dust's vertical optical depth (550 nm): as much of the air's aerosol as the dust lights the sky with. */
 const dustDepth = (air?: Air) => air?.dustVeilPotential ? air.dustVeilPotential * aerosolDepth550(air.visibilityKm) : 0
 /** Ease from the palette's 3° twilight anchor to its 12° daylight anchor. */
-export const dustDaylight = (altitude: number) => smoothstep(3, 12, altitude)
+const dustDaylight = (altitude: number) => smoothstep(3, 12, altitude)
 
 /** Keep the legacy tonal fade for the residual visibility extinction, treating it as aerosol-dominated. */
 export function cloudHazeFade(world: WorldState, km: number): number {

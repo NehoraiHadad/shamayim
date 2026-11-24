@@ -4,6 +4,7 @@ import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
+import { skyGradeOf, unfilterDisc } from './skyGrade'
 import { mixRgb } from './tone'
 import type { Disc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
 
@@ -64,7 +65,9 @@ const AUREOLE_Z = 8.6
 /** The sun and the moon, each its own small layer round its disc (a scrub repaints only the disc that moved). */
 export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'bodies'>[] {
   const out: LayerOf<'bodies'>[] = []
-  const moon = moonDisc(world, box, geom)
+  const grade = skyGradeOf(world, box)
+  const physicalMoon = moonDisc(world, box, geom)
+  const moon = physicalMoon && { ...physicalMoon, rgb: unfilterDisc(grade, physicalMoon.y, physicalMoon.rgb) }
   if (moon) {
     const pad = MOON_R + 3
     out.push({ kind: 'bodies', id: 'bodies.moon', surface: 'sky', z: 4, sun: null, moon,
@@ -72,13 +75,18 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       key: layerKey('moon', skyBoxKey(box), r1(moon.x), r1(moon.y), colourKey(moon.rgb), Math.round(moon.alpha * 255),
         Math.round(moon.fraction * 200), Math.round(moon.tilt), Math.round(moon.daylight * 50), moon.ring, Math.round(moon.earthshine * 255)) })
   }
-  const sun = sunDisc(world, box, geom)
+  const physicalSun = sunDisc(world, box, geom)
+  const sun = physicalSun && { ...physicalSun,
+    core: unfilterDisc(grade, physicalSun.y, physicalSun.core),
+    limb: unfilterDisc(grade, physicalSun.y, physicalSun.limb),
+    ...(grade && physicalSun.veil > 0.15 && { cloudGlow: physicalSun.core }) }
   if (sun) {
     const pad = Math.ceil(SUN_R * 3.2)
     out.push({ kind: 'bodies', id: 'bodies.sun', surface: 'sky', z: 5, sun, moon: null,
       bounds: { x: Math.floor(sun.x - pad), y: Math.floor(sun.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
       key: layerKey('sun', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.core), colourKey(sun.limb), Math.round(sun.veil * 100),
-        Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50)) })
+        Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50),
+        ...(sun.cloudGlow ? [colourKey(sun.cloudGlow)] : [])) })
     // C9 (defect 2): the aureole is the air's own forward glow between the eye and the sun, nearer than any cloud: it lies
     // over a bank in front of the sun as over the clear sky (the disc stays behind the bank), so a lobe over the disc never
     // reads as a black coin in a bright ring. Under the near rain and the sky's grains.

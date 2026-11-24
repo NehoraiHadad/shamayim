@@ -38,7 +38,7 @@ function paintSun(ctx: Ctx2D, d: Disc) {
   // Through cloud the disc spreads into a soft patch: stacked wider copies, no hard limb.
   if (d.veil > 0.15) {
     for (const k of [2.2, 1.6, 1.25]) {
-      ctx.fillStyle = css(d.core, 0.12 * d.veil)
+      ctx.fillStyle = css(d.cloudGlow ?? d.core, 0.12 * d.veil)
       ctx.beginPath()
       ctx.arc(0, 0, r * k, 0, Math.PI * 2)
       ctx.fill()

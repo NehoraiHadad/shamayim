@@ -8,7 +8,7 @@ import { makeWorldBuilder, shownAir } from '../../world/world'
 import { skyStops, stopAt } from './sky'
 import { filterAt, skyFilterLayer, skyGradeOf } from './skyGrade'
 import { SKY_FILTER_MID, skyFilterTransmission } from './skyFilter'
-import { hexOf } from './tone'
+import { hexOf, mixSrgb } from './tone'
 import type { RGB } from './types'
 
 const BOX = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 }
@@ -46,7 +46,7 @@ function checkGrade(input: ReturnType<typeof worldInput>) {
     for (let i = 0; i < 32; i++) {
       const y = middle * i / 31
       // The opaque sky is rasterized to sRGB bytes before the compositor blends it.
-      const [r, g, b] = stopAt(stops, y / BOX.skyHeight).map(c => Math.round(255 * c) / 255)
+      const [r, g, b] = stopAt(stops, y / BOX.skyHeight, mixSrgb).map(c => Math.round(255 * c) / 255)
       const drawn = hexOf(filterAt(grade, y, [r, g, b]))
       expect(ratio(state.light.palette.ink, drawn), `PM10 ${pm10}, sun ${altitude}, row ${i}`).toBeGreaterThanOrEqual(4.6)
       if (i === 31) expect(ratio('#E8F9FF', drawn)).toBeGreaterThanOrEqual(4.6)
@@ -56,7 +56,7 @@ function checkGrade(input: ReturnType<typeof worldInput>) {
     for (let i = 0; i <= 256; i++) {
       const row = i / 256
       const exact = skyFilterTransmission(grade.k, row)
-      const painted = stopAt(grade.stops, row)
+      const painted = stopAt(grade.stops, row, mixSrgb)
       for (const [channel, value] of exact.entries()) {
         expect(painted[channel]).toBeGreaterThanOrEqual(previous[channel] - Number.EPSILON)
         expect(Math.abs(painted[channel] - value)).toBeLessThan(1 / 255)

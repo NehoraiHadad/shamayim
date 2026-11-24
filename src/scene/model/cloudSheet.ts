@@ -14,10 +14,9 @@ import { layerKey } from './keys'
 import type { SkyGeom } from './sky'
 import type { LayerOf, RGB } from './types'
 import { sheetDetail, sheetTexture, textureCorrection } from './cloudSheetTexture'
-import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor } from './cloudSheetMath'
+import { DIFFUSE_EXTINCTION, rowSpeeds, shadeAmount, sheetOpacity, sheetPathFactor, RAD } from './cloudSheetMath'
 export { DIFFUSE_EXTINCTION, OVERCAST_HORIZON, sheetPathFactor } from './cloudSheetMath'
 export const sheetZ: Record<Lattice, number> = { high: 5.9, mid: 6.9, low: 7.9, tower: 7.95 }
-const RAD = Math.PI / 180
 type Snapshot = NonNullable<WorldState['cloudField']>['snapshot'][number]
 type Colours = { body: RGB; shade: RGB; lit: RGB; light: number; closed?: number; daylit?: number }
 const sheetCache = new WeakMap<Snapshot, { world: WorldState; key: string; sheet: LayerOf<'cloudSheet'> }>()

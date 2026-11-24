@@ -3,6 +3,12 @@ import type { RGB } from '../../world/types'
 /** Below this share the tower raster is skipped by both painters. */
 export const MIN_TOWER_SHARE = 0.005
 
+/** The tower's maximum raster opacity at its central optical depth. */
+export function towerOpacity({ tau, share }: CloudSprite): number {
+  // At depth six a dense core reaches 95% of the painter's 0.92 opacity limit.
+  return 0.92 * (1 - Math.exp(-tau / 6 * 3)) * Math.min(1, share)
+}
+
 /** The cloud genera the field makes (`world/field/types.ts` `Genus`), as the painter draws them. */
 export type SpriteGenus = 'cu' | 'cg' | 'cb' | 'sc' | 'st' | 'ac' | 'as' | 'ns' | 'ci' | 'cs'
 

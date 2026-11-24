@@ -8,7 +8,8 @@ import { cityLit } from './cityLight'
 import { DECK_GREY, lightOn, RAIN_GREY, tonesAt, WHITE } from './cloudLight'
 import { cloudSheetOf, OVERCAST_HORIZON } from './cloudSheet'
 import { skyBoxKey } from './keys'
-import { coversOf, skyGeom, skyStops, type SkyGeom } from './sky'
+import { coversOf, skyStops } from './skyColour'
+import { skyGeom, type SkyGeom } from './skyGeom'
 import { mixRgb, scaleLight } from './tone'
 import { lowSheetRgb, type Beyond } from './towerStorms'
 import type { LayerOf, SceneBox } from './types'
@@ -41,8 +42,7 @@ function rainWeightAt(world: WorldState, level: CloudLevel, rains: boolean): num
   return smoothstep(0, 0.2, rain.rate) * (level === 'mid' ? midWeight : level === 'low' ? 1 - midWeight : 0)
 }
 
-export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box),
-  geometry?: readonly CloudLayerDesc[]): CloudLayerDesc[] {
+export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): CloudLayerDesc[] {
   const stops = skyStops(world, box)
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
@@ -87,12 +87,7 @@ export function cloudLayersOf(world: WorldState, box: SceneBox, geom: SkyGeom = 
       light: light?.sun ? light.strength * light.above : 0,
     }
     // By night a deck over the towns gives their light back from its base (an overcast city night is not black).
-    const existing = geometry?.find((desc): desc is LayerOf<'cloudSheet'> => desc.kind === 'cloudSheet' && desc.lattice === level)
-    // A control for the same deck needs new swatches, but the extinction-free
-    // geometry and opacity are already in its raster. Skip a second ray pass.
-    const sheet = geometry
-      ? existing && { ...existing, body, shade: colours.shade, lit: colours.lit, through: undefined }
-      : cloudSheetOf(world, geom, snapshot, colours, cityLit(world, level, fieldLayer.cover))
+    const sheet = cloudSheetOf(world, geom, snapshot, colours, cityLit(world, level, fieldLayer.cover))
     if (level === 'low') beyond = { rgb: lowSheetRgb(colours, light), cover: fieldLayer.cover, sheet: sheet ?? null }
     if (sheet) out.push(sheet)
   }

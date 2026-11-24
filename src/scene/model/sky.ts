@@ -7,22 +7,16 @@ import { cityDomes } from './cityLight'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { skyGeom } from './skyGeom'
 import { horizonBand, skyStops } from './skyGradient'
-import { skyColours } from './skyColour'
+import { coversOf, skyColours, veilOf } from './skyColour'
 import { mixRgb } from './tone'
 import type { Arch, Glow, LayerOf, RGB, SceneBox } from './types'
 
+export { coversOf, veilOf } from './skyColour'
 export { DOME_ALT, skyGeom, type SkyGeom } from './skyGeom'
 export { horizonBand, skyAt, skyStops, stopAt } from './skyGradient'
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 const WHITE: RGB = [1, 1, 1]
-
-/** The covers of the three layers (low, mid, high). */
-export const coversOf = (world: WorldState) => ({ low: world.clouds[0]?.cover ?? 0, mid: world.clouds[1]?.cover ?? 0,
-  high: world.clouds[2]?.cover ?? 0 })
-
-/** How much the cloud in front veils a body (0 clear … 1 hidden): the share of its direct light the cloud takes. */
-export const veilOf = (world: WorldState) => 1 - world.light.clear
 
 /**
  * The glows of the sky (sky px): round the sun a three-layer glow (a broad warm sky, a nearer brightening, the bright

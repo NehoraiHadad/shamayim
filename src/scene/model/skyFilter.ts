@@ -23,6 +23,15 @@ export const multiplySky = (rgb: RGB, [r, g, b]: RGB): RGB => [rgb[0] * r, rgb[1
 
 const BYTE = 1 / 255
 
+/** Headroom for raster, filter and destination rounding in encoded sRGB. */
+export function skyFilterReserve(rgb: RGB): number {
+  const halfByte = BYTE / 2
+  // The filter's error is scaled by its source channel. The inner bound
+  // occurs at unit transmission and bounds the error for every depth.
+  const upper = rgb.map(c => c + halfByte * (2 + c + halfByte)) as unknown as RGB
+  return luminanceOf(upper) - luminanceOf(rgb)
+}
+
 /** Endpoint curvature is proportional to optical depth times transmission. */
 export function skyFilterGradientRow(k: number, fraction: number): number {
   // Linear interpolation error scales as curvature times interval width
@@ -34,16 +43,17 @@ export function skyFilterGradientRow(k: number, fraction: number): number {
 }
 
 /** Minimum depth for this swatch, with a quadratic knee below the ceiling. */
-export function skyFilterDepth(rgb: RGB, ceiling: number, rounding: number): number {
+export function skyFilterDepth(rgb: RGB, ceiling: number, rounding: number, minimum = 0): number {
   const y = luminanceOf(rgb)
   const cap = Math.max(0, ceiling - rounding)
   const start = cap - rounding
-  if (y <= start) return 0
+  if (y <= start) return minimum
   const fraction = rounding ? Math.min(1, (y - start) / (2 * rounding)) : 1
   const target = fraction === 1 ? cap : y - rounding * fraction * fraction
-  if (y <= target) return 0
+  if (y <= target) return minimum
   const at = (k: number) => luminanceOf(multiplySky(rgb, skyFilterTransmission(k, 0)))
-  let lo = 0, hi = 1
+  if (minimum && at(minimum) <= target) return minimum
+  let lo = minimum, hi = Math.max(minimum * 2, 1)
   while (at(hi) > target) hi *= 2
   // Resolve the depth to 1/256 of a display code, leaving byte rounding to the caller.
   while (hi - lo > BYTE / 256) {
