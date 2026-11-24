@@ -13,7 +13,8 @@ function curtainOf(seed: number, style = DEFAULT_STYLE) {
     createImageData: () => ({ data: (data = new Uint8ClampedArray(cw * ch * 4)) }),
     putImageData() { w = cw; h = ch },
   } }) } as unknown as PaintEnv
-  const ctx = { save() {}, restore() {}, drawImage: (_c: unknown, x: number, _y: number, dw: number) => { drawn = { x, w: dw } } }
+  const path = { beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, createLinearGradient: () => ({ addColorStop() {} }) }
+  const ctx = { ...path, save() {}, restore() {}, drawImage: (_c: unknown, x: number, _y: number, dw: number) => { drawn = { x, w: dw } } }
   const shaft = { x: 0, top: 10, bottom: 100, w: 110, lean: LEAN, rgb: [0.4, 0.45, 0.5] as const, alpha: ALPHA, seed }
   const desc = { kind: 'shafts', precip: 'rain', shafts: [shaft], period: 1e4, bounds: { x: -200, y: 0, w: 500, h: 120 } }
   PAINTERS[style].shafts.form(ctx as unknown as Ctx2D, desc as unknown as LayerOf<'shafts'>, env)

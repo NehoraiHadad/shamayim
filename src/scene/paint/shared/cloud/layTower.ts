@@ -19,10 +19,16 @@ interface TowerBody {
   at(x: number, y: number): { a: number; rgb: Readonly<RGB> } | null
 }
 
-/** Lays a tower's raster at its place: the size and opacity both hands share. */
+/** How opaque a tower is laid; 0: too small or thin to be seen. */
+export function towerOpacity(s: CloudSprite): number {
+  if (s.w < 0.5 || s.share <= 0.005 || s.tall < 0.5) return 0
+  return OPACITY * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
+}
+
+/** Lays a tower's raster at its place. */
 export function layTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEnv, bodyOf: (s: CloudSprite) => TowerBody): void {
-  if (s.w < 0.5 || s.share <= 0.005 || s.tall < 0.5) return
-  const opacity = OPACITY * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
+  const opacity = towerOpacity(s)
+  if (!opacity) return
   const body = bodyOf(s)
   const { reach } = body, over = s.w * ROOM_TOP
   const box = { x: -reach, y: -s.tall - over, w: 2 * reach, h: s.tall + over + body.depth * 1.5 }
