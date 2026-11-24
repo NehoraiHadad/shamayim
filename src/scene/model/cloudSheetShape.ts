@@ -48,8 +48,8 @@ export interface Shape {
 }
 
 /** How open the sky is before a cell's far rim (0 covered … 1 open): no foot shows where another cell still hides it, as it
- *  does up to some .8 of its radius (a third of its depth is left there) and no more at its rim, and as much of it as the
- *  other is wide. */
+ *  does up to some .8 of its radius (a third of its depth is left there) and no more at its rim, and no more of it than the
+ *  other's share of its area. */
 export function openness(cell: FieldCell, cells: readonly FieldCell[]): number {
   const d = Math.hypot(cell.x, cell.y), far = 1 + cell.r / d
   const x = cell.x * far, y = cell.y * far
@@ -57,7 +57,7 @@ export function openness(cell: FieldCell, cells: readonly FieldCell[]): number {
   for (const other of cells) {
     if (other === cell || !open) continue
     const dx = x - other.x, dy = y - other.y, r = other.r
-    if (dx * dx + dy * dy < r * r) open *= 1 - Math.min(1, r / cell.r) * smoothstep(1, 0.7, Math.sqrt(dx * dx + dy * dy) / r)
+    if (dx * dx + dy * dy < r * r) open *= 1 - Math.min(1, r * r / (cell.r * cell.r)) * smoothstep(1, 0.7, Math.sqrt(dx * dx + dy * dy) / r)
   }
   return open
 }
@@ -67,10 +67,11 @@ export function shapeOf(cell: FieldCell, heightKm: number, geom: SkyGeom, perRad
   // Overhead there is no oval: its rim runs round the whole sky.
   if (!(q < 1)) return null
   const altitude = altitudeOf(heightKm, d)
-  // A cell nearer than its own diameter passes overhead with its foot still in view: it goes back to its own rays by then.
-  const weight = smoothstep(SHAPED_ALT, LOBED_ALT, altitude) * unit(2 * (1 - q))
+  // A cell nearer than its own diameter passes overhead with its foot still in view: it goes back to its own rays by the
+  // time it is over the eye, its foot the last, as that is the part still seen from its side.
+  const lifted = smoothstep(SHAPED_ALT, LOBED_ALT, altitude), weight = lifted * unit(2 * (1 - q))
   if (!weight) return null
-  const firm = weight * openAt()
+  const firm = lifted * unit(4 * (1 - q)) * openAt()
   const farAlt = altitudeOf(heightKm, d + r), nearAlt = altitudeOf(heightKm, d - r), cos = Math.cos(altitude * Math.PI / 180)
   const half = Math.asin(q), most = Math.PI / 2 / half
   // The eye's height over width: the disc's, and over it the side of a cell as thick as it is. No cell of a sheet is taller

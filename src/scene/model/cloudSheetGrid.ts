@@ -74,7 +74,6 @@ export function gridFor(place: string, layer: FieldLayer, geom: SkyGeom, height:
     east[i] = Math.sin(az)
     north[i] = Math.cos(az)
   }
-
   const count = targetRows + 1
   // The rows whose altitude is known, as they are set in degrees.
   let known = 0

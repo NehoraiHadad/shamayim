@@ -78,11 +78,11 @@ it('shows the field as the eye sees it at a bounded work a node', () => {
   expect(nodes).toBeGreaterThan(50_000)
   // A shape is prepared once a cell, and its surroundings looked at only where it is redrawn.
   expect(shapes).toBeLessThanOrEqual(cells)
-  expect(open / cells).toBeLessThanOrEqual(0.5)
+  expect(open / cells).toBeLessThanOrEqual(0.12)
   // The field and its air are read once a node, the air only above the join.
   expect(depths).toBeLessThanOrEqual(nodes)
-  expect(noise / nodes).toBeLessThanOrEqual(0.8)
+  expect(noise / nodes).toBeLessThanOrEqual(0.4)
   // The sectors leave a node a few cells to ask, the ranges fewer to redraw.
-  expect(candidates / nodes).toBeLessThanOrEqual(6)
-  expect(changes / nodes).toBeLessThanOrEqual(2)
+  expect(candidates / nodes).toBeLessThanOrEqual(1)
+  expect(changes / nodes).toBeLessThanOrEqual(0.35)
 }, 240_000)
