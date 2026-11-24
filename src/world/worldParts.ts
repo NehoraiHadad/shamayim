@@ -1,3 +1,4 @@
+import { precedingHourAt } from '../domain/bracket'
 import { airInput } from '../atmo/airInput'
 import { hashId } from '../data/landmarks/hash'
 import type { LandData } from '../data/land/types'
@@ -48,12 +49,10 @@ export function groundWet(hours: readonly HourPoint[], at: LocalTime, shownRate:
 
 /** Read ground wetness between the two hours while the rain rate comes from the shown weather. */
 export function wetBetween(hours: readonly HourPoint[], at: LocalTime, shownRate: number): number {
-  const f = Number(at.slice(14, 16)) / 60
-  const floor = `${at.slice(0, 13)}:00` as LocalTime
-  const index = hours.findIndex((h) => h.time === floor)
-  const next = hours[index + 1]
-  if (index < 0 || !next || f <= 0) return groundWet(hours, at, shownRate)
-  const a = groundWet(hours, floor, 0), b = groundWet(hours, next.time, 0)
+  const { before, after, fraction: f } = precedingHourAt(hours, at)
+  if (!before) return Math.min(1, shownRate / 0.8)
+  const a = groundWet(hours, before.time, 0)
+  const b = after ? groundWet(hours, after.time, 0) : a
   // The shown rate already includes the current hour and its observation. Interpolate only the historical wetness.
   return Math.max(Math.min(1, shownRate / 0.8), a + (b - a) * f)
 }

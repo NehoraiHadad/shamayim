@@ -36,7 +36,7 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
 }
 
 /**
- * The moon where the world puts it, in its true phase with the lit limb turned to the sun (`moon.tilt`), as the SVG scene
+ * The moon where the world puts it, in its true phase with the lit limb at its sky bearing, as the SVG scene
  * shows it (`moonLook`): bone by night, sky-pale by day, veiled from 40 % cover up, gone under overcast or thick haze.
  */
 export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): MoonDisc | null {
@@ -52,7 +52,9 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
   const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
   return {
     x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight), alpha: look.opacity * world.light.clear,
-    fraction: moon.illumination, tilt: moon.tilt, daylight: look.daylight, ring: look.ring,
+    fraction: moon.illumination,
+    tilt: moon.tilt,
+    daylight: look.daylight, ring: look.ring,
     earthshine: moon.illumination < 0.35 ? 0.12 * world.night.dark : 0,
   }
 }

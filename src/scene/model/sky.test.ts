@@ -11,6 +11,8 @@ import { HAND, type Ctx2D, type PaintEnv } from '../paint/shared/base/hand'
 import { layersOn, sceneModel } from '.'
 import { driftAt, flashAt, strikes } from './anim'
 import { fallingOf } from './falling'
+import { moonDisc, sunDisc } from './bodies'
+import { brightLimbAngle } from '../../world/moonShape'
 import { skyGeom } from './sky'
 import type { LayerDesc, LayerOf, SceneBox, SceneModel } from './types'
 
@@ -62,7 +64,7 @@ describe.each(SCENE_PLACES)('sky: $id', ({ id }) => {
         expect(moon.x).toBeCloseTo(w.bodies.moon.x, 6)
         expect(moon.y).toBeCloseTo(BOX.landTop + w.bodies.moon.y, 6)
         expect(moon.fraction).toBe(w.bodies.moon.illumination)
-        expect(moon.tilt).toBe(w.bodies.moon.tilt)
+        expect(angleError(moon.tilt, sphericalBearing(w))).toBeLessThan(3)
       }
     }
   })
@@ -181,3 +183,53 @@ describe('sky: the animation is a pure function of the phase', () => {
 
 /** The world state the tests read is the one the model drew (no hidden second state). */
 export type { WorldState }
+
+const angleError = (a: number, b: number) => Math.abs((a - b + 540) % 360 - 180)
+
+function sphericalBearing(w: WorldState) {
+  const { moon, sun } = w.bodies
+  const rad = Math.PI / 180
+  const vector = ({ azimuth, altitude }: typeof sun) => {
+    const a = azimuth * rad, h = altitude * rad
+    return [Math.cos(h) * Math.cos(a), Math.cos(h) * Math.sin(a), Math.sin(h)]
+  }
+  const m = vector(moon), s = vector(sun)
+  // A point on the chord, normalized back onto the sphere, follows the same great circle.
+  const [x, y, z] = m.map((component, i) => component + (s[i] - component) * 1e-6)
+  const altitude = Math.atan2(z, Math.hypot(x, y))
+  const deltaAzimuth = Math.atan2(y, x) - moon.azimuth * rad
+  const across = Math.atan2(Math.sin(deltaAzimuth), Math.cos(deltaAzimuth)) * Math.cos(moon.altitude * rad)
+  return Math.atan2(moon.altitude * rad - altitude, w.camera.handed * across) / rad
+}
+
+it('uses the true lunar bearing at six times and when both discs are drawn', () => {
+  for (const hour of ['03:30', '05:45', '12:00', '15:10', '18:00', '22:00']) {
+    const w = world(SCENE_PLACES[0].id, hour, CLEAR)
+    const expected = sphericalBearing(w)
+    expect(angleError(w.bodies.moon.tilt, expected), hour).toBeLessThan(3)
+    const disc = moonDisc(w, BOX)
+    if (disc) expect(angleError(disc.tilt, expected), hour).toBeLessThan(3)
+  }
+  // Equal elevations make the centre-to-centre line horizontal. The tangent of the great circle climbs.
+  const fixture = world(SCENE_PLACES[0].id, '12:00', CLEAR)
+  // Use a 2:1 vertical-to-horizontal scale for an analytic screen angle.
+  const slope = 2 * fixture.camera.pxPerDeg * BOX.width / fixture.camera.width
+  const base = { ...fixture, relief: { ...fixture.relief, y: (altitude: number) => -slope * altitude } }
+  const geom = skyGeom(base, BOX)
+  const sunAzimuth = base.camera.heading + 45, moonAzimuth = base.camera.heading - 45
+  const altitude = 15
+  const sunPosition = { altitude, azimuth: sunAzimuth }
+  const moonPosition = { altitude, azimuth: moonAzimuth }
+  const w = { ...base, air: { ...base.air, farFade: 0 }, bodies: {
+    moon: { ...base.bodies.moon, ...moonPosition, up: true, illumination: 0.5,
+      tilt: brightLimbAngle(moonPosition, sunPosition, base.camera.handed),
+      x: (geom.x(moonAzimuth) - geom.left) / geom.s, y: geom.dome(altitude) - BOX.landTop },
+    sun: { ...base.bodies.sun, ...sunPosition, up: true,
+      x: (geom.x(sunAzimuth) - geom.left) / geom.s, y: geom.dome(altitude) - BOX.landTop },
+  } }
+  const moon = moonDisc(w, BOX, geom)!, sun = sunDisc(w, BOX, geom)!
+  expect(angleError(moon.tilt, sphericalBearing(w))).toBeLessThan(3)
+  const drawnSunOffset = angleError(moon.tilt, Math.atan2(sun.y - moon.y, sun.x - moon.x) * 180 / Math.PI)
+  // At equal altitude and 90° separation, tan(offset) = sin(altitude).
+  expect(drawnSunOffset).toBeCloseTo(Math.atan(Math.sin(altitude * Math.PI / 180)) * 180 / Math.PI, 5)
+})
