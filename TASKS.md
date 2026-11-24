@@ -1269,4 +1269,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
       Test mail to the vote address arrived (owner, 24 Nov)
 - [ ] 4. After the vote: special-sky slice (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
-      a "tonight in the sky" line (full moon rising after dark, meteor shower peak). Real star positions are not in it
+      one quiet "special event" line, any kind of event, empty on most days (owner, 24 Nov: general, not only night skies).
+      Every event returns the same shape: what, when, where to look, how rare; drop what the place will not see (cloud, land, daylight);
+      show only the rarest. A new event = one detector, no UI change. First set: full moon rising low, meteor shower peak (`showers.ts`),
+      lunar eclipse (new geometry), planet beside the moon (`planets.ts`), chance of a rainbow (`optics.ts` on forecast hours, worded as a
+      chance). Not storms or heat: the daily summary says them. Computed on the device, no service. Real star positions are not in it
