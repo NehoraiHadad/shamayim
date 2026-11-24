@@ -9,6 +9,7 @@ import type { LandData } from '../data/land/types'
 import type { Landmark } from '../data/landmarks/types'
 import type { CropArea } from '../data/landmarks/cropAreas'
 import type { SceneTerrain } from '../data/terrain/terrain'
+import type { VillageTile } from '../data/village/tile'
 import type { WaterMask } from '../data/water/waterMask'
 import type { Camera } from '../domain/camera'
 import type { WeightedSighting } from '../domain/cloudSightings'
@@ -69,6 +70,8 @@ export interface WorldInput extends AirTimeline {
   bounds?: BoundsFile | null
   /** The land cover round the place (WorldCover, ~6 km): its built cells and trees (C5). */
   cover?: LandCover | null
+  /** The footprint tile the place is in: `undefined` until it is settled, null where there is none. */
+  village?: VillageTile | null
   /** Living-land data bundle (`useLand`): WorldCover, near S2, far GIBS and recent weather; closures stay on the data side. */
   land?: LandData | null
 }

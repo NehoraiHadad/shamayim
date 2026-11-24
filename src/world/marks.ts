@@ -17,6 +17,8 @@ import { markCandidates } from './markCandidates'
 import type { SeatedWorldMark, WorldMark } from './markGeometry'
 import { markPerspective } from './markPerspective'
 import { lookOf } from './outside'
+import { heldToHouses, isOwnLandmark } from './village/landmarks'
+import type { VillageLie } from './village/lay'
 
 /**
  * The place's marks (stage C4): which landmarks show, where and how large, by the portrait and outside rules, for every
@@ -50,6 +52,8 @@ export interface MarksInput {
    * (`lie`), and the near ridge's distance at the dot (the haze of its nearest row); null for a portrait.
    */
   outside: { frame: OutsideFrame; isCity: boolean; lie: PlaceLie; baseKm: number; seatMark: SeatMark | null
+    /** The village laid on it: its own landmarks stand among its houses, held to their size. */
+    village?: VillageLie | null
     /** The place's own ground over the ridge line (C5b): a mark moved across stands on what is there. */
     land?: { top: readonly (readonly [number, number])[] } | null } | null
 }
@@ -81,8 +85,8 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
   const placed = [...ownMarks, ...otherMarks]
   let marks = [...fitted(placed), ...seated]
   const floor = VISIBLE_BOTTOM - SHEET_CLEAR
-  const { frame, isCity, lie, baseKm } = outside
-  const look = lookOf(frame)
+  const { isCity, baseKm, village } = outside
+  const townLook = lookOf(outside.frame)
   const landTop = outside.land?.top
   /** The land's top at x: the ridge line, or the place's own ground where it rises over it. */
   const surfaceAt = (x: number) => {
@@ -95,6 +99,8 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
     const source = own.find((item) => item.id === mark.id)
     if (!source || !mark.portrait || !ownPlaced.has(mark.id)) return mark
     const { dx, dy } = offsetKm(place, source)
+    const inVillage = village && isOwnLandmark(village.village, dx, dy) ? village : null
+    const { frame, lie } = inVillage ?? outside, look = inVillage ? lookOf(frame, inVillage.village) : townLook
     const at = outsideProject(frame, dx, dy)
     const scale = Math.max(.75, Math.min(1.3, at.k / frame.k))
     const tall = source.heightM >= 40 && (source.kind === 'custom' || source.kind === 'highrise')
@@ -110,7 +116,7 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
       const left = note.left - spec.w / 2 - 1, right = note.right + spec.w / 2 + 1
       x = Math.abs(x - left) <= Math.abs(right - x) ? left : right
     }
-    const km = beyondKm(frame, baseKm, dx, dy)
+    const km = beyondKm(outside.frame, baseKm, dx, dy)
     if (spec.field) {
       // A field lies on the face under the crest at its depth, its row's drop added (down the slope with its row); on the
       // place's own ground (C5b) its row's ground is the crest it lies under.
@@ -124,7 +130,8 @@ export function marksOf(input: MarksInput): { marks: WorldMark[]; seatPool: Seat
     const h = spec.h(hPx)
     // On its own ground; moved across (off the dot, out of a note), never above the land that stands there.
     const base = Math.max(lieBaseY(lie, ground, x, at.near, floor, 0, dx, dy), Math.min(floor, surfaceAt(x)))
-    return { ...mark, xPct: x / width * 100, x, hPx, h, scale: 1, w: spec.w, base, baseY: base, km }
+    const held = inVillage ? heldToHouses(h, source.heightM, inVillage.village, at.k / frame.k) : 1
+    return { ...mark, xPct: x / width * 100, x, hPx, h, scale: held, w: spec.w * held, base, baseY: base, km }
   }).filter((mark, i, all) => !mark.portrait || mark.absorbed || GLYPH_SPECS[mark.glyphKind].field
     || all.every((other, j) => j >= i || !other.portrait || GLYPH_SPECS[other.glyphKind].field || Math.abs(other.x - mark.x) >= 6))
   const kept = isCity ? marks.filter((mark) => !(mark.portrait && ownPlaced.has(mark.id) && isGenericHighrise(mark.kind, mark.glyph))) : marks
