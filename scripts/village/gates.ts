@@ -1,4 +1,5 @@
 import type { Facts } from './input'
+import type { Served } from './serve'
 import { CREDITS } from './tiles'
 
 /** What a build must not change without a person saying so in `source.json`. */
@@ -37,6 +38,11 @@ export function lostPlaces(before: ReadonlySet<string>, after: ReadonlySet<strin
   const lost = [...before].filter(place => !after.has(place))
   return lost.length > before.size * tolerance ? [`${lost.length} of ${before.size} places lost their footprints: ${lost.slice(0, 20).join(' ')}`] : []
 }
+
+/** A place with footprints must be given its own; one without must be given none. */
+export const servingFaults = ({ missed, wrong, lent }: Served): string[] =>
+  Object.entries({ missed, wrong, lent }).filter(([, places]) => places.length)
+    .map(([how, places]) => `${places.length} place points ${how} their group: ${places.slice(0, 20).join(' ')}`)
 
 /** Files too large to be one small fetch, or too large together. */
 export function sizeFaults(sizes: ReadonlyMap<string, number>): string[] {

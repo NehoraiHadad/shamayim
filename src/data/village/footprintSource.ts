@@ -19,7 +19,8 @@ const houseAt = ([lat, lon]: LatLon, { x, y }: StoredHouse): Coordinate =>
 
 interface Found { group: TileGroup; houseKm: number; placeKm: number }
 
-function serving(tile: VillageTile, place: Coordinate): TileGroup | null {
+/** The group of a tile a place belongs to, or null when it belongs to none of them. */
+export function servingGroup(tile: VillageTile, place: Coordinate): TileGroup | null {
   let best: Found | null = null
   for (const group of tile.groups) {
     const placeKm = Math.min(...group.places.map(p => farOf(place, pointOf(p))))
@@ -43,7 +44,7 @@ function rowsIn(counts: readonly number[]): SettlementRow[] {
 
 /** The footprints of the place's own group in a tile, or null when the tile holds no group the place belongs to. */
 export function footprintSettlement(tile: VillageTile, place: Coordinate): SettlementSource | null {
-  const own = serving(tile, place)
+  const own = servingGroup(tile, place)
   if (!own) return null
   const rows = rowsIn(own.rows)
   const rowAt = rows.flatMap((row, i) => Array<number>(row.count).fill(i))

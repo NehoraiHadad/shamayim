@@ -3,5 +3,8 @@
   "box": [34.2, 29.4, 35.95, 33.45],
   "minAreaM2": 30,
   "tolerance": 0.03,
-  "expected": null
+  "expected": {
+    "buildings": 3283240, "kept": 2845882, "osm": 1440675, "microsoft": 1842565,
+    "groups": 673, "places": 715, "houses": 176501, "tiles": 190
+  }
 }

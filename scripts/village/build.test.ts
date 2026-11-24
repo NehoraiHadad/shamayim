@@ -6,6 +6,7 @@ import { faultsOf, lostPlaces, sizeFaults, TILE_LIMIT, type Counts, type Pin } f
 import { MICROSOFT, OSM, type Facts, type RawGroup, type RawHouse } from './input'
 import { recordOf } from './record'
 import { verdictOf } from './rule'
+import { servedAt } from './serve'
 import { tileKeysOf, tilesOf } from './tiles'
 import { textsOf } from './write'
 
@@ -64,6 +65,14 @@ describe('the tiles', () => {
     const at = (lat: number, lon: number): RawGroup => ({ places: [[lat, lon]], houses: [[lat, lon, 10, 10, 0, 100, OSM]] })
     expect(tileKeysOf(at(31.65, 35.05))).toEqual(['316_350'])
     expect(tileKeysOf(at(31.65, 35.0995))).toEqual(['316_350', '316_351'])
+  })
+  it('give each place point its own group, and none to a place that has none', () => {
+    const raw = group(street(10), [point(0, 0)])
+    const texts = textsOf(tilesOf([raw], 'r', '2026-11-24'), new Map())
+    const says = (...points: LatLon[]) => servedAt(points, texts)
+    expect(says(point(0, 0), point(0, 500))).toEqual({ own: 1, none: 1, missed: [], wrong: [], lent: [] })
+    expect(says(point(0, 40)).lent).toHaveLength(1)
+    expect(servedAt([point(0, 0)], new Map([['1_1', [...texts.values()][0]]])).missed).toHaveLength(1)
   })
   it('keep their day while they say the same', () => {
     const on = (day: string, houses = street(10)) => tilesOf([group(houses)], 'r', day)

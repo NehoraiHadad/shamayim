@@ -3,10 +3,11 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { faultsOf, lostPlaces, sizeFaults, type Counts, type Pin } from './gates'
+import { faultsOf, lostPlaces, servingFaults, sizeFaults, type Counts, type Pin } from './gates'
 import { MICROSOFT, OSM, readFacts, readGroups } from './input'
 import { builtCover, limitTable, shareTable, sizeTable } from './measure'
 import { verdictOf, type Verdict } from './rule'
+import { readPoints, servedAt } from './serve'
 import { tileKeysOf, tilesOf } from './tiles'
 import { placesIn, storedTiles, textsOf, writeTiles } from './write'
 
@@ -35,13 +36,15 @@ console.table((['good', 'wide', 'few', 'machine'] as const).map(verdict =>
 console.table([counts])
 console.table(sizeTable(texts))
 console.log('records stored more than once (a group beside a tile edge):', good.reduce((sum, g) => sum + tileKeysOf(g).length - 1, 0))
+const served = servedAt(await readPoints('public/data/city/bounds.json'), texts)
+console.log('place points by what one tile gives them:', served)
 console.log('OSM share, groups the other two limits let in:')
 console.table(shareTable(groups, builtCover('public/data/land/il')))
 console.log('the other two limits:')
 console.table(limitTable(groups))
 
 await writeTiles(values.out, texts, pin.release)
-const faults = [...faultsOf(counts, facts, pin), ...sizeFaults(new Map([...texts].map(([key, text]) => [key, Buffer.byteLength(text)]))),
+const faults = [...faultsOf(counts, facts, pin), ...servingFaults(served), ...sizeFaults(new Map([...texts].map(([key, text]) => [key, Buffer.byteLength(text)]))),
   ...lostPlaces(placesIn(before.values()), placesIn(tiles.values()), pin.tolerance)]
 for (const fault of faults) console.error(`FAIL: ${fault}`)
 process.exitCode = faults.length ? 1 : 0
