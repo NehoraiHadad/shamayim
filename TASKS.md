@@ -1252,6 +1252,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             `claude/found-i-spikes` dfeb5f00, label2 f7b9028d, cloudpos2 52e1edf9; sky 534c865a green, merges main next
             Owner asked about the low red moon of 25-26 Nov: place, time and phase right; not reddened, at the left edge, stars random,
             no text. Owner said yes (24 Nov): after the styles and the vote, one slice: moon reddens low down, "tonight in the sky" line
+            integ-3 `d0195813` (sky 8ec6fc11, cloud position e3a023bc, spikes a8d38d7c) owner-approved, CI 45366036832 green, merged to main.
+            Label ea208c8d held: the owner wants no line and almost no dot; foundations rebuilds (number only; tiny dot on open land), owner
+            chooses no dot or tiny dot in towns from stills. Codex: only through outsourcerer, never a direct `codex exec`
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; plan accepted, v1 kept where it fits; slice 4 open, the rest as needs land)
 - [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 after the label)
