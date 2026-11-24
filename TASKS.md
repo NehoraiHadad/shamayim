@@ -1228,15 +1228,20 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [~] 1c. Bug: haifa storm differs between first load and reload. Fixed in slice 1 (c04a5590); slice 2 (aef314f9, the audit's
             plain losses) on top. Verified by the manager: CI 45289854735 green, stills vs main, same code 1.5x apart on two
             runners so no perf regression shown. Changes the first load of a storm: waits for the owner's approval, then merge
+            Same-machine pairs both ways: scrub.latency +1 to +5 % dry (more in rain), model and cold load flat; cause being looked for.
+            Everything below stacks on it, so the merge is the owner's next decision
       - [ ] 1d. Model shape faults: egg/barrel/vase lone clouds and their gaps; towns as thin towers; yellow-grey skies (haifa 15:30,
             neve-zohar 16:00); square holes in neve-zohar clouds; icicle far towers haifa 2026-03-15 14:00
       - [ ] 1e. PR 11 follow-ups (perf, Jerusalem fog/dust houses, dome at dusk, haifa 16:30 walls, haifa foreground block,
             twilight hue, second-model review of the twilight rule in `wallDistance.ts`)
+            Verified 24 Nov, green, sent to the owner: dusk `69ef8e91`, near ground `ebe40935`. Town, sky, clouds rounds still on CI
       - [ ] 1g. Village composition (owner, 24 Nov, Karmei Tzur), separate from 1c-1e: (1) the height number covers the settlement
             (`besideDot` does not see the houses; seen at Shadmot Mehola too); (2) odd detached buildings around it; (3) the place
             does not resemble itself, houses too far apart. Evidence (record the real panorama in CI) -> proposal of the rule for
             what a settlement shows -> owner's approval -> code. Foundations session, own worktree from its town patch
+            Verified 24 Nov, green, sent to the owner: label `8040e277` (leader pole at Haifa/Tel Aviv still long), minarets out `d1e04862`,
+            V2b prototype 2076ba37 (real footprints at 755 of 2187 places, cover cells elsewhere; ODbL credit needed): owner to choose
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
-- [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged
-- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged
+- [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock second set sent, waits for the owner)
+- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 sent, waits for the owner)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
