@@ -20,6 +20,8 @@ export interface ProtoFrame {
   ppm: number; housePx: number; enlarge: number
   /** The radical law's divisor: the root of (drawn house) / (house at the picture's mean scale). */
   law: number
+  /** At most this many houses: their silhouettes (a house wide, a house high) cover the group's ellipse at most once. */
+  budget: number
   dotY: number
   at: (spot: Spot) => { x: number; foot: number; near: number; scale: number }
   top: (x: number) => number
@@ -66,5 +68,6 @@ export function protoFrame(world: WorldState, view: OutsideView, spots: readonly
     const { x, near: nearness, depth } = outsideProject(frame, p.dx, p.dy)
     return { x, foot: Math.max(top(x), Math.min(FLOOR, dotY + rel(p, depthPx))), near: nearness, scale: midDepth / depth }
   }
-  return { frame, widthPx, depthPx, ppm, housePx, enlarge: housePx / (HOUSE_M * ppm), law: Math.sqrt(housePx / (HOUSE_M * mean)), dotY, at, top }
+  return { frame, widthPx, depthPx, ppm, housePx, enlarge: housePx / (HOUSE_M * ppm), law: Math.sqrt(housePx / (HOUSE_M * mean)),
+    budget: Math.PI / 4 * widthPx * depthPx / housePx ** 2, dotY, at, top }
 }

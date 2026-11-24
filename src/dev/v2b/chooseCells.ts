@@ -10,6 +10,8 @@ const SUB: Record<number, [number, number][]> = {
   4: [[-.25, .24], [.25, .22], [-.23, -.24], [.25, -.22]],
 }
 const MAX_IN_CELL = 4
+/** The outline cells come first, up to this part of the houses (else a thinned place would be an empty shell). */
+const OUTLINE_PART = 2 / 3
 /** Seeded shift inside the cell (share of it): neighbours in adjacent cells stand about 0 to half a house apart. */
 const JITTER = .14
 
@@ -17,19 +19,19 @@ const JITTER = .14
  * (a) Houses from the cover cells: the count by the radical law over the cells' houses; every outline cell first, then a
  * seeded even spread by what each cell holds.
  */
-export function chooseCells(cells: readonly GroupCell[], law: number, lat: number): { houses: ProtoHouse[]; total: number } {
+export function chooseCells(cells: readonly GroupCell[], law: number, budget: number, lat: number): { houses: ProtoHouse[]; total: number } {
   const total = cells.reduce((sum, c) => sum + c.houses, 0)
-  const n = Math.round(total / law)
+  const n = Math.round(Math.min(total / law, budget)), per = total / n
   const order = new Map(cells.map(c => [c, seeded(c.seed + 3)()]))
   const count = new Map<GroupCell, number>()
-  for (const c of cells.filter(c => c.outline).sort((a, b) => order.get(a)! - order.get(b)!).slice(0, n)) count.set(c, 1)
+  for (const c of cells.filter(c => c.outline).sort((a, b) => order.get(a)! - order.get(b)!).slice(0, Math.round(n * OUTLINE_PART))) count.set(c, 1)
   // The rest by the largest unmet share, ties broken by the seed: an even spread where the cells hold the same.
   for (let left = n - count.size; left > 0; left--) {
     let best: GroupCell | null = null, most = -Infinity
     for (const c of cells) {
       const has = count.get(c) ?? 0
       if (has >= MAX_IN_CELL) continue
-      const unmet = c.houses / law - has + .5 * order.get(c)!
+      const unmet = c.houses / per - has + .5 * order.get(c)!
       if (unmet > most) { most = unmet; best = c }
     }
     if (!best) break

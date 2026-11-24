@@ -7,7 +7,7 @@ const SIZES: [number, number][] = [[120, 10.5], [250, 13.5], [600, 18], [Infinit
 /** A class's long side over its mean side (a house is about 1.35 times as long as wide). */
 const ASPECT = Math.sqrt(1.35)
 /** Outline houses: no neighbour within this far (km) over this much of the turn; kept this much more often. */
-const OUTLINE_KM = .09, OUTLINE_GAP = 130 * Math.PI / 180, OUTLINE_WEIGHT = 1.3
+const OUTLINE_KM = .09, OUTLINE_GAP = 130 * Math.PI / 180, OUTLINE_WEIGHT = 3
 
 function onOutline(spots: readonly Spot[], i: number) {
   const p = spots[i]
@@ -28,9 +28,9 @@ function frontOf(f: Footprint) {
  * (b) Houses from real footprints: the same radical law, thinned along each row (its ends kept, a ring evenly), the
  * outline kept more often; each drawn house is a real one at its true place.
  */
-export function chooseFootprints(all: readonly Footprint[], law: number): { houses: ProtoHouse[]; total: number; rows: number } {
+export function chooseFootprints(all: readonly Footprint[], law: number, budget: number): { houses: ProtoHouse[]; total: number; rows: number } {
   const weight = all.map((_, i) => onOutline(all, i) ? OUTLINE_WEIGHT : 1)
-  const share = all.length / law / Math.max(1, weight.reduce((a, b) => a + b, 0))
+  const share = Math.min(all.length / law, budget) / Math.max(1, weight.reduce((a, b) => a + b, 0))
   const rows = rowsOf(all).sort((a, b) => b.at.length - a.at.length)
   const kept: number[] = []
   let carry = 0

@@ -9,7 +9,7 @@ const BUILT = COVER.indexOf('built'), TREE = COVER.indexOf('tree')
 /** The place's group starts from the built cells within this far of the place point (as V1's truth does). */
 const SEED_KM = .25
 const REACH_KM = 2.5
-/** Houses in a built cell the raster knows nothing of (choice: the raster is empty over all of Karmei Tzur). */
+/** Houses in a built cell the raster knows nothing of (choice; 4 of 67 cells at Karmei Tzur, 6 of 287 at Nahalal). */
 const UNKNOWN_HOUSES = 2
 const TREE_NEAR_CELLS = 2
 

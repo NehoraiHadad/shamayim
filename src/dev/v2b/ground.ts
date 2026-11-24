@@ -1,15 +1,15 @@
 import type { OutsideView, Pt } from '../../world/types'
 import type { ProtoFrame } from './frame'
-import type { GroupCell, Spot } from './types'
+import type { Spot } from './types'
 
 /** Column step and the tone's margin round the feet (px). */
 const STEP = 3, OVER = 1.2, UNDER = 1.6, SIDE = 5
 
 /**
- * The trodden ground under the built cells, as the existing painter's one own-ground polygon (`view.land`: one top and one
+ * The trodden ground under the built cells (a) or the own footprints (b), as the existing painter's one own-ground polygon (`view.land`: one top and one
  * base line over x): from the farthest built cell's foot to the nearest one's in each column, closing to a point at the ends.
  */
-export function troddenGround(cells: readonly GroupCell[], proto: ProtoFrame, km: number): OutsideView['land'] {
+export function troddenGround(cells: readonly Spot[], proto: ProtoFrame, km: number): OutsideView['land'] {
   const spots = cells.map(c => ({ c, ...proto.at(c) }))
   const left = Math.min(...spots.map(p => p.x)) - SIDE, right = Math.max(...spots.map(p => p.x)) + SIDE
   const columns: { x: number; top: number; base: number; at: Spot }[] = []

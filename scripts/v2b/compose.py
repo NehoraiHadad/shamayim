@@ -29,8 +29,8 @@ for place in places:
     two = [(m, load(place, m, 2)) for m in MODES]
     row([(m, i.crop((0, 2 * 330, 750, 856))) for m, i in two]).save(f'{out}/{place}-row-2x.png')
     row([(m, load(place, m, 1)) for m in MODES]).save(f'{out}/{place}-wide-1x.png')
-    centre = [(m, i.crop((160, 2 * 360, 560, 830)).resize((1200, 330), Image.NEAREST)) for m, i in two]
-    tall = Image.new('RGB', (1200, 3 * 352), (245, 243, 238))
+    centre = [(m, i.crop((160, 2 * 340, 560, 830)).resize((1200, 450), Image.NEAREST)) for m, i in two]
+    tall = Image.new('RGB', (1200, 3 * 472), (245, 243, 238))
     for k, pair in enumerate(centre):
-        tall.paste(row([pair]), (0, k * 352))
+        tall.paste(row([pair]), (0, k * 472))
     tall.save(f'{out}/{place}-detail-6x.png')

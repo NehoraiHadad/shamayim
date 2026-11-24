@@ -26,5 +26,5 @@ for (const [name, raw] of [['largest', files[0]], ['median', files[files.length 
 }
 for (const f of fs.readdirSync(places).filter(f => f.endsWith('.json'))) {
   const all = JSON.parse(fs.readFileSync(`${places}/${f}`, 'utf8')).map(([x, y, long, short, angle]) => ({ dx: x / 1000, dy: y / 1000, long, short, angle }))
-  console.log(f, all.length, 'rows and thinning ms', time(() => chooseFootprints(all, 1.6), 20))
+  console.log(f, all.length, 'rows and thinning ms', time(() => chooseFootprints(all, 1.6, Infinity), 20))
 }

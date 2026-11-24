@@ -63,15 +63,15 @@ export function protoWorld(world: WorldState, input: WorldInput, mode: 'a' | 'b'
   const { cells, trees } = ownGroup(input.place, input.cover, input.city?.raster)
   if (!cells.length) return null
   const proto = protoFrame(world, view, cells, input.terrain.heightNear ?? (() => null))
-  const { houses, total } = mode === 'a' ? chooseCells(cells, proto.law, input.place.lat) : chooseFootprints(footprints, proto.law)
+  const { houses, total } = mode === 'a' ? chooseCells(cells, proto.law, proto.budget, input.place.lat) : chooseFootprints(footprints, proto.law, proto.budget)
   const boxes = boxesOf(houses, input, proto)
   const dot = { x: view.dot.x, y: proto.dotY }
   const place3: OutsideView = { ...view, frame: proto.frame, dot: { x: view.dot.x, y: -999 }, beyond: [], beyondTowns: [],
     skyline: { ...view.skyline, boxes, towers: boxes.map(contactOf) }, trees: treesOf(trees, proto, view.baseKm),
-    land: troddenGround(cells, proto, view.baseKm), vscale: view.vscale }
+    land: troddenGround(mode === 'a' ? cells : footprints, proto, view.baseKm), vscale: view.vscale }
   const { w, e, s, n } = proto.frame
   const report = { mode, cells: cells.length, known: cells.filter(c => c.known).length, total: Math.round(total), drawn: houses.length,
-    trees: trees.length, widthPx: proto.widthPx, depthPx: proto.depthPx, housePx: proto.housePx, enlarge: proto.enlarge, law: proto.law,
+    trees: trees.length, widthPx: proto.widthPx, depthPx: proto.depthPx, housePx: proto.housePx, enlarge: proto.enlarge, law: proto.law, budget: proto.budget,
     dot, dotToday: view.dot, frame: { w, e, s, n }, groups: cells.map(c => [c.dx, c.dy]), houses: boxes.map(b => [b.dx, b.dy, b.x, b.foot, b.w, b.foot - b.top]) }
   return { dot, report, world: { ...world, place3, marks: protoMarks(world, input, proto), seatPool: [],
     labels: { ...world.labels, height: labelOver(world, boxes, dot) },
