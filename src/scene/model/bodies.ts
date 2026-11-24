@@ -4,7 +4,7 @@ import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
 import { luminanceOf } from './cloudChromaticity'
 import { solarAerosolSlantDepth } from './cloudDust'
-import { dustDiscColour } from './dustDisc'
+import { dustDiscColour, sunDiscAlpha } from './dustDisc'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
 import { skyColours, skyStops, stopAt } from './skyColour'
@@ -68,14 +68,17 @@ const AUREOLE_Z = 8.6
 // Restore the part of the beam that cannot fit through the multiply pass at 8.9, before lightning at 9.
 const DISC_LIGHT_Z = 8.95
 
-function discLight(sun: Disc, desired: RGB, grade: ReturnType<typeof skyGradeOf>, bounds: LayerOf<'bodies'>['bounds']): LayerOf<'bodies'> | null {
+function discLight(sun: Disc, desired: RGB, grade: ReturnType<typeof skyGradeOf>, bounds: LayerOf<'bodies'>['bounds'],
+  through: number): LayerOf<'bodies'> | null {
   const [r, g, b] = filterAt(grade, sun.y, sun.core)
   const core: RGB = [Math.max(0, desired[0] - r), Math.max(0, desired[1] - g), Math.max(0, desired[2] - b)]
   const bytes = colourKey(core)
-  if (!bytes.some(Boolean)) return null
+  // Quantize opacity to display precision, and omit a beam whose strongest channel contributes less than one byte.
+  const alphaByte = Math.floor(255 * sunDiscAlpha(sun.veil) * through)
+  if (Math.max(...bytes) * alphaByte < 255) return null
   return { kind: 'bodies', id: 'bodies.discLight', surface: 'sky', z: DISC_LIGHT_Z, blend: 'lighter',
-    sun: { ...sun, core, limb: [0, 0, 0] }, moon: null, part: 'discLight', bounds,
-    key: layerKey('discLight', r1(sun.x), r1(sun.y), bytes, Math.round(sun.veil * 100),
+    sun: { ...sun, core, limb: [0, 0, 0], beamAlpha: alphaByte / 255 }, moon: null, part: 'discLight', bounds,
+    key: layerKey('discLight', r1(sun.x), r1(sun.y), bytes, alphaByte,
       Math.round(sun.flatten * 100), sun.coin > 0.5) }
 }
 
@@ -95,15 +98,18 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
   const physicalSun = sunDisc(world, box, geom)
   const colours = skyColours(world)
   let core = physicalSun?.core
+  let limb = physicalSun?.limb
   if (physicalSun && colours.bandWeight) {
     const { y } = physicalSun
     const local = stopAt(skyStops(world, box, colours), y / box.skyHeight, mixSrgb)
-    core = dustDiscColour(physicalSun.core, filterAt(grade, y, local), luminanceOf(colours.horizon),
-      solarAerosolSlantDepth(world.air, world.bodies.sun.altitude), colours.bandWeight)
+    const background = filterAt(grade, y, local), horizon = luminanceOf(colours.horizon)
+    const tau = solarAerosolSlantDepth(world.air, world.bodies.sun.altitude)
+    core = dustDiscColour(physicalSun.core, background, horizon, tau, colours.bandWeight)
+    if (physicalSun.coin <= 0.5) limb = dustDiscColour(physicalSun.limb, background, horizon, tau, colours.bandWeight)
   }
   const sun = physicalSun && { ...physicalSun,
     core: unfilterDisc(grade, physicalSun.y, core ?? physicalSun.core),
-    limb: unfilterDisc(grade, physicalSun.y, physicalSun.limb),
+    limb: unfilterDisc(grade, physicalSun.y, limb ?? physicalSun.limb),
     ...(colours.bandWeight && physicalSun.veil > 0.15 && { cloudGlow: physicalSun.core }) }
   if (sun) {
     const pad = Math.ceil(SUN_R * 3.2)
@@ -113,7 +119,7 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       key: layerKey('sun', skyBoxKey(box), r1(sun.x), r1(sun.y), colourKey(sun.core), colourKey(sun.limb), Math.round(sun.veil * 100),
         Math.round(sun.aureole * 50), Math.round(sun.flatten * 100), Math.round(sun.coin * 50),
         ...(sun.cloudGlow ? [colourKey(sun.cloudGlow)] : [])) })
-    const restoration = core && colours.bandWeight && discLight(sun, core, grade, bounds)
+    const restoration = core && colours.bandWeight && discLight(sun, core, grade, bounds, world.light.through.sun)
     if (restoration) out.push(restoration)
     // C9 (defect 2): the aureole is the air's own forward glow between the eye and the sun, nearer than any cloud: it lies
     // over a bank in front of the sun as over the clear sky (the disc stays behind the bank), so a lobe over the disc never

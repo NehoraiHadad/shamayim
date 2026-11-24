@@ -11,6 +11,9 @@ const SKY_DEPTH = 12
 // Keep a small positive display contrast against even the brightest sky band.
 const HORIZON_RATIO = 1.02
 
+/** Legacy disc fade under the mean cloud veil, shared with the beam restoration. */
+export const sunDiscAlpha = (veil: number): number => Math.max(0.1, 1 - 0.97 * veil ** 0.7)
+
 /** Display colour of an unveiled solar core before cloud opacity is applied. */
 export function dustDiscColour(core: RGB, local: RGB, horizonY: number, slantDepth: number, bandWeight: number): RGB {
   if (!bandWeight) return core

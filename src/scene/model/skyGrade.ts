@@ -1,8 +1,9 @@
 import { skyContrastCeiling } from '../../theme/contrast'
 import type { WorldState } from '../../world/types'
+import { luminanceOf } from './cloudChromaticity'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { inkSkySamples } from './skyGradeClouds'
-import { skyColours, stopAt } from './skyColour'
+import { dustBandEase, skyColours, skyStops, stopAt, unveiledSkyColours } from './skyColour'
 import { multiplySky, SKY_FILTER_MID, skyFilterDepth, skyFilterGradientRows, skyFilterReserve, skyFilterTransmission } from './skyFilter'
 import { mixSrgb } from './tone'
 import type { LayerOf, RGB, SceneBox } from './types'
@@ -26,10 +27,21 @@ export function skyGradeOf(world: WorldState, box: SceneBox): Grade | null {
   const ceiling = skyContrastCeiling(world.light.palette.ink)
   const middle = Math.min(box.skyHeight, horizon * SKY_FILTER_MID)
   const sentence = Math.min(ceiling, skyContrastCeiling('#E8F9FF'))
-  let k = 0
-  for (const [row, rgb] of inkSkySamples(world, box, middle)) {
-    k = skyFilterDepth(rgb, row === middle ? sentence : ceiling, skyFilterReserve(rgb), k)
+  const ease = dustBandEase(bandWeight)
+  const unveiled = ease < 1 ? skyStops(world, box, unveiledSkyColours(world)) : null
+  let skyDepth = 0, cloudDepth = 0
+  for (const [row, rgb, sky] of inkSkySamples(world, box, middle)) {
+    const cap = row === middle ? sentence : ceiling
+    const reserve = skyFilterReserve(sky)
+    const cleanY = unveiled ? luminanceOf(stopAt(unveiled, row / box.skyHeight, mixSrgb)) : cap
+    // Clear-day mid #3172B0 is Y≈0.158: below the sentence ceiling (~0.161) but inside its two-reserve knee.
+    // Ease that existing debt, including any above-ceiling city light or cropped clean gradient.
+    const skyCap = cap + (1 - ease) * Math.max(0, cleanY - cap)
+    const skyReserve = ease * reserve + (1 - ease) * Math.min(reserve, Math.max(0, cap - cleanY) / 2)
+    skyDepth = skyFilterDepth(sky, skyCap, skyReserve, skyDepth)
+    if (rgb !== sky) cloudDepth = skyFilterDepth(rgb, cap, skyFilterReserve(rgb), cloudDepth)
   }
+  const k = Math.max(skyDepth, ease * cloudDepth)
   const stops = k ? gradeStops(k) : []
   const grade: Grade | null = k ? { k, horizon, stops, rasterStops: stops.map(([row, rgb]) => [row, byteRgb(rgb)]) } : null
   memo.set(world, { dimensions, grade })

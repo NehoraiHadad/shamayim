@@ -1,3 +1,4 @@
+import { sunDiscAlpha } from '../../../model/dustDisc'
 import type { Disc, LayerOf, MoonDisc, Star } from '../../../model/types'
 import { css, type Ctx2D } from '../base/hand'
 
@@ -45,7 +46,7 @@ function paintSun(ctx: Ctx2D, d: Disc, beamOnly: boolean) {
     }
   }
   // Behind cloud the disc goes fast: at 80 % of its light taken it is a pale patch.
-  const alpha = Math.max(0.1, 1 - 0.97 * d.veil ** 0.7)
+  const alpha = d.beamAlpha ?? sunDiscAlpha(d.veil)
   if (d.coin > 0.5) {
     ctx.fillStyle = css(d.core, alpha)
   } else {

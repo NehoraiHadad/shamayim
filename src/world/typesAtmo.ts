@@ -42,6 +42,8 @@ export interface Light {
   colour: RGB
   /** 0–1: beam reaching the observer along the disc ray. */
   eye: number
+  /** 0–1: what the field's cloud lets through along each disc's own ray to the eye, while it is up (1 with no field). */
+  through: { sun: number; moon: number }
   /** Mean cloud transmission at half depth for the sky glows and disc veils. */
   clear: number
   /** Sun and moon illuminance after mean cloud transmission. */

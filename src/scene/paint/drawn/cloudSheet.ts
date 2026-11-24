@@ -1,5 +1,6 @@
 import { hashId } from '../../../data/landmarks/hash'
 import { smoothstep } from '../../../domain/smoothstep'
+import { roundedSheetAlpha, roundedSheetEdge } from '../../model/cloudPaintBounds'
 import type { LayerOf, RGB } from '../../model/types'
 import { addLight } from '../../model/tone'
 import { toneOf } from '../shared/cloud/deck'
@@ -18,10 +19,8 @@ import { fieldAt, sheetField, type SheetField } from './sheetField'
 
 /** Raster px per sky px. */
 const RASTER = 0.5
-/** A mass's opacity in its core, and how its thin parts fall off (exponent on the model's alpha). */
-const CORE = 0.94, THIN = 0.55
 /** The alpha the drawn edge stands at and its softness: crisper on a lit top than underneath, and what the air before a far one adds. */
-const EDGE = 0.4, SOFT_TOP = 0.08, SOFT_BASE = 0.27, SOFT_AIR = 0.12
+const SOFT_AIR = 0.12
 /** How far the heads, and the small ones on them, move the edge, against a half-thick part. */
 const HEADS = 0.85, SMALL = 0.34
 /** The light's hand: a puff's lit cap and shaded foot, a mass's broad lit top and shaded base. */
@@ -90,9 +89,7 @@ function masses(out: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, f: SheetFie
 /** The mass's drawn alpha: the model's for a closed deck; an open one's edge stands on its heads. */
 function drawnAlpha(a: number, head: number, part: number, rise: number, open: number, air: number) {
   if (!open) return a
-  const soft = air + SOFT_BASE + (SOFT_TOP - SOFT_BASE) * smoothstep(-0.2, 0.2, rise)
-  const edge = smoothstep(EDGE - soft, EDGE + soft, a + head * part)
-  return a + open * (CORE * edge * a ** THIN - a)
+  return roundedSheetAlpha(a, roundedSheetEdge(a, head, part, rise, air), open)
 }
 
 /** A tone moved toward the lit or the shade by the hand's light (+ faces up); a low sun lights the feet, not the caps. */

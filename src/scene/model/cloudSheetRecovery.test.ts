@@ -21,7 +21,6 @@ it('reduces the local tone contrast of the Haifa 16:30 smudge', async () => {
       expect(corrected.genus).toBe('sc')
       expect(raw.alpha).toEqual(corrected.alpha)
       const before = patchContrast(raw), after = patchContrast(corrected)
-      console.info('Haifa 16:30 patch minus ring (tone, alpha)', { raw: before, corrected: after })
       expect(Math.abs(before.tone)).toBeGreaterThan(2 / 255)
       // Require a tenth of the local tone contrast to disappear.
       expect(Math.abs(after.tone)).toBeLessThan(0.9 * Math.abs(before.tone))

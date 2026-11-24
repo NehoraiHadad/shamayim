@@ -7,12 +7,19 @@ import { mixRgb, rgbOf } from './tone'
 import type { RGB, SceneBox } from './types'
 
 type Stops = { top: RGB; mid: RGB; horizon: RGB }
+function withCity(world: WorldState, [t, m, h]: readonly [RGB, RGB, RGB]): Stops {
+  return { top: cityOnSky(world, t, 90), mid: cityOnSky(world, m, 30), horizon: cityOnSky(world, h, 0) }
+}
+
+/** The same display palette before adding the scene's visible dust veil. */
+export function unveiledSkyColours(world: WorldState) {
+  const { top, mid, horizon } = world.light.palette
+  return { ...withCity(world, [rgbOf(top), rgbOf(mid), rgbOf(horizon)]), bandWeight: 0 }
+}
+
 function computeColours(world: WorldState) {
-  const { palette } = world.light
   const veiled = dustSky(world)
-  const [t, m, h] = veiled ?? [rgbOf(palette.top), rgbOf(palette.mid), rgbOf(palette.horizon)]
-  const physical: Stops = { top: cityOnSky(world, t, 90), mid: cityOnSky(world, m, 30), horizon: cityOnSky(world, h, 0) }
-  return { ...physical, bandWeight: veiled ? dustVeilWeight(world, 0) : 0 }
+  return veiled ? { ...withCity(world, veiled), bandWeight: dustVeilWeight(world, 0) } : unveiledSkyColours(world)
 }
 
 const cache = new WeakMap<WorldState, ReturnType<typeof computeColours>>()
@@ -26,6 +33,7 @@ export function skyColours(world: WorldState) {
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
+export const dustBandEase = (weight: number) => smoothstep(0, 1, weight)
 
 /** The covers of the three layers (low, mid, high). */
 export const coversOf = (world: WorldState) => ({ low: world.clouds[0]?.cover ?? 0, mid: world.clouds[1]?.cover ?? 0,
@@ -49,7 +57,7 @@ export function skyStops(world: WorldState, box: SceneBox, colours = skyColours(
   // Eighths across the shoulders with half steps at the ends to resolve the
   // flatter tangent where adjacent segments meet.
   const rows = [0, 1 / 16, 1 / 8, 1 / 4, 3 / 8, 1 / 2, 5 / 8, 3 / 4, 7 / 8, 15 / 16]
-  const ease = smoothstep(0, 1, colours.bandWeight)
+  const ease = dustBandEase(colours.bandWeight)
   const segment = (a: number, b: number, from: RGB, to: RGB): [number, RGB][] =>
     rows.map(t => [a + (b - a) * t, mixRgb(from, to, t + ease * (smoothstep(0, 1, t) - t))])
   const stops: [number, RGB][] = [...segment(0, middle, top, mid), ...segment(middle, horizon, mid, ground), [horizon, ground]]

@@ -16,7 +16,7 @@ export interface Star { x: number; y: number; r: number; alpha: number }
  * `coin`: dust turns it into a flat pale coin with no halo.
  */
 export interface Disc { x: number; y: number; r: number; rgb: RGB; veil: number; core: RGB; limb: RGB; halo: RGB; aureole: number;
-  flatten: number; coin: number; cloudGlow?: RGB }
+  flatten: number; coin: number; cloudGlow?: RGB; beamAlpha?: number }
 /**
  * The moon (C6): its true phase (`fraction` lit), the lit limb turned toward the sun (`tilt`, deg), bone by night and
  * sky-pale by day (`daylight`), `alpha` after cloud and haze; `ring`: the dark disc's hairline for a thin crescent;
