@@ -19,8 +19,10 @@ export function skyBackground(desc: LayerOf<'sky'>): string {
   const band = desc.band
   if (band) {
     const top = band.y - band.h, span = band.h * 1.3, bottom = top + span
-    const stops = bandStops(band).map(([at, colour]) => `${colour} ${px(top + at * span)}`)
-    out.push(`linear-gradient(180deg, ${css(band.rgb, 0)} ${px(Math.max(0, top))}, ${stops.join(', ')}, ${css(band.rgb, 0)} ${px(bottom)})`)
+    const { below = 0 } = band, at = bandStops(band)
+    const stops = at.map(([t, colour], i) => `${colour} ${px(top + t * span + (i === at.length - 1 ? below : 0))}`)
+    if (below) stops.splice(-1, 0, `${css(band.rgb, band.alpha)} ${px(band.y + below)}`)
+    out.push(`linear-gradient(180deg, ${css(band.rgb, 0)} ${px(Math.max(0, top))}, ${stops.join(', ')}, ${css(band.rgb, 0)} ${px(bottom + below)})`)
   }
   for (const g of [...desc.glow].reverse()) {
     out.push(`radial-gradient(${px(g.r)} ${px(g.ry ?? g.r)} at ${px(g.x)} ${px(g.y)}, ${css(g.rgb, g.alpha)} 0, ${css(g.rgb, 0)} 100%)`)

@@ -12,7 +12,7 @@ import { rainbowStops, RED, SHADE, VIOLET, type Stop } from '../paint/shared/sky
 import { sceneModel } from './index'
 import { trackAt } from './anim'
 import { trailAt } from './contrailMotion'
-import { crestOf } from './life'
+import { crestOf } from './crest'
 import { haloFrame, haloLayer, rainbowFrame } from './optics'
 import { skyGeom } from './sky'
 import { gnomonic } from './tangent'

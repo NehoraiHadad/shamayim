@@ -2,6 +2,7 @@ import { sheetPaintBound } from '../../model/cloudPaintBounds'
 import { CORE_LEAK } from '../../model/cloudSprite'
 import type { LayerOf } from '../../model/types'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
+import { carryDown, rowsBelow } from '../shared/cloud/belowEye'
 import { throughAir } from '../shared/cloud/throughAir'
 import { lampLight } from './cloud/lampLight'
 import { RASTER, sheetField, type SheetField } from './cloud/sheetField'
@@ -26,16 +27,18 @@ export function paintCloudSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   const span = ys[rows - 1] - ys[0]
   if (span <= 0) return
   const field = sheetField(desc), { w, h } = field
-  const { canvas, ctx: sheet } = env.canvas(w, h)
-  const image = sheet.createImageData(w, h)
+  const more = rowsBelow(desc.below, span, h)
+  const { canvas, ctx: sheet } = env.canvas(w, h + more)
+  const image = sheet.createImageData(w, h + more)
   colour(image.data, desc, field)
   throughAir(image.data, w, h, desc)
+  carryDown(image.data, w * 4, h, more)
   sheet.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   // Texel centres sit at +0.5: the first and last centres land on the grid's edges.
-  ctx.drawImage(canvas, 0.5, 0.5, w - 1, h - 1, xs[0], ys[0], xs[cols - 1] - xs[0], span)
+  ctx.drawImage(canvas, 0.5, 0.5, w - 1, h + more - 1, xs[0], ys[0], xs[cols - 1] - xs[0], span + (more * span) / (h - 1))
   ctx.restore()
 }
 
