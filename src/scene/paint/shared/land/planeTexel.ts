@@ -80,14 +80,21 @@ export function shadeTexelSrgb(t: PlaneTexelCtx, s: TexelSample, cloudVis = 1, b
   return [toSrgb(cr), toSrgb(cg), toSrgb(cb)]
 }
 
+/** A hand's own ground: a texel's reflectance, and the light on it turned by its small form. */
+export interface OwnGround {
+  rho(n: number, out: [number, number, number]): void
+  /** Turns the moon's and the sky's light on texel `n` of column `i` in place; gives the factor of the sun's. */
+  turn(n: number, i: number, light: FieldSample): number
+}
+
 /** Paints the exact single-pass lit terrain surface + small finishing paper grain (after lighting & haze). */
 export function paintLitSurface(
   ctx: Ctx2D, outline: readonly Pt[], bounds: Box, surface: PlanePalette, litField: PlaneLitField,
-  form: string, grainAmount: number, seed: number, env: PaintEnv,
+  form: string, grainAmount: number, seed: number, env: PaintEnv, ownOf?: (t: PlaneTexelCtx) => OwnGround,
 ): void {
   if (!surface.palette.length || !surface.cells.length) return
   const t = preparePlaneTexels(outline, bounds, surface, litField, seed, grainAmount)
-  const material = planeMaterial(t, form)
+  const own = ownOf?.(t), material = own ? undefined : planeMaterial(t, form)
   const scratch = env.canvas(t.wPx, t.hPx)
   const image = scratch.ctx.createImageData(t.wPx, t.hPx), data = image.data
   const shade = env.shade && scratch.ctx.createImageData(t.wPx, t.hPx)
@@ -97,11 +104,10 @@ export function paintLitSurface(
     const y = bounds.y + (j + 0.5) * TEXEL
     for (let i = 0; i < t.wPx; i++) {
       const x = bounds.x + (i + 0.5) * TEXEL
-      const m = (j * t.wPx + i) * 3
-      rho[0] = material[m]; rho[1] = material[m + 1]; rho[2] = material[m + 2]
+      const n = j * t.wPx + i, m = n * 3, o = n * 4
+      if (material) { rho[0] = material[m]; rho[1] = material[m + 1]; rho[2] = material[m + 2] } else own!.rho(n, rho)
       samplePlaneTexel(t, i, x, y, rho, sample)
-      const o = (j * t.wPx + i) * 4
-      shadeTexel(t, sample, litField.eSun, 1, rgb)
+      shadeTexel(t, sample, litField.eSun, own ? own.turn(n, i, sample) : 1, rgb)
       encodeTexel(data, o, rgb)
       if (shade) {
         if (sample.sVis) shadeTexel(t, sample, diffuse, 1, rgb)
@@ -117,7 +123,7 @@ export function paintLitSurface(
   }
   stamp(ctx, image)
   if (env.shade && shade) stamp(env.shade, shade)
-  paintCrestSamples(ctx, t, env.shade)
+  paintCrestSamples(ctx, t, env.shade, own)
 }
 
 function encodeTexel(data: Uint8ClampedArray, o: number, rgb: RGB) {
@@ -125,12 +131,13 @@ function encodeTexel(data: Uint8ClampedArray, o: number, rgb: RGB) {
 }
 
 /** Resolve narrow sun-facing crest colour that the body grid's texture raster would average down. */
-function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx, shade?: Ctx2D) {
+function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx, shade?: Ctx2D, own?: OwnGround) {
   if (t.litField.eSun[1] < 0.015) return
   for (let i = 0; i < t.wPx; i++) {
-    const left = t.bounds.x + i * TEXEL, x = left + TEXEL / 2, y = t.crestY[i]
-    const rim = samplePlaneTexel(t, i, x, y + 0.65)
-    const face = samplePlaneTexel(t, i, x, y + 9)
+    const left = t.bounds.x + i * TEXEL, x = left + TEXEL / 2, y = t.crestY[i], rho: [number, number, number] = [0, 0, 0]
+    own?.rho(clamp(Math.floor((y + 0.65 - t.bounds.y) / TEXEL), 0, t.hPx - 1) * t.wPx + i, rho)
+    const rim = samplePlaneTexel(t, i, x, y + 0.65, own && rho)
+    const face = samplePlaneTexel(t, i, x, y + 9, own && rho)
     if (rim.sVis - face.sVis < 0.025) continue
     ctx.fillStyle = css(shadeTexelSrgb(t, rim))
     ctx.fillRect(left, y - 0.75, TEXEL, 2.2)

@@ -5,12 +5,19 @@ import { displace, sample, tube } from '../base/core'
 import { outline, type Ctx2D, type PaintEnv } from '../base/hand'
 import { paintVegFields, paintVegRows, paintVegStrata } from './landVegetation'
 import { paintPaperGrain } from './paperGrain'
-import { paintLitSurface } from './planeTexel'
+import { paintLitSurface, type OwnGround, type PlaneTexelCtx } from './planeTexel'
 import { receiverBrush, type ReceiverBrush, type ReceiverInk } from './receiverBrush'
 
 const BLACK: ReceiverInk = [[0, 0, 0]]
 
-function paintGroundMarks(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
+/** What a hand paints its own way: the ground's surface (then no paper lies over it), the gullies. */
+export interface PlaneLook {
+  ground?: (t: PlaneTexelCtx) => OwnGround
+  gullies: (brush: ReceiverBrush, desc: LayerOf<'plane'>) => void
+}
+const PLAIN: PlaneLook = { gullies: paintGullies }
+
+function paintGullies(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
   desc.gullies.forEach((gully, i) => {
     const line = displace(sample(gully.points, false, 5), 1.1, 0.3, 2, desc.grain.seed + i * 13)
     const n = line.length
@@ -26,6 +33,9 @@ function paintGroundMarks(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
       }
     }
   })
+}
+
+function paintTerraces(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
   if (desc.terraces.length) {
     const ctx = brush.path()
     for (const run of desc.terraces) run.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + 0.45) : ctx.moveTo(x, y + 0.45)))
@@ -34,24 +44,25 @@ function paintGroundMarks(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
 }
 
 /** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`). */
-export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
+export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, look = PLAIN): void {
   const { light } = desc
   const { litField } = light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
   for (const target of targets) target.save()
 
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env)
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, look.ground)
     const litVeg = desc.vegetation
     const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, Boolean(env.shade))
     const brush = receiverBrush(ctx, env.shade)
     paintVegStrata(brush, litVeg, toneAt)
     paintVegFields(brush, litVeg, toneAt)
-    paintGroundMarks(brush, desc)
+    look.gullies(brush, desc)
+    paintTerraces(brush, desc)
     paintVegRows(brush, litVeg, toneAt)
     const grain = desc.grain.amount * env.hand.grain
     // White paper specks have a stronger relative effect in the shadows of the display.
-    paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
+    if (!look.ground) paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
   } else for (const target of targets) {
     target.fillStyle = css(desc.fill)
     target.fillRect(desc.bounds.x, desc.bounds.y, desc.bounds.w, desc.bounds.h)
