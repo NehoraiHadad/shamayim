@@ -16,7 +16,7 @@ import { paintRows } from './skyRows'
  */
 export function paintSky(ctx: Ctx2D, desc: LayerOf<'sky'>, env: PaintEnv): void {
   paintRows(ctx, desc, env)
-  if (desc.arch) paintArch(ctx, desc.arch, desc.bounds)
+  if (desc.arch) paintArch(ctx, desc.arch, desc.bounds, desc.band?.below ?? 0)
   for (const glow of desc.glow) paintGlow(ctx, glow, desc.bounds)
 }
 
@@ -33,13 +33,14 @@ function paintGlow(ctx: Ctx2D, g: Glow, bounds: LayerOf<'sky'>['bounds']) {
   ctx.restore()
 }
 
-function paintArch(ctx: Ctx2D, a: Arch, bounds: LayerOf<'sky'>['bounds']) {
+/** Earth's shadow, up from eye level and the `below` px of sky under it. */
+function paintArch(ctx: Ctx2D, a: Arch, bounds: LayerOf<'sky'>['bounds'], below: number) {
   ctx.save()
   ctx.translate(a.x, a.y)
   ctx.scale(1, a.belt / a.rx)
   const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, a.rx)
   for (const [at, colour] of archStops(a)) fill.addColorStop(at, colour)
   ctx.fillStyle = fill
-  ctx.fillRect(bounds.x - a.x, -a.rx, bounds.w, a.rx)
+  ctx.fillRect(bounds.x - a.x, -a.rx, bounds.w, a.rx + (below * a.rx) / a.belt)
   ctx.restore()
 }

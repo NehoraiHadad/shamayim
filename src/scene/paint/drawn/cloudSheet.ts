@@ -3,6 +3,7 @@ import { smoothstep } from '../../../domain/smoothstep'
 import type { LayerOf, RGB } from '../../model/types'
 import { addLight, scaleLight } from '../../model/tone'
 import { toneOf } from '../shared/cloud/deck'
+import { carryDown, rowsBelow } from '../shared/cloud/belowEye'
 import { throughAir } from '../shared/cloud/throughAir'
 import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { billows } from './billows'
@@ -38,19 +39,21 @@ export function paintDrawnSheet(ctx: Ctx2D, desc: LayerOf<'cloudSheet'>, env: Pa
   if (!field) return
   const open = desc.air ? field.open : 0, read = open ? easedField(field) : null
   const raster = open < 1 ? RASTER : WISPS, w = Math.ceil(field.width * raster) + 1, h = Math.ceil(field.height * raster) + 1
-  const scratch = env.canvas(w, h)
-  const image = scratch.ctx.createImageData(w, h)
+  const more = rowsBelow(desc.below, field.height, h)
+  const scratch = env.canvas(w, h + more)
+  const image = scratch.ctx.createImageData(w, h + more)
   const wisp = (gx: number, gy: number, wide: Float32Array) =>
     Math.max(WISP * (1 - smoothstep(ALONE[0], ALONE[1], fieldAt(wide, field.cols, field.rows, gx, gy))), VEIL * (1 - nearAt(field, gy)))
   const left = (a: number, gx: number, gy: number) => (read ? a * (1 - open + open * wisp(gx, gy, read.wide)) : a)
   if (desc.lattice === 'high') veil(image.data, desc, field, w, h)
   else masses(image.data, desc, field, left, open, w, h)
   throughAir(image.data, w, h, desc)
+  carryDown(image.data, w * 4, h, more)
   scratch.ctx.putImageData(image, 0, 0)
   ctx.save()
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = open < 1 ? 'high' : 'low'
-  const soft = () => ctx.drawImage(scratch.canvas, 0.5, 0.5, w - 1, h - 1, field.x0, field.y0, field.width, field.height)
+  const soft = () => ctx.drawImage(scratch.canvas, 0.5, 0.5, w - 1, h + more - 1, field.x0, field.y0, field.width, field.height + (more * field.height) / (h - 1))
   if (read) printSheet(ctx, desc, read, env, open, soft)
   else soft()
   ctx.restore()
