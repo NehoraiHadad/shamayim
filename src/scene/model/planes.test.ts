@@ -66,7 +66,7 @@ describe.each(SCENE_PLACES)('planes: $id', ({ id }) => {
         expect(y).toBeLessThanOrEqual(BOX.landHeight)
         for (const zone of model.clear) {
           const inside = x > zone.x && x < zone.x + zone.w && y > zone.y && y < zone.y + zone.h
-          expect(inside, `${layer.id} at ${(x / sx).toFixed(1)},${y.toFixed(1)} in a text zone`).toBe(false)
+          expect(inside, `${layer.id} at ${(x / sx).toFixed(1)},${y.toFixed(1)} in the dot's clearing`).toBe(false)
         }
       }
     }

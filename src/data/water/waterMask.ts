@@ -9,7 +9,7 @@ import { decodeLand } from '../land/grid'
 export const WATER_PER_CELL = 40
 
 export interface WaterBody {
-  /** Its name as the scene labels it (Hebrew); none for an unnamed lake. */
+  /** Its name (Hebrew); none for an unnamed lake. */
   name?: string
   kind: 'sea' | 'lake'
 }

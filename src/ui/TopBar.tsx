@@ -11,7 +11,7 @@ interface Props {
   status: React.ReactNode
 }
 
-/** Place and data freshness. The depth below sea level is told by the valley scene. */
+/** Place and data freshness. */
 export function TopBar({ place, recent, onSelectPlace, status }: Props) {
   const [pickerOpen, setPickerOpen] = useState(pickerOpenOnLoad)
   return (

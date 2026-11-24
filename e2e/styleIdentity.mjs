@@ -2,8 +2,8 @@
 //   node e2e/styleIdentity.mjs <baseDir> [<outDir>] [options] [moment …]    (moments: `moments.mjs`; default: `stillSet.mjs`)
 //     --dpr=2 --paint=worker,main   what is shot
 //     --styles=…          the styles (default: all that both trees' pages support; one a tree does not have is refused)
-//     --layers=worker     the paint paths whose layers are also shot each alone (`--layers=`: none), with the labels' still;
-//                         by default the worker only, for its time (`worker,main`: both)
+//     --layers=worker     the paint paths whose layers are also shot each alone (`--layers=`: none); by default the
+//                         worker only, for its time (`worker,main`: both)
 //     --controls=whole    what is always shot twice from each tree, as a control: the whole clips (the rest only where its
 //                         first loads differ), or `all`
 //     --pages=3 --shard=1/1   pages at once; the i-th of n parts of the moments and styles
@@ -51,10 +51,10 @@ const trees = {}
 const results = []
 let failed = ''
 
-/** A unit: what is shot (`kind`: the whole clip, the clip with its labels, or a layer alone) of a moment in a style and paint path. */
+/** A unit: what is shot (`kind`: the whole clip, or a layer alone) of a moment in a style and paint path. */
 const unitOf = (moment, style, paint, kind, partName = kind, more = {}) => {
   const row = `${momentName({ ...moment, style })} ${paint}`
-  return { moment, style, paint, kind, row, name: `${row} ${partName}`, alone: kind === 'layer', overlay: kind === 'labels',
+  return { moment, style, paint, kind, row, name: `${row} ${partName}`, alone: kind === 'layer',
     control: kind === 'whole' || controls === 'all', ...more }
 }
 
@@ -99,8 +99,8 @@ try {
   const wholes = await runAll(whole)
   const rows = whole.map((unit, i) => ({ ...unit, ids: [...new Set(Object.values(wholes[i].ids ?? {}).flat())] }))
     .filter(({ paint }) => layers.includes(paint))
-  await runAll(rows.flatMap(({ moment, style, paint, ids }) => [unitOf(moment, style, paint, 'labels'),
-    ...layerParts(ids, moment.hide).map(({ part: name, hide }) => unitOf(moment, style, paint, 'layer', name, { hide }))]))
+  await runAll(rows.flatMap(({ moment, style, paint, ids }) =>
+    layerParts(ids, moment.hide).map(({ part: name, hide }) => unitOf(moment, style, paint, 'layer', name, { hide }))))
   const order = new Map(whole.map(({ row }, i) => [row, i]))
   results.sort((a, b) => order.get(a.row) - order.get(b.row) || (a.kind === b.kind ? a.name.localeCompare(b.name, 'en') : a.kind < b.kind ? 1 : -1))
   writeReport(out, { base: trees.base.commit, head: trees.head.commit, chromium: browser.version(), dpr, pages, shard, styles, lone,

@@ -7,8 +7,7 @@ import { css, outline, type Ctx2D, type PaintEnv } from '../base/hand'
  * scene's own hand, flat bodies, soft light, haze by distance, no outlines. ORDER: the surface as one wash down its depth
  * (the mirrored sky over the water's dark, as the model mixed it), then on the water only (`source-atop`, so every mark
  * takes the surface's own antialiased edge, no clip): the light rim along the far edge, the wind's ripples (light and dark
- * strokes, horizontal, shorter toward the far edge), the light's path (a soft core and its sparks); last the dashed
- * sea-level datum. Every mark comes from the model: the painter only lays it down.
+ * strokes, horizontal, shorter toward the far edge), the light's path (a soft core and its sparks). Every mark comes from the model: the painter only lays it down.
  */
 
 /** Strokes of one tone, batched by strength (four steps: the eye cannot tell finer ones on a 1 px stroke). */
@@ -108,34 +107,4 @@ export function paintWater(ctx: Ctx2D, desc: LayerOf<'water'>, env: PaintEnv): v
     paintStreaks(ctx, twinkling(glint.sparks, t), glint.rgb, hair * 1.2)
   }
   ctx.globalCompositeOperation = 'source-over'
-  paintDatum(ctx, desc)
-}
-
-/**
- * The sea-level datum: a quiet dashed note one css px wide, in the hour's ink (below sea level only), segment by segment;
- * an end that meets no land fades out to nothing.
- */
-function paintDatum(ctx: Ctx2D, desc: LayerOf<'water'>) {
-  const datum = desc.datum
-  if (!datum) return
-  ctx.setLineDash([1, 4])
-  ctx.lineWidth = 1
-  ctx.lineCap = 'round'
-  for (const seg of datum.segments) {
-    ctx.beginPath()
-    ctx.moveTo(seg.x1, datum.y)
-    ctx.lineTo(seg.x2, datum.y)
-    if (seg.fadeLeft || seg.fadeRight) {
-      const fade = ctx.createLinearGradient(seg.x1, 0, seg.x2, 0)
-      const solid = css(datum.rgb, datum.alpha), none = css(datum.rgb, 0)
-      const length = Math.max(1e-6, seg.x2 - seg.x1)
-      fade.addColorStop(0, seg.fadeLeft ? none : solid)
-      if (seg.fadeLeft) fade.addColorStop(Math.min(1, seg.fadeLeft / length), solid)
-      if (seg.fadeRight) fade.addColorStop(Math.max(0, 1 - seg.fadeRight / length), solid)
-      fade.addColorStop(1, seg.fadeRight ? none : solid)
-      ctx.strokeStyle = fade
-    } else ctx.strokeStyle = css(datum.rgb, datum.alpha)
-    ctx.stroke()
-  }
-  ctx.setLineDash([])
 }

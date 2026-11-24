@@ -34,14 +34,14 @@ interface Shape {
   marks: { at: number; km: number }[]
 }
 
-/** Surviving outside shapes cached by view, width and text zones, independently of the shown hour. */
+/** Surviving outside shapes cached by view, width and the spot's clearing, independently of the shown hour. */
 const shapes = new WeakMap<object, Map<string, Shape>>()
 
 export function outsideShape(world: WorldState, box: SceneBox, clear: readonly Box[]): Shape {
   const view = world.place3 as OutsideView
   let byKey = shapes.get(view)
   if (!byKey) shapes.set(view, byKey = new Map())
-  const key = `${box.width}|${JSON.stringify([clear, world.labels.height.backed && world.labels.height, world.keys.marks])}`
+  const key = `${box.width}|${JSON.stringify([clear, world.keys.marks])}`
   const cached = byKey.get(key)
   if (cached) return cached
   const sx = box.width / SCENE_W

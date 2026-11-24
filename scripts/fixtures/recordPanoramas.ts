@@ -4,10 +4,10 @@
 import fs from 'node:fs'
 import { fetchPanorama } from '../../src/data/terrain/fetchPanorama'
 import { packPanorama } from '../../src/data/terrain/panorama'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../../src/test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, STILL_PLACES, VILLAGE_PLACES } from '../../src/test/scenePlaces'
 
 const only = process.argv.slice(2)
-const all = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...DATUM_PLACES, ...VILLAGE_PLACES]
+const all = [...SCENE_PLACES, ...SKYLINE_STUDY_PLACES, ...STILL_PLACES, ...BELOW_SEA_PLACES, ...VILLAGE_PLACES]
 const places = only.length ? all.filter((p) => only.includes(p.id)) : SCENE_PLACES
 for (const place of places) {
   const panorama = await fetchPanorama(place)

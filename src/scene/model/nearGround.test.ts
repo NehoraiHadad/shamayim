@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { prepareLandSampler } from '../../data/land/sampleLand'
 import { RAY_DISTANCES } from '../../data/terrain/panorama'
-import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
+import { BELOW_SEA_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { monthFromIsoDate } from '../../world/landAgeBlend'
 import { samplePoint } from '../../world/landSample'
@@ -26,7 +26,7 @@ let loaded: Map<string, LoadedPlace>
 
 beforeAll(async () => {
   stubPublicFetch()
-  loaded = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter((place) => IDS.includes(place.id)))
+  loaded = await loadPlaces([...SCENE_PLACES, ...BELOW_SEA_PLACES].filter((place) => IDS.includes(place.id)))
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 

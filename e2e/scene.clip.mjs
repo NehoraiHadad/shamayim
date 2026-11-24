@@ -28,7 +28,7 @@ let n = 0
 try {
   for (const [land, seconds, from] of [['loading', loading, 0], ['arrive', arrive, loading]]) {
     const { context, page } = await openPage(browser, server.url, dpr)
-    await loadScene(page, `${sceneUrl(server.url, { place, at, weather, land, overlay: true })}&from=${from}`)
+    await loadScene(page, `${sceneUrl(server.url, { place, at, weather, land })}&from=${from}`)
     await page.evaluate(() => window.__scene.settled())
     const count = Math.round(seconds * fps)
     for (let i = 0; i < count; i++) {

@@ -1,15 +1,20 @@
 import styles from './Attribution.module.css'
+import { SceneFacts } from './SceneFacts'
 
 const OSM_COPYRIGHT = 'https://www.openstreetmap.org/copyright'
 const ODBL = 'https://opendatacommons.org/licenses/odbl/1-0/'
 
-export function Attribution({ withAir, withOsm = false, withLandmarks = false, withFootprints = false, landDate = null }: { withAir: boolean; withOsm?: boolean; withLandmarks?: boolean
+export function Attribution({ facts, withAir, withOsm = false, withLandmarks = false, withFootprints = false, landDate = null }: {
+  /** The line about the scene (`text/sceneFacts`). */
+  facts: string | null
+  withAir: boolean; withOsm?: boolean; withLandmarks?: boolean
   /** The scene draws a village's real building footprints. */
   withFootprints?: boolean
   /** The Sentinel-2 scene's date when the land is drawn in its real colours. */
   landDate?: string | null }) {
   return (
     <footer className={styles.attribution}>
+      <SceneFacts text={facts} />
       <ul className={styles.sources}>
         <li>
           נתונים: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>

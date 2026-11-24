@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
 import { dustShare } from './world/airParts'
 import { mapAir } from './world/mapAir'
@@ -17,6 +17,7 @@ import { rollForward } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
 import { entryHeadline, rainIsNear } from './domain/rainVerdict'
 import { composeSummary } from './text/compose'
+import { sceneFacts } from './text/sceneFacts'
 import { wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
 import { sheetVars, useSheetPaper } from './theme/sheetLight'
@@ -119,6 +120,10 @@ export default function App() {
   const rainy = Boolean(modelRain) || rainIsNear(outlook)
   useThemeChrome(forced ? SKY_THEMES[themeId].top : light.top)
 
+  const [waters, setWaters] = useState<{ placeId: string; names: string[] } | null>(null)
+  const onWaters = useCallback((placeId: string, names: string[]) => setWaters({ placeId, names }), [])
+  const facts = forecast ? sceneFacts(place.nameHe, forecast.elevation, waters?.placeId === place.id ? waters.names : []) : null
+
   const classes = ['app', darkSheet ? 'dark-sheet' : '', intro ? 'intro' : ''].join(' ')
   const statusLine = (
     <StatusLine
@@ -158,7 +163,7 @@ export default function App() {
                   readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
                   first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
                   last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
-                  onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} />
+                  onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} onWaters={onWaters} />
               </Suspense>
             )}
             <div className="paper" data-intro="sheet">
@@ -168,7 +173,7 @@ export default function App() {
                 <WeekList forecast={forecast} now={now} />
                 <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
               </Sheet>
-              <Attribution withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} withFootprints={footprints} />
+              <Attribution facts={facts} withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} withFootprints={footprints} />
             </div>
           </div>
         )}
