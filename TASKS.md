@@ -1330,7 +1330,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] Special events (`src/events/`): a detector gives candidates of one shape, `seen` keeps what the place will see, the rarest is told
       - [x] One quiet line between the clothes and the days (`ui/SpecialLine.tsx`; the owner chose the place), its own chunk; it opens and closes softly
       - [x] Tests against published tables (NASA, AstroPixels, IMO), cited in `published.test.ts`; app stills: `#app` in `e2e/scene.stills.mjs`
-      - [ ] The owner: the line's place, before/after images, the merge
+      - [x] Codex review and one fix round; code `f8b8f86c`: CI 45476332833 green, identity against main 45476340602 green (8 moments with no low moon)
+      - [ ] The owner: before/after images, the merge
       - Polish later: the moon is not flattened at the horizon; north of the 250° view the land counts as flat; town glow from population only;
         Saturn's conjunctions are not checked against a table; eclipses are listed to 2037; in the hour a clock goes back the first of the two is taken
 
