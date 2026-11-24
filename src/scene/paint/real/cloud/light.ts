@@ -43,7 +43,7 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
       let sun = 0, sky = 0, down = 0, last = 0
       for (let s = 0; s < STEPS.length; s++) {
         const step = STEPS[s] - last, reach = STEPS[s] * unit
-        sun += step * at(i + ux * reach, j + uy * reach)
+        if (direct) sun += step * at(i + ux * reach, j + uy * reach)
         sky += step * at(i, j - reach)
         if (s < TO_BASE) down += step * at(i, j + reach)
         last = STEPS[s]

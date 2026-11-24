@@ -15,15 +15,17 @@ const MODEL_SHARE = 0.34
 const RELIEF = 0.72, IN_SHADE = 0.45
 /** How far over the model's lit colour the brightest crowns stand, as light (the model's lit is a mass's mean). */
 const CROWN = 0.24
+/** How much brighter yet the heads that face the light stand out of a mass already lit, against its crowns. */
+const CROWN_TO = 1.6
 /** How far under the model's shade the deepest shade stands (its red the most: a shade is lit by the sky), from which place. */
 const UNDER = 0.26, UNDER_FROM = 0.5
 /** How far a hole's far wall stands toward the lit colour, and its near edge's underside toward the shade. */
 const WALL = 0.45, EDGE = 0.2
 /** How far a low sun's light goes through a cloud, and how much warmer than its body its lit colour then is. */
-const LOW = 0.5, WARM = [0.08, 0.3] as const
+const LOW = 0.35, WARM = [0.08, 0.3] as const
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
-const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.46
+const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.34
 const FAR_CROWNS = 0.45
 /** Steps of the model's ramp from lit to shade, and the place past its end a shade may stand at. */
 const RAMP = 255, FULL = 1.1
@@ -67,7 +69,7 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
     const far = tone * (1 - FAR_CROWNS * own), there = far + near * own * (MODEL_SHARE * tone + p.shade + heads - far + EDGE * p.flat - WALL * p.wall)
     const place = there < 0 ? 0 : there > FULL ? FULL : there
     const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * near * Math.max(0, place - UNDER_FROM)
-    const crown = 1 + over * clamp((0.4 - place) * 2.4) * (0.35 + 0.65 * light) * near * own
+    const crown = 1 + over * CROWN_TO * clamp(((0.4 - there) * 2.4) / CROWN_TO) * (0.35 + 0.65 * light) * near * own
     out[0] = Math.min(1, ramp[n] * (1 - under) * crown)
     out[1] = Math.min(1, ramp[n + 1] * (1 - 0.85 * under) * crown)
     out[2] = Math.min(1, ramp[n + 2] * (1 - 0.65 * under) * crown)

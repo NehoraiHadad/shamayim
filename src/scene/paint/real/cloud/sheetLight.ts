@@ -18,8 +18,8 @@ function halved(full: Float32Array, w: number, h: number, hw: number, hh: number
   return half
 }
 
-/** The part of the model's mean tone a mass's own light keeps as its mean shade. */
-const KEPT = 0.32
+/** The mean shade of a mass's own light: the palest one's, and what it keeps of the model's mean tone. */
+const PALEST = 0.07, KEPT = 0.24
 
 /** The mean shade the model's tone leaves to the light. */
 function meanShade({ tone, thick }: SheetField): number {
@@ -28,12 +28,12 @@ function meanShade({ tone, thick }: SheetField): number {
     sum += tone[p] * thick[p]
     mass += thick[p]
   }
-  return mass ? (KEPT * sum) / mass : 0
+  return mass ? PALEST + (KEPT * sum) / mass : 0
 }
 
 /** Writes the light on a sheet's pixel into a point. Worked out at half the raster's size. `from`: the light's place, raster px. */
 export function sheetLight(field: SheetField, from: { x: number; y: number }, beam: number) {
-  const { w, h } = field, hw = Math.ceil(w / 2), hh = Math.ceil(h / 2)
+  const { w, h } = field, hw = Math.max(2, Math.ceil(w / 2)), hh = Math.max(2, Math.ceil(h / 2))
   const thick = halved(field.thick, w, h, hw, hh), scale = Float32Array.from({ length: hh }, (_, j) => field.scale[Math.min(h - 1, 2 * j)])
   const { light, shade } = cloudLight({ w: hw, h: hh, k: RASTER / 2, thick, scale }, { x: from.x / 2, y: from.y / 2 }, beam, meanShade(field))
   const relief = reliefOf(field, thick, hw, hh, from)

@@ -18,7 +18,7 @@ const FOOT = 12, STEP = 1.6
 /** How far over its far rim a hole shows its wall, px overhead (the eye looks up at a slant, into the hole), its cover. */
 const WALL = 11, WALL_COVER = 0.8
 /** A sheet with up to this share of open sky is a deck with holes; from that one on, heaps with sides of their own. */
-const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.05
+const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.1
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
 const LEAST = 0.012, COMBED = 1.6
 
@@ -38,7 +38,7 @@ export interface SheetField {
 export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const { xs, ys } = desc, width = xs[xs.length - 1] - xs[0], span = ys[ys.length - 1] - ys[0]
   const open = deckOpenness(desc), veiled = desc.lattice === 'high', make = makeOf(desc, open)
-  const clear = desc.alpha.filter((a) => a < CLEAR).length / desc.alpha.length
+  const clear = desc.alpha.reduce((sum, a) => sum + 1 - smoothstep(0, CLEAR, a), 0) / desc.alpha.length
   const holed = open * (1 - smoothstep(DECK_UP_TO, HEAPS_FROM, clear))
   const { buf, cols, rows, scale } = softCover(desc, make.soft)
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, grid = () => new Float32Array(w * h)
