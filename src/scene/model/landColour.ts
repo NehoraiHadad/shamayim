@@ -4,7 +4,7 @@ import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, PALETTE_COLS, type PlaneName } from './faceProjection'
-import { COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
+import { COVER_WATER, dryPartsAtKm, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
 import { linearLuminance, linearRgbToSrgb, srgbRgbToLinear } from './landRadiance'
 import { planeGeomOf } from './planeGeometry'
 import { labOf, rgbOfLab } from './tone'
@@ -19,7 +19,7 @@ export type { PlaneName } from './faceProjection'
 
 export interface PlaneSurfaceSpec {
   palette: PlanePalette
-  /** The face's area mean (linear): its cells cover equal parts of the picture. */
+  /** The dry ground's mean reflectance (linear) over the part of the picture the face shows; main's median where it shows none. */
   mean: RGB
 }
 
@@ -32,8 +32,29 @@ const SPEC: Record<PlaneName, { rows: number; maxColours: number }> = {
 const medianByLum = (tones: readonly RGB[]) =>
   [...tones].sort((a, b) => linearLuminance(srgbRgbToLinear(a)) - linearLuminance(srgbRgbToLinear(b)))[Math.floor(tones.length / 2)]
 
-const meanAlbedo = (tones: readonly RGB[]): RGB => linearRgbToSrgb([0, 1, 2].map((k) =>
-  tones.reduce((sum, rgb) => sum + srgbRgbToLinear(rgb)[k], 0) / tones.length) as [number, number, number])
+interface Weighted { albedo: RGB; weight: number }
+const isNumber = (albedo: RGB) => albedo.every(Number.isFinite)
+
+/** Null where nothing has any weight. */
+function meanAlbedo(parts: readonly Weighted[]): RGB | null {
+  const sum: [number, number, number] = [0, 0, 0]
+  let total = 0
+  for (const { albedo, weight } of parts) {
+    const rho = srgbRgbToLinear(albedo)
+    total += weight
+    for (let k = 0; k < 3; k++) sum[k] += rho[k] * weight
+  }
+  return total > 0 ? linearRgbToSrgb([sum[0] / total, sum[1] / total, sum[2] / total]) : null
+}
+
+/** A node's part of its row or column, by the trapezoid rule: the painter interpolates between nodes, so an end one has half. */
+const nodePart = (i: number, count: number) => (count > 1 && (i === 0 || i === count - 1) ? 0.5 : 1)
+
+/** The depth (px) of each column of a face that no nearer land covers. */
+function shownDepths({ terrain }: WorldState, name: PlaneName, xs: number[], crests: number[], feet: number[]): number[] {
+  const nearer = [name !== 'near' && terrain.near, name === 'back' && terrain.far].filter((p) => p && p.points.length > 1) as Plane[]
+  return xs.map((x, c) => Math.max(0, Math.min(feet[c], ...nearer.map((p) => lineAt(p.points, x))) - crests[c]))
+}
 
 const planeCache = new WeakMap<LivingLand, Map<string, PlaneSurfaceSpec>>()
 const ownAlbedoCache = new WeakMap<LivingLand, RGB>()
@@ -57,14 +78,20 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const xs = Array.from({ length: cols }, (_, c) => (cols > 1 ? c / (cols - 1) : 0.5) * SCENE_W)
   const crests = xs.map((x) => lineAt(plane.points, x))
   const feet = xs.map((x, c) => localFootY(world, name, x, crests[c], landHeight))
+  const depths = shownDepths(world, name, xs, crests, feet), dry: Weighted[] = []
   for (let r = 0; r < rows; r++) {
     const rowFrac = rows > 1 ? r / (rows - 1) : 0
     for (let c = 0; c < cols; c++) {
       const frac = cols > 1 ? c / (cols - 1) : 0.5, x = xs[c]
       const shown = name !== 'far' || (world.terrain.sightAt ? world.terrain.sightAt(x).farShows : true)
       const targetY = crests[c] + rowFrac * Math.max(0, feet[c] - crests[c])
-      const hit = sampleBandAtKm(world.land, frac * nRays, faceAtY(world, name, plane, x, crests[c], feet[c], targetY).km)
-      if (shown) sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
+      const { km } = faceAtY(world, name, plane, x, crests[c], feet[c], targetY)
+      const hit = sampleBandAtKm(world.land, frac * nRays, km)
+      if (shown) {
+        sources.set(hit.source, (sources.get(hit.source) ?? 0) + 1)
+        const area = depths[c] * nodePart(c, cols) * nodePart(r, rows)
+        for (const { albedo, share } of dryPartsAtKm(world.land, frac * nRays, km)) dry.push({ albedo, weight: area * share })
+      }
       visible.push(shown)
       rawAlbedos.push(hit.albedo)
       raw.push(labOf(hit.albedo))
@@ -88,7 +115,8 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const { palette, indices } = quantiseTones(smoothed, maxColours)
   const fallbackSrc = nonWaterLocalFallback(world.land).source
   const shownAlbedos = rawAlbedos.filter((_, i) => visible[i])
-  const mean = roundRgb(meanAlbedo(shownAlbedos.length ? shownAlbedos : rawAlbedos))
+  const median = () => medianByLum((shownAlbedos.length ? shownAlbedos : rawAlbedos).filter(isNumber))
+  const mean = roundRgb(meanAlbedo(dry.filter((p) => isNumber(p.albedo))) ?? median() ?? nonWaterLocalFallback(world.land).albedo)
   const spec: PlaneSurfaceSpec = {
     palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
     mean,

@@ -125,12 +125,25 @@ function nearAt(land: LivingLand, idx: number, distM: number) {
   return { ground, share: clamp((RAYS_FROM_M - distM) / 500, 0, 0.55), mix: lerpRgb }
 }
 
+/** A palette position and a distance as the ray and the metres they are sampled at. */
+const placeOf = (land: LivingLand, rayIdx: number, km: number) =>
+  ({ idx: clamp(Math.round(rayIdx), 0, Math.max(0, land.rays.length - 1)), distM: Math.max(50, km * 1000) })
+
 /** Light-free land albedo & provenance on a ray at distance `km`: the near ground, then the rays'. */
 export function sampleBandAtKm(land: LivingLand, rayIdx: number, km: number): Toned {
-  const idx = clamp(Math.round(rayIdx), 0, Math.max(0, land.rays.length - 1))
-  const distM = Math.max(50, km * 1000), { ground, share, mix } = nearAt(land, idx, distM)
+  const { idx, distM } = placeOf(land, rayIdx, km), { ground, share, mix } = nearAt(land, idx, distM)
   if (ground && share === 1) return ground
   const ray = rayBandAt(land, idx, distM)
   // The label is the larger part's; at the even point it is the rays'.
   return ground && share > 0 ? { albedo: mix(ray.albedo, ground.albedo, share), source: share > 0.5 ? ground.source : ray.source } : ray
+}
+
+/** The dry ground in that colour and its share of it, part by part: what stands in for open water is no part. */
+export function dryPartsAtKm(land: LivingLand, rayIdx: number, km: number): { albedo: RGB; share: number }[] {
+  const { idx, distM } = placeOf(land, rayIdx, km), { ground, share } = nearAt(land, idx, distM)
+  const parts = ground && share > 0 ? [{ albedo: ground.albedo, share }] : []
+  const bands = share < 1 ? land.rays[idx]?.bands ?? [] : []
+  if (!bands.length) return parts
+  const { a, b, t } = bracketAt(bands, distM), dry = (1 - t) * Number(isDry(a)) + t * Number(isDry(b))
+  return dry > 0 ? [...parts, { albedo: rayBandAt(land, idx, distM).albedo, share: (1 - share) * dry }] : parts
 }

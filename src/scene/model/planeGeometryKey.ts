@@ -20,7 +20,9 @@ export function planeGeometryKey(terrain: TerrainPlanes, name: PlaneName, plane:
     for (let i = 0; i < array.length; i++) number(array[i])
   }
 
-  if (name !== 'back') {
+  // The far land covers the back's foot: the part of it that shows is the part its one tone is of.
+  if (name === 'back') path(terrain.far?.points ?? [])
+  else {
     const columns = terrain.faces[name]?.columns ?? []
     number(columns.length)
     for (const col of columns) {
