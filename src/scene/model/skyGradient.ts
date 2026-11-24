@@ -29,9 +29,10 @@ const BAND_H = 44
 
 /**
  * The haze band at the horizon (`air.horizonBand`): the air seen through its whole depth, lighter and paler just over
- * the far land, stronger as the visibility falls; by night it keeps only the sky's own horizon tone, faint.
+ * the far land, stronger as the visibility falls; by night it keeps only the sky's own horizon tone, faint. `below`: px of
+ * sky seen under eye level.
  */
-export function horizonBand(world: WorldState, box: SceneBox, colours = skyColours(world)): Band | null {
+export function horizonBand(world: WorldState, box: SceneBox, colours = skyColours(world), below = 0): Band | null {
   const { horizonBand: given } = world.air
   const dark = world.night.dark
   const alpha = given.alpha * (1 - 0.6 * dark)
@@ -39,5 +40,5 @@ export function horizonBand(world: WorldState, box: SceneBox, colours = skyColou
   const white = 0.12 * (1 - dark)
   const base = mixRgb(hazeOf(world), WHITE, white)
   const rgb = colours.bandWeight ? mixRgb(base, mixLight(colours.horizon, WHITE, white), colours.bandWeight) : base
-  return { y: box.landTop + world.relief.horizonY, h: BAND_H, rgb, alpha }
+  return { y: box.landTop + world.relief.horizonY, h: BAND_H, rgb, alpha, ...(below > 0 && { below }) }
 }

@@ -21,7 +21,7 @@ const WALL = 11, WALL_COVER = 0.8
 /** A sheet with up to this share of open sky is a deck with holes; from that one on, heaps with sides of their own. */
 const DECK_UP_TO = 0.35, HEAPS_FROM = 0.65, CLEAR = 0.1
 /** How calm the inside of a deck with holes is everywhere. */
-const CALM = 0.5
+const CALM = 0.36
 /** The cover under which nothing is drawn; how far a veil's wisps part. */
 const LEAST = 0.012, COMBED = 1.6
 /** From this cover on no fine edge shows. */

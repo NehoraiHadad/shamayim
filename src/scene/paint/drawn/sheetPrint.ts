@@ -1,10 +1,11 @@
 import { hashId } from '../../../data/landmarks/hash'
 import { rowValues } from '../../model/rowValues'
 import type { LayerOf, RGB } from '../../model/types'
+import { carryDown, rowsBelow } from '../shared/cloud/belowEye'
 import { css, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { capTop, paintCap, traceCap, traceTop } from './cloudCaps'
 import { capInks, printed } from './cloudInks'
-import { traceOver } from './kit/contour'
+import { traceOver, type Frame, type Grid } from './kit/contour'
 import { sheetCaps } from './sheetCaps'
 import { cutOf, nearAt, type Cut, type Eased } from './sheetEdge'
 import { fieldAt, type SheetField } from './sheetField'
@@ -32,13 +33,14 @@ const OUTER = 1.4
 const STEPS = 12
 
 export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv): void {
-  const { f } = read, frame = { x: f.x0, y: f.y0, w: f.width, h: f.height }, seed = hashId(desc.id)
+  const { f } = read, seed = hashId(desc.id)
   const cut = cutOf(read, seed)
   if (!cut.edge.at.some((v) => v > 0)) return
   const light = sheetLight(desc, read), { t } = light, caps = sheetCaps(desc, read, cut, seed), tops = caps.map(capTop), key = new Path2D()
   const air = desc.through ? rowValues(desc.ys, desc.through, 1) : () => 1
   const opaque: Opaque = (gx, gy) => air(f.y0 + (gy / (f.rows - 1)) * f.height) * (THIN + (THICK - THIN) * Math.min(1, fieldAt(read.alpha, f.cols, f.rows, gx, gy)))
-  traceOver(key, cut.edge, 0, frame)
+  const { grid, frame } = outline(f, cut.edge, desc.below)
+  traceOver(key, grid, 0, frame)
   const block = new Path2D(key)
   caps.forEach((cap, i) => {
     if (cut.inside(cap.x, cap.y) > OUTER * cap.r) return
@@ -49,9 +51,9 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
   ctx.strokeStyle = keyOf(ctx, f, (near, y) => css(t.key, THICK * air(y) * STRONG * t.line * (FAR + (1 - FAR) * near)))
   ctx.lineWidth = LINE
   ctx.stroke(key)
-  const wash = blockOf(read, cut, light, opaque, env), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')
+  const wash = blockOf(read, cut, light, opaque, env, desc.below), ink = ctx.createPattern(wash as CanvasImageSource, 'no-repeat')
   if (ink) {
-    const a = f.width / (wash.width - 1), d = f.height / (wash.height - 1)
+    const a = f.width / (wash.width - 1), d = f.height / (washRows(f) - 1)
     ink.setTransform({ a, d, e: f.x0 - 0.5 * a, f: f.y0 - 0.5 * d })
     ctx.fillStyle = ink
     ctx.fill(block)
@@ -65,6 +67,18 @@ export function printSheet(ctx: Ctx2D, desc: Sheet, read: Eased, env: PaintEnv):
   ctx.restore()
 }
 
+/** The cut's grid and where it lies, gone on `below` px under eye level as it is there. */
+function outline(f: SheetField, edge: Grid, below?: number): { grid: Grid; frame: Frame } {
+  const { cols, rows } = edge, more = rowsBelow(below, f.height, rows), frame = { x: f.x0, y: f.y0, w: f.width, h: f.height + (more * f.height) / (rows - 1) }
+  if (!more) return { grid: edge, frame }
+  const at = new Float32Array(cols * (rows + more))
+  at.set(edge.at)
+  carryDown(at, cols, rows, more)
+  return { grid: { cols, rows: rows + more, at }, frame }
+}
+
+const washRows = (f: SheetField) => Math.ceil(f.height / WASH) + 1
+
 /** The key line's ink down the sky. */
 function keyOf(ctx: Ctx2D, f: SheetField, ink: (near: number, y: number) => string) {
   const down = ctx.createLinearGradient(0, f.y0, 0, f.y0 + f.height)
@@ -72,9 +86,10 @@ function keyOf(ctx: Ctx2D, f: SheetField, ink: (near: number, y: number) => stri
   return down
 }
 
-/** The block's one printing of ink, as opaque as it lies at each place, as far out as its caps may reach. */
-function blockOf({ f }: Eased, { inside, sideAt }: Cut, { at, under, t }: SheetLight, opaque: Opaque, env: PaintEnv) {
-  const cols = Math.ceil(f.width / WASH) + 1, rows = Math.ceil(f.height / WASH) + 1, { canvas, ctx } = env.canvas(cols, rows), image = ctx.createImageData(cols, rows)
+/** The block's one printing of ink, as opaque as it lies at each place, as far out as its caps may reach, and `below` px on. */
+function blockOf({ f }: Eased, { inside, sideAt }: Cut, { at, under, t }: SheetLight, opaque: Opaque, env: PaintEnv, below?: number) {
+  const cols = Math.ceil(f.width / WASH) + 1, rows = washRows(f), more = rowsBelow(below, f.height, rows)
+  const { canvas, ctx } = env.canvas(cols, rows + more), image = ctx.createImageData(cols, rows + more)
   for (let j = 0; j < rows; j++) {
     const v = j / (rows - 1), gy = v * (f.rows - 1), y = f.y0 + v * f.height
     for (let i = 0; i < cols; i++) {
@@ -85,6 +100,7 @@ function blockOf({ f }: Eased, { inside, sideAt }: Cut, { at, under, t }: SheetL
       image.data[n + 3] = Math.round(255 * opaque(gx, gy))
     }
   }
+  carryDown(image.data, cols * 4, rows, more)
   ctx.putImageData(image, 0, 0)
   return canvas
 }

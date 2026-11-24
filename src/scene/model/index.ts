@@ -15,6 +15,7 @@ import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
 import { carriedCells, carriedSheet, minuteStart } from './advect'
+import { skyBelowEye } from './crest'
 import { cloudLayersForSky } from './cloudLayers'
 import { flashLayersOf } from './flash'
 import { shimmerLayerOf } from './shimmer'
@@ -123,8 +124,8 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const geom = skyGeom(world, box)
   const field = starsLayer(world, box, geom)
   const cloudLayers = cloudLayersForSky(world, box, geom)
-  const from = minuteStart(life)
-  const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from) : carriedCells(layer, from)))
+  const from = minuteStart(life), below = skyBelowEye(world, box, geom)
+  const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from, below) : carriedCells(layer, from)))
   const shimmer = shimmerLayerOf(world, box, geom)
   // C10: the brightest stars twinkle on their own strips; the planets stay steady; the Milky Way, the meteors, the birds,
   // the aircraft and their contrails, the rainbow and the halo, all from the world's life, night sky and optics.

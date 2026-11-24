@@ -1291,7 +1291,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             folded windows on bodies of unresolved storeys (`paint/real/town/`). Codex review: 8 findings, reflections fixed. Written down, not
             chased: a lit pane's bloom pops with the pane; `shine.windows` keyed in 1/64 (a ramp of the strip's poses); the shrine's
             floodlight blooms as a window; glows squeeze at the layer's edge. Day half waits for the label slice
-      - [~] C and part of D, cloud bodies (`claude/real-sky`): one cloud hand for sheets and towers (`paint/real/cloud/`: noise, grain, light
+      - [x] C and part of D, cloud bodies (`claude/real-sky`, main cbd769cc): one cloud hand for sheets and towers (`paint/real/cloud/`: noise, grain, light
             marched to sun, sky and base, tone, soft cover); the horizon strip stays the far deck's mean (land-light's 2 % gate).
             Gates re-measured with a reason: Tiberias 12:00 and 16:30, Jerusalem 16:30 (`landLighting.mjs`), high-pass room 1.36 (`buildingLight.mjs`).
             Codex reviews: 7 findings, 5 fixed; the rest of the commits: 7, none high, 2 fixed, gate baseline kept. For the shared model: the
@@ -1300,6 +1300,9 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             enters; closed decks' and veils' tone not premultiplied; lamp bits in their keys; tower octave switch at 70 px; towers' crowns not
             capped in dust; a twilight body keeps a faint ring. Perf over main d0195813: scrub latency, animation and memory flat;
             first paint dearer (firstShown +5..37 %, 21-86 ms once; cold sky and land +19..29 %, over the +15 % cap), thunder batch sky +20..38 %: the manager's call
+      - [~] The strip under eye level (`claude/real-strip`, a live bug of both styles): what is in the sky at eye level goes on to the far
+            horizon a high place shows (`model/crest.ts` skyBelowEye, sheets, the haze band, the CSS base); a real deck's rows turn down, a
+            print's go on; nothing changes without a dip (`paint/belowEye.test.ts`). Also: sunny heaps keep more of their forms
       - [~] F, weather near the eye (`claude/real-air`): fog in uneven banks with lit tops and shaded hollows, rain streaks with depth, drops and
             flakes of many sizes on a tile twice as wide (`paint/real/air/`, `model/fallTile.ts`, `styleLight.fallTile`). Dropped: dust, smoke (no gain
             at phone size). No baseline moved. Codex review: 4 findings, 3 fixed (tile key and
