@@ -4,7 +4,6 @@ import { SCENE_H, SCENE_W } from '../../world/sceneBox'
 import { groundAt as lineAt } from '../../world/sceneLight'
 import type { Plane, RGB, WorldState } from '../../world/types'
 import { faceAtY, localFootY, PALETTE_COLS, type PlaneName } from './faceProjection'
-import { byteKey, colourKey } from './keys'
 import { COVER_WATER, nonWaterLocalFallback, quantiseTones, roundRgb, sampleBandAtKm } from './landPalette'
 import { linearLuminance, srgbRgbToLinear } from './landRadiance'
 import { planeGeomOf } from './planeGeometry'
@@ -18,11 +17,7 @@ import type { PlanePalette } from './types'
 export { quantiseTones } from './landPalette'
 export type { PlaneName } from './faceProjection'
 
-export interface PlaneSurfaceSpec {
-  palette: PlanePalette; median: RGB
-  /** The colours themselves: the near ground's cells are read too late to be in the land's key. */
-  key: string
-}
+export interface PlaneSurfaceSpec { palette: PlanePalette; median: RGB }
 
 const SPEC: Record<PlaneName, { rows: number; maxColours: number }> = {
   near: { rows: 4, maxColours: 14 },
@@ -90,7 +85,6 @@ export function planeSurfaceOf(world: WorldState, name: PlaneName, plane: Plane,
   const spec: PlaneSurfaceSpec = {
     palette: { palette, cols, rows, cells: indices, source: dominantSource(sources, fallbackSrc) },
     median: med,
-    key: byteKey(Uint8Array.from([...[...palette, med].flatMap(colourKey), ...indices])),
   }
   if (byPlane.size > 12) byPlane.clear()
   byPlane.set(key, spec)
