@@ -1,6 +1,23 @@
+import { HOUSE_TOP_M, type OutsideBox } from '../../data/city/outsideView'
 import { STOREY_M } from '../../data/city/skylineHeight'
-import { receiverId } from './buildingMaterial'
+import { hashId, seeded } from '../../data/landmarks/hash'
+import { roofM } from '../../world/outsideBodies'
+import type { OutsideView } from '../../world/types'
+import { COLLECTORS_TO_M, receiverId } from './buildingMaterial'
 import type { OutsideItem } from './types'
+
+/** A house or a block of the place, as it stands clear (`x` and `w`, land px). */
+export function bodyItem(box: OutsideBox, x: number, w: number, tier: number, roofs: OutsideView['roofs']): Extract<OutsideItem, { kind: 'box' }> {
+  const heightM = roofM(box), seed = box.seed ?? hashId(`${box.x.toFixed(2)}:${box.foot.toFixed(2)}`)
+  // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
+  const looks = seed + 7, r = seeded(looks)
+  const roof = heightM >= HOUSE_TOP_M ? null : roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : roofs
+  return { kind: 'box', x, w, top: box.top, foot: box.foot, tier,
+    // A block's roof is its seed's first draw, so its plaster is drawn with its looks: the tall are no paler than the low.
+    seed, receiver: receiverId(seed, false, false, roof ? seed : looks, !roof && heightM <= COLLECTORS_TO_M),
+    storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (box.heightM ?? 0) > 60, roof,
+    heater: roof === 'flat' && r() < .45 }
+}
 
 /** A full tower or spire, with glyph widths in CSS pixels. */
 export function towerItem(t: { x: number; baseY: number; w: number; h: number; heightM: number; seed: number; crown: 0 | 1 | 2;

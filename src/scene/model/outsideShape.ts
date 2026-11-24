@@ -1,18 +1,16 @@
 import { STOREY_M } from '../../data/city/skylineHeight'
 import { rowY } from '../../data/city/fabricCover'
-import { HOUSE_TOP_M } from '../../data/city/outsideView'
-import { hashId, seeded } from '../../data/landmarks/hash'
-import { outsideBodies, roofM } from '../../world/outsideBodies'
+import { outsideBodies } from '../../world/outsideBodies'
 import { SCENE_W } from '../../world/sceneBox'
 import type { OutsideView, WorldState } from '../../world/types'
 import { receiversUsed } from './buildingUsage'
-import { COLLECTORS_TO_M, receiverId } from './buildingMaterial'
+import { receiverId } from './buildingMaterial'
 import { landBehind } from './landBehind'
 import { massAt, type DrawnMass } from './markOcclusion'
 import { homeRoofline, type NeighbourBlock } from './neighbourPlacement'
 import { neighbourhood } from './outsideNeighbourhood'
 import { outsideMarks } from './outsideMarks'
-import { boundsOf, towerItem } from './outsideBody'
+import { bodyItem, boundsOf, towerItem } from './outsideBody'
 import type { Box, OutsideItem, SceneBox } from './types'
 import { townGroundKm, wallStep } from './wallDistance'
 
@@ -83,16 +81,7 @@ export function outsideShape(world: WorldState, box: SceneBox, clear: readonly B
   const own: { y: number; item: OutsideItem; km?: number }[] = []
   for (const { box: b, x, w, km } of standing.boxes) {
     mass.push(massAt(x, w, b.top, km))
-    const heightM = roofM(b)
-    const seed = b.seed ?? hashId(`${b.x.toFixed(2)}:${b.foot.toFixed(2)}`)
-    // The data's continuum: a low roof is a house (its roof by the evidence, mixed half and half), a higher one a block.
-    const looks = seed + 7, r = seeded(looks)
-    const roof = heightM >= HOUSE_TOP_M ? null : view.roofs === 'mixed' ? (r() < .5 ? 'tile' : 'flat') : view.roofs
-    own.push({ y: rowY(b), item: { kind: 'box', x, w, top: b.top, foot: b.foot, tier: tier(km, x / sx, b.foot, true),
-      // A block's roof is its seed's first draw, so its plaster is drawn with its looks: the tall are no paler than the low.
-      seed, receiver: receiverId(seed, false, false, roof ? seed : looks, !roof && heightM <= COLLECTORS_TO_M),
-      storeys: Math.max(1, Math.round((heightM - 1) / STOREY_M)), folded: (b.heightM ?? 0) > 60, roof,
-      heater: roof === 'flat' && r() < .45 } })
+    own.push({ y: rowY(b), item: bodyItem(b, x, w, tier(km, x / sx, b.foot, true), view.roofs) })
   }
   for (const { tower: t, x, w, km } of standing.towers) {
     mass.push(massAt(x, w, t.baseY - t.h, km))

@@ -57,6 +57,11 @@ it('drops from the line what the text leaves no room for, and keeps the rest who
   agree(view([block()], []), note(300, 10), [[90, 110]])
 })
 
-it('agrees at any width of the screen', () => {
-  agree(view([block()], []), note(107, 40), [[90, 106]], 2 * SCENE_W)
+it('lets the sun past only what the text takes at the width of the screen, where it keeps its own size', () => {
+  const place = view([block()], []), text = note(80, 14)
+  agree(place, text, [[94, 110]])
+  // Twice as wide, the same text ends short of the block.
+  agree(place, text, [[90, 110]], 2 * SCENE_W)
+  // Half as wide, it covers more of it: only the narrower cut stands clear.
+  agree(place, note(78, 10), [[98, 110]], SCENE_W / 2)
 })

@@ -32,6 +32,14 @@ it('leaves a block out once less than the narrowest building of it shows, beside
   }
 })
 
+it('lets a farther block show where the one that hid it is itself left out', () => {
+  const near = body(100, 9, 10), middle = body(101.3, 10.6, 9.9, .4, 99.9, 2), far = body(106.25, 4.5, 9, .3, 99.8, 3)
+  // The near one leaves 2.1 px of the middle, the middle 1.9 of the far: what is left out takes nothing.
+  expect(shown([near, middle])).toEqual([near])
+  expect(shown([middle, far])).toEqual([middle])
+  expect(shown([near, middle, far])).toEqual([near, far])
+})
+
 it('shows no less when what stands in front is narrower, lower or fewer', () => {
   const rear = body(100, 9, 14)
   const at = (w: number, h: number) => shownWidth(rear, [body(102, w, h)])
