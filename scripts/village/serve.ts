@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import type { BoundsFile } from '../../src/data/city/bounds'
-import { landCellKey } from '../../src/data/land/grid'
 import { servingGroup } from '../../src/data/village/footprintSource'
 import { readTile, type LatLon, type VillageTile } from '../../src/data/village/tile'
+import { tileKeyOf } from '../../src/data/village/where'
 
 export interface Served { own: number; none: number; missed: string[]; wrong: string[]; lent: string[] }
 
@@ -17,7 +17,7 @@ export function servedAt(points: readonly LatLon[], texts: ReadonlyMap<string, s
   const owners = new Set([...read.values()].flatMap(tile => tile.groups.flatMap(group => group.places.map(String))))
   const served: Served = { own: 0, none: 0, missed: [], wrong: [], lent: [] }
   for (const point of points) {
-    const tile = read.get(landCellKey(point[0], point[1]))
+    const tile = read.get(tileKeyOf(point))
     const group = tile ? servingGroup(tile, { lat: point[0], lon: point[1] }) : null
     if (!group) {
       if (owners.has(String(point))) served.missed.push(String(point))

@@ -1,8 +1,8 @@
-import { landCellKey } from '../../src/data/land/grid'
-import { LINK_KM, PLACE_KM } from '../../src/data/village/footprintSource'
-import { LAT_M, lonM } from '../../src/data/village/houseCode'
-import { ODBL, TILE_VERSION, type StoredGroup, type StoredTile } from '../../src/data/village/tile'
-import { MICROSOFT, OSM, type RawGroup } from './input'
+import { houseAt, LINK_KM, PLACE_KM, SAME_KM } from '../../src/data/village/footprintSource'
+import { decodeHouses, LAT_M, lonM } from '../../src/data/village/houseCode'
+import { ODBL, TILE_VERSION, type LatLon, type StoredGroup, type StoredTile } from '../../src/data/village/tile'
+import { farOf, tileKeyOf } from '../../src/data/village/where'
+import { MICROSOFT, OSM, southWest, type RawGroup } from './input'
 import { recordOf } from './record'
 
 export const SOURCE = 'Overture Maps buildings'
@@ -12,20 +12,25 @@ export const CREDITS: Record<string, string> = {
   [MICROSOFT]: 'Global ML Building Footprints, licensed by Microsoft under the Open Database License',
 }
 
-const RING = [0, 1, 2, 3, 4, 5, 6, 7].map(k => [Math.cos(k * Math.PI / 4), Math.sin(k * Math.PI / 4)])
-
-/** Every tile a place the group serves can stand in: round each house by the link distance, round each place point by its own. */
-export function tileKeysOf({ places, houses }: RawGroup): string[] {
-  const keys = new Set<string>()
-  const round = (lat: number, lon: number, km: number) => {
-    keys.add(landCellKey(lat, lon))
-    for (const [x, y] of RING) keys.add(landCellKey(lat + y * km * 1000 / LAT_M, lon + x * km * 1000 / lonM(lat)))
+/** The tiles that have ground within this far (km) of a point. */
+function keysNear(point: LatLon, km: number): string[] {
+  const [lat, lon] = point, north = km * 1000 / LAT_M, east = km * 1000 / lonM(Math.abs(lat) + north)
+  const within = (value: number, from: number) => Math.max(from / 10, Math.min((from + 1) / 10, value))
+  const keys: string[] = []
+  for (let row = Math.floor((lat - north) * 10); row <= Math.floor((lat + north) * 10); row++) {
+    for (let col = Math.floor((lon - east) * 10); col <= Math.floor((lon + east) * 10); col++) {
+      const nearest = { lat: within(lat, row), lon: within(lon, col) }
+      if (farOf(nearest, point) <= km + 1e-6) keys.push(tileKeyOf([(row + .5) / 10, (col + .5) / 10]))
+    }
   }
-  houses.forEach(([lat, lon]) => round(lat, lon, LINK_KM))
-  places.forEach(([lat, lon]) => round(lat, lon, PLACE_KM))
-  return [...keys].sort()
+  return keys
 }
 
+/** Every tile a place the group serves can stand in: round each stored house by the link distance, round each place point by its own. */
+export function tileKeysOf({ o, p, h }: StoredGroup): string[] {
+  const houses = decodeHouses(h)!.map(house => houseAt(o, house))
+  return [...new Set([...houses.flatMap(house => keysNear(house, LINK_KM)), ...p.flatMap(place => keysNear(place, PLACE_KM))])].sort()
+}
 const credited = (dataset: string) => {
   if (!CREDITS[dataset]) throw new Error(`No credit line is known for footprints of "${dataset}"`)
   return dataset
@@ -33,22 +38,24 @@ const credited = (dataset: string) => {
 
 interface Draft { groups: StoredGroup[]; datasets: Set<string> }
 
-/** The tiles, by key, as they are written. */
-export function tilesOf(groups: readonly RawGroup[], release: string, built: string): Map<string, StoredTile> {
+/** The tiles, by key, as they are written. `points`: every known place point, those with no footprints among them. */
+export function tilesOf(groups: readonly RawGroup[], release: string, built: string, points: readonly LatLon[] = []): Map<string, StoredTile> {
   const drafts = new Map<string, Draft>()
   for (const group of groups) {
     const record = recordOf(group)
-    for (const key of tileKeysOf(group)) {
+    for (const key of tileKeysOf(record)) {
       const draft = drafts.get(key) ?? { groups: [], datasets: new Set<string>() }
       drafts.set(key, draft)
       draft.groups.push(record)
       group.houses.forEach(house => draft.datasets.add(credited(house[6])))
     }
   }
+  const owned = new Set(groups.flatMap(group => group.places.map(String)))
+  const bare = points.filter(point => !owned.has(String(point))).sort(southWest).map(point => ({ point, keys: keysNear(point, SAME_KM) }))
   return new Map([...drafts].sort(([a], [b]) => a < b ? -1 : 1).map(([key, draft]) => [key, {
     v: TILE_VERSION, licence: ODBL.id, licenceUrl: ODBL.url,
     credits: Object.keys(CREDITS).filter(name => draft.datasets.has(name)).map(name => CREDITS[name]),
-    source: SOURCE, release, built,
-    groups: draft.groups.sort((a, b) => a.o[0] - b.o[0] || a.o[1] - b.o[1] || a.h.length - b.h.length),
+    source: SOURCE, release, built, bare: bare.filter(({ keys }) => keys.includes(key)).map(({ point }) => point),
+    groups: draft.groups.sort((a, b) => southWest(a.o, b.o) || (a.h < b.h ? -1 : 1)),
   }]))
 }

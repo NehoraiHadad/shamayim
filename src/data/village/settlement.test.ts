@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CORNER, storedGroup, storedTile } from '../../test/villageTile'
+import { ALONE, CORNER, STREET, storedGroup, storedTile } from '../../test/villageTile'
 import type { CityRaster } from '../city/cityRaster'
 import { COVER, LAND_STEP } from '../land/grid'
 import type { LandCover } from '../land/landData'
@@ -42,7 +42,11 @@ describe('a settlement of footprints', () => {
 
 describe('the group a place belongs to', () => {
   const far = storedGroup({ o: [CORNER[0] + .004, CORNER[1]], p: [[CORNER[0] + .005, CORNER[1]]] })
-  it('is the one with a house within the link distance', () => expect(footprints(at(90, 0))).not.toBeNull())
+  it('is the one with a house within the link distance, its place point far', () => {
+    const group = tileOf(storedGroup({ p: [[31.7, 35.1]] }))
+    expect(footprints(at(90, 0), group)).not.toBeNull()
+    expect(footprints(at(110, 0), group)).toBeNull()
+  })
   it('is none beyond it, when no place point is near', () =>
     expect(footprints(at(150, 0), tileOf(storedGroup({ p: [[31.7, 35.1]] })))).toBeNull())
   it('is the one whose place point it stands at, in an empty middle', () =>
@@ -60,6 +64,36 @@ describe('the group a place belongs to', () => {
     expect(footprints(at(20, 0), tileOf(one, other))!.spots).toHaveLength(1)
     expect(footprints(at(20, 0), tileOf(other, one))!.spots).toHaveLength(1)
   })
+})
+
+describe('a known place', () => {
+  const pointAt = (east: number, north: number): [number, number] => [at(east, north).lat, at(east, north).lon]
+  /** Four houses whose nearest one is 80 m from the point; a neighbour's group with a house 20 m from it. */
+  const own = storedGroup({ p: [pointAt(-80, 0)] })
+  const next = storedGroup({ o: pointAt(-100, 0), p: [pointAt(-600, 0)], r: [], h: encodeHouses([ALONE, { ...ALONE, x: 0, y: 0 }]) })
+  const spotsAt = (tile: ReturnType<typeof tileOf>, east: number) => footprints(at(east, 0), tile)?.spots.length ?? 0
+  it('is given its own group, though a neighbour\'s house stands nearer', () => {
+    expect(spotsAt(tileOf(own, next), -80)).toBe(4)
+    expect(spotsAt(tileOf(next, own), -80)).toBe(4)
+  })
+  it('is given none, though a neighbour\'s house stands near, when it has none', () => {
+    const tile = readTile(storedTile({ groups: [next], bare: [pointAt(-80, 0)] }))!
+    expect(spotsAt(tile, -80)).toBe(0)
+    expect(spotsAt(tile, -75)).toBe(0)
+    expect(spotsAt(tile, -65)).toBe(2)
+  })
+})
+
+describe('two groups as near as each other', () => {
+  const one = storedGroup({ r: [] }), other = storedGroup({ r: [], h: encodeHouses([...STREET, { ...ALONE, y: 60 }]) })
+  it.each([[[20, 0]], [[28, 33]]])('give the same one in either order, at %j m', ([east, north]) =>
+    expect(footprints(at(east, north), tileOf(one, other))!.spots).toEqual(footprints(at(east, north), tileOf(other, one))!.spots))
+})
+
+it('a tile on the date line serves a place across it', () => {
+  const tile = tileOf(storedGroup({ o: [-17, 179.9995], p: [[-17, 179.9]] }))
+  const found = footprints({ lat: -17, lon: -179.9997 }, tile)!
+  expect(Math.abs(found.spots[0].dx)).toBeLessThan(.2)
 })
 
 describe('a settlement of cover cells', () => {

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { footprintSettlement } from '../../src/data/village/footprintSource'
 import { LAT_M, lonM } from '../../src/data/village/houseCode'
-import { readTile, type LatLon } from '../../src/data/village/tile'
-import { faultsOf, lostPlaces, sizeFaults, TILE_LIMIT, type Counts, type Pin } from './gates'
+import { MAX_TILE_BYTES, readTile, type LatLon } from '../../src/data/village/tile'
+import { faultsOf, lostPlaces, sizeFaults, type Counts, type Pin } from './gates'
 import { MICROSOFT, OSM, type Facts, type RawGroup, type RawHouse } from './input'
 import { recordOf } from './record'
 import { verdictOf } from './rule'
 import { servedAt } from './serve'
-import { tileKeysOf, tilesOf } from './tiles'
+import { tilesOf } from './tiles'
 import { textsOf } from './write'
 
 const ORIGIN: LatLon = [31.64, 35.04]
@@ -54,6 +54,14 @@ describe('a record', () => {
   it('says OSM\'s share', () => expect(recordOf(group([...street(9), house(0, 60, MICROSOFT)])).s).toBe(.9))
 })
 
+describe('the same footprints in another order', () => {
+  const lanes = [...street(10), ...Array.from({ length: 10 }, (_, i) => house(i * 30, 40)), house(0, 300), house(60, 300), house(0, 500)]
+  it('make the same record', () => {
+    const turned = { places: [point(0, 0)], houses: [...lanes].reverse() }
+    expect(recordOf(turned)).toEqual(recordOf({ places: [point(0, 0)], houses: lanes }))
+  })
+})
+
 describe('the tiles', () => {
   it('credit only whose footprints they hold', () => {
     const credits = (houses: RawHouse[]) => [...tilesOf([group(houses)], 'r', '2026-11-24').values()][0].credits
@@ -62,9 +70,15 @@ describe('the tiles', () => {
     expect(() => credits([...street(9), house(0, 60, 'Someone')])).toThrow('Someone')
   })
   it('hold a group in every tile its places can stand in', () => {
-    const at = (lat: number, lon: number): RawGroup => ({ places: [[lat, lon]], houses: [[lat, lon, 10, 10, 0, 100, OSM]] })
-    expect(tileKeysOf(at(31.65, 35.05))).toEqual(['316_350'])
-    expect(tileKeysOf(at(31.65, 35.0995))).toEqual(['316_350', '316_351'])
+    const keys = (lat: number, lon: number, place: LatLon = [lat, lon]) =>
+      [...tilesOf([{ places: [place], houses: [[lat, lon, 10, 10, 0, 100, OSM]] }], 'r', '2026-11-24').keys()]
+    expect(keys(31.65, 35.05)).toEqual(['316_350'])
+    expect(keys(31.65, 35.0995)).toEqual(['316_350', '316_351'])
+    // A tile's corner 55 m east and 80 m north of the place point: 97 m away, between the eight winds.
+    expect(keys(31.6, 35.05, [31.7 - 80 / LAT_M, 35.1 - 55 / lonM(31.7)])).toContain('317_351')
+    // A house 60.6 m east of a tile's edge, stored on the grid 0.9 m nearer.
+    expect(keys(31.65, 35.10063948, [31.65, 35.105])).toContain('316_350')
+    expect(keys(-17, 179.9999)).toEqual(['-170_-1800', '-170_1799', '-171_-1800', '-171_1799'])
   })
   it('give each place point its own group, and none to a place that has none', () => {
     const raw = group(street(10), [point(0, 0)])
@@ -80,6 +94,13 @@ describe('the tiles', () => {
     expect(day(on('2026-11-24'), on('2026-10-01'))).toBe('2026-10-01')
     expect(day(on('2026-11-24', street(11)), on('2026-10-01'))).toBe('2026-11-24')
   })
+})
+
+it('a tile names the known places in it that have none, whatever the order they come in', () => {
+  const points: LatLon[] = [point(0, 0), point(0, 500), [31.65, 35.2], point(500, 0)]
+  const tile = (from: LatLon[]) => [...tilesOf([group(street(10))], 'r', '2026-11-24', from).values()][0]
+  expect(tile(points).bare).toEqual([point(500, 0), point(0, 500)])
+  expect(tile([...points].reverse())).toEqual(tile(points))
 })
 
 describe('the gates', () => {
@@ -101,5 +122,5 @@ describe('the gates', () => {
     expect(lostPlaces(places(0), places(3), .03)).toEqual([])
     expect(lostPlaces(places(0), places(4), .03)).toHaveLength(1)
   })
-  it('stop a tile too large', () => expect(sizeFaults(new Map([['a', TILE_LIMIT], ['b', TILE_LIMIT + 1]]))).toHaveLength(1))
+  it('stop a tile too large', () => expect(sizeFaults(new Map([['a', MAX_TILE_BYTES], ['b', MAX_TILE_BYTES + 1]]))).toHaveLength(1))
 })

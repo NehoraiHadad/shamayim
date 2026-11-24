@@ -1,4 +1,5 @@
 import type { Facts } from './input'
+import { MAX_TILE_BYTES } from '../../src/data/village/tile'
 import type { Served } from './serve'
 import { CREDITS } from './tiles'
 
@@ -15,7 +16,6 @@ export interface Counts {
 }
 export interface Pin { release: string; box: number[]; minAreaM2: number; tolerance: number; expected: Counts | null }
 
-export const TILE_LIMIT = 64 * 1024
 export const TOTAL_LIMIT = 2_000_000
 
 /** Everything wrong with a build, in words; none when it may be taken. */
@@ -46,7 +46,7 @@ export const servingFaults = ({ missed, wrong, lent }: Served): string[] =>
 
 /** Files too large to be one small fetch, or too large together. */
 export function sizeFaults(sizes: ReadonlyMap<string, number>): string[] {
-  const large = [...sizes].filter(([, bytes]) => bytes > TILE_LIMIT).map(([key, bytes]) => `${key}: ${bytes} bytes, over ${TILE_LIMIT}`)
+  const large = [...sizes].filter(([, bytes]) => bytes > MAX_TILE_BYTES).map(([key, bytes]) => `${key}: ${bytes} bytes, over ${MAX_TILE_BYTES}`)
   const total = [...sizes.values()].reduce((sum, bytes) => sum + bytes, 0)
   return total > TOTAL_LIMIT ? [...large, `all tiles: ${total} bytes, over ${TOTAL_LIMIT}`] : large
 }

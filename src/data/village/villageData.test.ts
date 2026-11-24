@@ -26,6 +26,10 @@ describe('the tile a place stands in', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
     expect(villageTileKey(ELSEWHERE, LIST)).toBeNull()
   })
+  it('is the same one on either side of the date line', () => {
+    const list = { ...LIST, cells: ['-170_-1800'] }
+    expect(villageTileKey({ lat: -16.95, lon: 180.05 }, list)).toBe(villageTileKey({ lat: -16.95, lon: -179.95 }, list))
+  })
   it.each([
     ['a missing file', answer('', 404)], ['a failing server', answer('', 503)],
     ['the app\'s page in its place', answer('<!doctype html><html></html>')],
@@ -36,6 +40,7 @@ describe('the tile a place stands in', () => {
     ['another licence', answer({ ...storedTile(), licence: 'CC0-1.0' })],
     ['no credit', answer(storedTile({ credits: [] }))],
     ['a broken group', answer(storedTile({ groups: [storedGroup({ h: 'AQ==' })] }))],
+    ['a file too large', answer(JSON.stringify(storedTile()) + ' '.repeat(64 * 1024))],
     ['no network', vi.fn(async () => { throw new TypeError('offline') }) as unknown as typeof fetch],
   ])('is none from %s', async (_, fetchImpl) => expect(await load(fetchImpl)).toBeNull())
   it('is none when the answer does not come', async () =>
