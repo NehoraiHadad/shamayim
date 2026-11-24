@@ -43,42 +43,52 @@ export function shownWidth(body: SiteBox, front: readonly SiteBox[]) {
   return shown
 }
 
-/** The bodies in front by strips of this many px: the highest roof all across each, and the highest over any of it. */
+/**
+ * The bodies in front by strips of this many px: for each nearness (the cells stand in rows, so there are few), the highest
+ * roof all across a strip and the highest over any of it, of those no farther.
+ */
 const STRIP = .5
 
 class Strips {
+  private readonly rank = new Map<number, number>()
+  private readonly ranks: number
   private readonly from: number
   private readonly across: Float64Array
-  private readonly near: Float64Array
   private readonly over: Float64Array
 
   constructor(bodies: readonly SiteBox[]) {
     let left = Infinity, right = -Infinity
-    for (const { x, w } of bodies) { left = Math.min(left, x - w / 2); right = Math.max(right, x + w / 2) }
+    for (const { x, w, near } of bodies) {
+      left = Math.min(left, x - w / 2)
+      right = Math.max(right, x + w / 2)
+      this.rank.set(near, 0)
+    }
+    const nears = [...this.rank.keys()].sort((a, b) => a - b)
+    nears.forEach((near, rank) => this.rank.set(near, rank))
+    this.ranks = nears.length
     this.from = Math.floor(left / STRIP)
-    const n = bodies.length ? Math.floor(right / STRIP) - this.from + 1 : 0
+    const n = bodies.length ? (Math.floor(right / STRIP) - this.from + 1) * this.ranks : 0
     this.across = new Float64Array(n).fill(Infinity)
-    this.near = new Float64Array(n).fill(-Infinity)
     this.over = new Float64Array(n).fill(Infinity)
   }
 
   add({ x, w, top, near }: SiteBox) {
-    const left = x - w / 2, right = x + w / 2
+    const left = x - w / 2, right = x + w / 2, rank = this.rank.get(near)!
     for (let s = Math.floor(left / STRIP); s * STRIP <= right; s++) {
-      const i = s - this.from
-      if (top < this.over[i]) this.over[i] = top
-      if (top < this.across[i] && s * STRIP >= left && (s + 1) * STRIP <= right) { this.across[i] = top; this.near[i] = near }
+      const row = (s - this.from) * this.ranks, all = s * STRIP >= left && (s + 1) * STRIP <= right
+      for (let i = row + rank; i >= row && top < this.over[i]; i--) this.over[i] = top
+      if (all) for (let i = row + rank; i >= row && top < this.across[i]; i--) this.across[i] = top
     }
   }
 
   /** Whether `LEAST_SHOWN_PX` of `body` show over them, where what they take at the least or at the most settles it. */
   shows(body: SiteBox): boolean | undefined {
-    const left = body.x - body.w / 2, right = body.x + body.w / 2
+    const left = body.x - body.w / 2, right = body.x + body.w / 2, rank = this.rank.get(body.near)!
     let least = 0, most = 0
     for (let s = Math.floor(left / STRIP); s * STRIP < right && least <= LEAST_SHOWN_PX + SLACK; s++) {
-      const i = s - this.from, px = Math.min(right, (s + 1) * STRIP) - Math.max(left, s * STRIP)
+      const i = (s - this.from) * this.ranks + rank, px = Math.min(right, (s + 1) * STRIP) - Math.max(left, s * STRIP)
       least += px * rise(body, this.over[i])
-      most += px * rise(body, this.near[i] >= body.near ? this.across[i] : body.foot)
+      most += px * rise(body, this.across[i])
     }
     return least > LEAST_SHOWN_PX + SLACK ? true : most < LEAST_SHOWN_PX - SLACK ? false : undefined
   }
