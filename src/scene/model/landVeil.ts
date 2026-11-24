@@ -6,6 +6,7 @@ import { nearGroundAlbedo } from './landColour'
 import {
   FLAT_NORMAL, linearLuminance, linearRgbToSrgb, litLandRgb, srgbRgbToLinear, unitChroma, WET_REFLECTANCE_DROP,
 } from './landRadiance'
+import { gradeSky } from './skyTone'
 import { mixLight, mixRgb, rgbOf, scaleLight } from './tone'
 
 /**
@@ -27,13 +28,19 @@ export const HAZE_SLOPE = 0.006
 
 /**
  * The air's colour a plane fades toward with distance: the sky at the horizon (night-aware, from the light's palette),
- * tinted by the air itself by day (dust tan, rain grey-blue).
+ * tinted by the air itself by day (dust tan, rain grey-blue), as the hand paints the sky: land and sky meet in it.
  */
 const hazeCache = new WeakMap<WorldState, RGB>()
 
 export function hazeOf(world: WorldState): RGB {
   const hold = hazeCache.get(world)
   if (hold) return hold
+  const rgb = gradeSky(world, airOf(world))
+  hazeCache.set(world, rgb)
+  return rgb
+}
+
+function airOf(world: WorldState): RGB {
   const { palette, afterglow } = world.light
   const { altitude, azimuth } = world.bodies.sun
   const towards = (0.5 + 0.5 * Math.cos(wrap180(azimuth - world.camera.heading) * Math.PI / 180)) ** 3
@@ -48,13 +55,11 @@ export function hazeOf(world: WorldState): RGB {
   const glowTint = unitChroma(afterglow?.rgb ?? horizon)
   // Bearing changes the warm path chromaticity at twilight. Its luminance is set by the broad sky.
   const tint = scatter.map((value, i) => value + (glowTint[i] - value) * glow)
-  const rgb = linearRgbToSrgb([
+  return linearRgbToSrgb([
     skyLin[0] * (1 - w) + ySky * tint[0] * w,
     skyLin[1] * (1 - w) + ySky * tint[1] * w,
     skyLin[2] * (1 - w) + ySky * tint[2] * w,
   ])
-  hazeCache.set(world, rgb)
-  return rgb
 }
 
 /** The illustrated palette retains the original aerial contrast floor. */
