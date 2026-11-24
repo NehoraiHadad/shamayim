@@ -14,8 +14,8 @@ import { towerField } from './towerField'
 const OPACITY = 0.97, TAU_FULL = 6
 /** Where the light stands, in the sprite's own px. */
 const AFAR = 1e4
-/** A tower this wide (px) keeps its whole contrast, one this narrow a far cloud's. */
-const NEAR = [14, 90] as const, KEEP = 0.3
+/** A tower this wide (px) keeps its whole contrast, one this narrow a far cloud's, and this much of its cover in the air. */
+const NEAR = [14, 90] as const, KEEP = 0.3, FAINT = 0.7
 /** The tone of a column's foot and of its top: the tower's own mean, darker to its base. */
 const FOOT_TONE = 0.72, TOP_TONE = 0.3
 
@@ -46,7 +46,7 @@ function paintTower(c: Ctx2D, s: CloudSprite, x: number, y: number, env: PaintEn
   }
   ctx.putImageData(image, 0, 0)
   c.save()
-  c.globalAlpha *= OPACITY * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
+  c.globalAlpha *= OPACITY * (FAINT + (1 - FAINT) * smoothstep(NEAR[0], NEAR[1], s.w)) * (1 - Math.exp(-s.tau / TAU_FULL * 3)) * Math.min(1, s.share)
   c.imageSmoothingEnabled = true
   c.imageSmoothingQuality = 'high'
   c.drawImage(canvas as CanvasImageSource, x + f.x, y + f.y, f.w / f.k, f.h / f.k)

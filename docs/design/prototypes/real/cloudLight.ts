@@ -12,7 +12,7 @@ export interface LitBody { w: number; h: number; k: number; thick: Float32Array;
 /** March steps, sky px overhead, and how many of them look for the base; the light's loss per px of full thickness; the
  *  broad loss against it and the broad light's share. */
 const STEPS = [3, 7, 13, 22, 36, 62, 110, 180] as const, TO_BASE = 60
-const LOSS_SUN = 0.05, LOSS_SKY = 0.032, BROAD = 0.2, MANY = 0.68
+const LOSS_SUN = 0.05, LOSS_SKY = 0.032, BROAD = 0.24, MANY = 0.72
 /** How far round a point its depth in the mass is taken, sky px overhead. */
 const DEEP = 26
 

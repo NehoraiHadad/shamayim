@@ -17,7 +17,7 @@ export const DECK: Make = { soft: 9, carry: 1, tile: 210, along: 1.4, puff: 0.5,
 /** How far the rim stands back from the faintest cover, so a mass keeps its mean cover. */
 const BIAS = 0.06
 /** A cloud's heads, big and small: the noise's rate, how far toward the light a slope is taken (tile widths), its part. */
-const HEADS = [[0.55, 0.1, 0.8], [1.25, 0.07, 0.3]] as const
+const HEADS = [[0.62, 0.1, 0.8], [1.35, 0.07, 0.36]] as const
 /** From this cover to this the inside is whole: no noise lets the sky through it. */
 const WHOLE = [0.6, 0.95] as const
 

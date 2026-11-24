@@ -11,9 +11,9 @@ import { toneOf } from '../../../../src/scene/paint/shared/cloud/deck'
 /** How far the model's tone, this raster's own light and the flat base place a point between lit and shade. */
 const MODEL_SHARE = 0.34, OWN_SHADE = 0.8, BASE = 0.5
 /** The share of the sun's light in the light on a point (the rest the open sky's, from above). */
-const FROM_SUN = 0.58
+const FROM_SUN = 0.68
 /** How strongly a head's side toward the light and its far side part, and what of it is left deep in the mass's shade. */
-const RELIEF = 0.62, IN_SHADE = 0.45
+const RELIEF = 0.85, IN_SHADE = 0.45
 /** How far over the model's lit colour the brightest crowns stand, as light (the model's lit is a mass's mean). */
 const CROWN = 0.24
 /** How far under the model's shade the deepest shade stands (its red the most: a shade is lit by the sky), from which place. */
@@ -34,7 +34,7 @@ export interface CloudPoint {
 
 export function cloudTone(ramp: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 'shade'>, p: CloudPoint): RGB {
   const light = FROM_SUN * p.sun + (1 - FROM_SUN) * p.sky
-  const heads = p.relief * RELIEF * p.own * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * p.sun)
+  const heads = p.relief * RELIEF * p.own ** 2 * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * p.sun)
   const shaded = MODEL_SHARE * p.tone * (0.5 + 0.5 * p.near)
     + p.near * (OWN_SHADE * (1 - light) ** 1.2 * (0.45 + 0.55 * p.deep) + BASE * p.base * (0.4 + 0.6 * p.deep) + heads - 0.2 * light)
   const there = p.tone + (shaded - p.tone) * (0.25 + 0.75 * p.own) + p.near * (EDGE * p.flat - WALL * p.wall)
