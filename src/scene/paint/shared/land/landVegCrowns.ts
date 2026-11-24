@@ -22,7 +22,7 @@ const BLACK: ReceiverInk = [[0, 0, 0]]
 const BLACK_SHADE: RGB = [0.04, 0.06, 0.04]
 
 /** Organic 3-to-4-lobe rounded crown silhouette (never a single stamped circle). */
-function traceCrownLobes(ctx: CanvasPath, cx: number, cy: number, rx: number, ry: number, phase: number, lobes: number): void {
+export function traceCrownLobes(ctx: CanvasPath, cx: number, cy: number, rx: number, ry: number, phase: number, lobes: number): void {
   const steps = lobes * 4
   for (let i = 0; i <= steps; i++) {
     const t = (i / steps) * Math.PI * 2
@@ -35,6 +35,9 @@ function traceCrownLobes(ctx: CanvasPath, cx: number, cy: number, rx: number, ry
   }
   ctx.closePath()
 }
+
+/** A crown as it stands, its body's inks and its fade, for what a style lays over it. */
+export interface Crown { cx: number; cy: number; rx: number; ry: number; r: number; phase: number; lobes: number; alpha: number; body: ReceiverInk }
 
 /** Draws one date palm in landscape scale: curved trunk + arching fronds + crown knot, weighted by distance fade `alpha`. */
 function paintPalm(
@@ -72,7 +75,8 @@ function paintPalm(
 }
 
 /** Tree and orchard crown form, back-to-front, fading with distance. */
-export function paintVegCrowns(brush: ReceiverBrush, veg: CanopyVegetation, wind?: PlantWind, time = 0, ink?: Uint8Array, shadeInk?: Uint8Array): void {
+export function paintVegCrowns(brush: ReceiverBrush, veg: CanopyVegetation, wind?: PlantWind, time = 0, ink?: Uint8Array, shadeInk?: Uint8Array,
+  dress?: (brush: ReceiverBrush, crown: Crown) => void): void {
   const { trees, treeMeta, tones } = veg
   const count = trees.length / 6
   if (!count || !tones.length) return
@@ -132,5 +136,6 @@ export function paintVegCrowns(brush: ReceiverBrush, veg: CanopyVegetation, wind
       traceCrownLobes(brush.path(), cx - rx * 0.24, cy - ry * 0.24, rx * 0.66, ry * 0.54, phase + 2.1, lobes)
       brush.fill(sideLit, 0.74 * alpha)
     }
+    dress?.(brush, { cx, cy, rx, ry, r, phase, lobes, alpha, body: bodyRgb })
   }
 }

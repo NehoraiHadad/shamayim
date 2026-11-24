@@ -11,12 +11,13 @@ import { paintBlock } from './townBlock'
 import { townBodies } from './townBlocks'
 import { paintTownGlyph } from './townGlyph'
 import { townLight } from './townLight'
+import { inkedLand, inkedSea, inkedTones } from './townTones'
 import { paintDrawnTower } from './townTower'
 
 /*
  * The place seen from outside in the drawn hand (v1b's Haifa on its hill): the model's land, sea, houses, towers, trees and
  * marks, in the model's own order and places, gathered into bodies that read (`townBlocks`), each of clear lit
- * and shaded planes. Pure: the desc and its seeds.
+ * and shaded planes in the block's inks, inside a key line. Pure: the desc and its seeds.
  */
 
 /** The paper's grain, as a share of the hand's. */
@@ -30,11 +31,11 @@ const LEAF = 0.4
 const RECEDE = 0.3, RECEDE_OVER = 16, TIERS_OWN = 0.14
 
 export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
-  const { shine: s, tiers } = desc, form = skyFormIn(desc)
+  const { shine: s } = desc, tiers = desc.tiers.map(inkedTones), form = skyFormIn(desc)
   if (!form) return
   const light = townLight(s, form), lateral = glyphLight(s), far = receding(desc.items, tiers)
-  if (desc.land) paintOutsideLand(ctx, desc.land, s)
-  if (desc.sea) paintOutsideSea(ctx, desc.sea, s, stripPhase(desc, env))
+  if (desc.land) paintOutsideLand(ctx, inkedLand(desc.land), s)
+  if (desc.sea) paintOutsideSea(ctx, inkedSea(desc.sea), s, stripPhase(desc, env))
   for (const item of desc.items) {
     if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
     else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)
@@ -44,7 +45,7 @@ export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Pai
     if (block) paintBlock(ctx, block, far(block.tier, block.foot), light, form, lamps, s.windows)
     else if (item.kind === 'tower') paintDrawnTower(ctx, item, far(item.tier, item.base), light, form, s, lamps)
     else if (item.kind === 'tree') tree(ctx, grown(item.tree), far(item.tier, item.tree.base), s, lateral, rockOf(desc, env, item.tree.seed))
-    else lamps.push(...paintTownGlyph(ctx, item.glyph, s))
+    else lamps.push(...paintTownGlyph(ctx, { ...item.glyph, tones: inkedTones(item.glyph.tones) }, s))
   }
   grain(ctx, env, 13, GRAIN * (1 - 0.4 * s.night))
   drawLamps(ctx, lamps, 1 / env.scale)

@@ -32,6 +32,15 @@ export function pigment(rgb: RGB, turn = 0, gain = GAIN): RGB {
   })
 }
 
+/** The paper, seen where the ink is thin: a warm cream (Oklab), as bright as the light lets it be; the values it comes through. */
+const PAPER = { l: 0.965, a: 0.004, b: 0.024 }, SHOWS = { from: 0.35, over: 0.45 } as const
+
+/** A light let through to the paper by `k`: brighter and creamier by day, unchanged in the dark. */
+export function papered(rgb: RGB, k: number): RGB {
+  const lab = labOf(rgb), by = k * Math.min(1, Math.max(0, (lab.l - SHOWS.from) / SHOWS.over))
+  return rgbOfLab({ l: lab.l + by * Math.max(0, PAPER.l - lab.l), a: lab.a + by * (PAPER.a - lab.a), b: lab.b + by * (PAPER.b - lab.b) })
+}
+
 /** A colour at another value (Oklab lightness), hue and chroma held. */
 export function valued(rgb: RGB, by: number): RGB {
   const lab = labOf(rgb)
