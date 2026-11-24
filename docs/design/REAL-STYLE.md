@@ -106,7 +106,7 @@ resolution with the finer surface as a kept overlay. The first phase 2 step is t
 - Buildings gain little by day; tel-aviv's fronts stay brown (model).
 - The giant column (rosh-pina), the chimney (storm) and the egg (night) are the model's shapes: better light does not cure them.
 - The storm's left mass has no sun and little of its own form; a faint sun disc reads through the tower's foot (today's too).
-- The storm's sky is darker than today's (mean L 96 against 122): against §3's tone check, to be brought back by the model's own tone. Far small
+- The storm's sky is darker than today's (mean L 95 against 122): against §3's tone check, to be brought back by the model's own tone. Far small
   towers still show a ragged edge. The cover check is not re-run on round 2, and no second model has reviewed it.
 - Settlement composition (number over the village, odd or sparse houses) is the foundations session's, track V.
 - Palms keep today's hand. Jerusalem noon, dusk, fog, dust, snow and near rain are planned, not drawn.
