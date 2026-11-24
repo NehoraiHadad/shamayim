@@ -3,10 +3,14 @@ import { DATUM_PLACES, SCENE_PLACES } from '../../test/scenePlaces'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../../test/sceneWorld'
 import { albedoAtGround } from '../../world/foregroundAlbedo'
 import { buildWorld } from '../../world/world'
+import { foregroundOf } from '../../world/landLiving'
 import type { RGB } from '../../world/types'
 import { blendForeground, prepareForeground } from '../paint/shared/land/foregroundMaterial'
 import { preparePlaneTexels, samplePlaneTexel, shadeTexelSrgb } from '../paint/shared/land/planeTexel'
 import { TEXEL } from './planeBands'
+import { projectedRange } from './foregroundMaterial'
+import { meanLab, nativeForeground } from './foregroundReference.testSupport'
+import { roundOneForeground } from './foregroundRoundOne.testSupport'
 import { planeLayer } from './planes'
 import { labOf } from './tone'
 import type { LayerOf, SceneBox } from './types'
@@ -22,16 +26,18 @@ beforeAll(async () => {
 }, 120_000)
 afterAll(() => vi.unstubAllGlobals())
 
-function band(layer: LayerOf<'plane'>, useForeground: boolean) {
+function band(layer: LayerOf<'plane'>, useForeground: boolean, nativeWorld?: ReturnType<typeof buildWorld>, visibleOnly = false) {
   const t = preparePlaneTexels(layer.outline, layer.bounds, layer.surfaceTone, layer.light.litField,
     layer.grain.seed, 0, useForeground ? layer.foreground : undefined)
+  const native = nativeWorld && nativeForeground(nativeWorld, t, BOX.landHeight)
   // The still's 48-pixel foreground band is 24 reference pixels at DPR 2.
   return Array.from({ length: 24 / TEXEL }, (_, r) => {
     const y = BOX.landHeight - (24 / TEXEL - r - 0.5) * TEXEL
     return Array.from({ length: t.wPx }, (_, c) => {
+      if (visibleOnly && y < t.crestY[c]) return undefined
       const x = layer.bounds.x + (c + 0.5) * TEXEL
-      return shadeTexelSrgb(t, samplePlaneTexel(t, c, x, y))
-    })
+      return native ? native(c, x, y) : shadeTexelSrgb(t, samplePlaneTexel(t, c, x, y))
+    }).filter((rgb): rgb is [number, number, number] | RGB => rgb !== undefined)
   })
 }
 
@@ -46,31 +52,18 @@ function correlation(a: number[], b: number[]) {
   return norm ? a.reduce((sum, x, i) => sum + x * b[i], 0) / norm : 0
 }
 
-function cieLab(rgb: RGB) {
-  const lin = rgb.map(x => x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)
-  // sRGB to CIE XYZ with the D65 reference white, then CIE 1976 Lab.
-  const xyz = [[0.4124564, 0.3575761, 0.1804375], [0.2126729, 0.7151522, 0.0721750], [0.0193339, 0.1191920, 0.9503041]]
-  const white = [0.95047, 1, 1.08883]
-  const d = 6 / 29
-  const [x, y, z] = xyz.map((row, i) => {
-    const t = row.reduce((sum, v, c) => sum + v * lin[c], 0) / white[i]
-    return t > d ** 3 ? Math.cbrt(t) : t / (3 * d ** 2) + 4 / 29
-  })
-  return [116 * y - 16, 500 * (x - y), 200 * (y - z)]
-}
-
-function meanLab(rows: RGB[][]) {
-  const values = rows.flat().map(cieLab)
-  return [0, 1, 2].map(i => values.reduce((sum, lab) => sum + lab[i], 0) / values.length)
-}
-
-it.each(IDS)('keeps the %s noon foreground continuous and preserves its mean colour', id => {
+it.each(IDS)('keeps the %s noon foreground continuous and follows the native cover mean', id => {
   const world = buildWorld(worldInput(loaded.get(id)!, NOON))
   const layer = planeLayer(world, BOX, 'near', world.terrain.near, [])!
-  const legacy = band(layer, false)
+  const roundOne = { ...layer, foreground: roundOneForeground(world, BOX.landHeight) }
   const sampled = band(layer, true)
-  const meanBefore = meanLab(legacy), meanAfter = meanLab(sampled)
-  expect(Math.hypot(...meanAfter.map((v, i) => v - meanBefore[i]))).toBeLessThanOrEqual(2)
+  const before = meanLab(band(roundOne, true, undefined, true))
+  const after = meanLab(band(layer, true, undefined, true))
+  const reference = meanLab(band(layer, false, world, true))
+  const distance = (mean: number[]) => Math.hypot(...mean.map((v, i) => v - reference[i]))
+  console.info('Foreground visible-area CIE Lab', { id, before, after, reference,
+    legacyDeltaE: distance(before), sampledDeltaE: distance(after) })
+  expect.soft(distance(after)).toBeLessThanOrEqual(1)
 
   const edges = sampled.map(edgeSteps)
   for (const row of edges) {
@@ -79,17 +72,32 @@ it.each(IDS)('keeps the %s noon foreground continuous and preserves its mean col
     expect(Math.max(...row)).toBeLessThanOrEqual(2.5 * p90)
   }
   expect(correlation(edges[0], edges.at(-1)!)).toBeLessThan(1 - Number.EPSILON)
-  if (id === 'haifa') expect(sampled).not.toEqual(legacy)
+  if (id === 'haifa') expect(sampled).not.toEqual(band(roundOne, true))
 })
 
 it.each(['far', 'back'] as const)('leaves the %s plane palette and lighting identical', name => {
   const world = buildWorld(worldInput(loaded.get('haifa')!, NOON))
-  const land = { ...world.land, foreground: undefined }
+  const land = { ...world.land }
   const plane = world.terrain[name] ?? world.terrain.far
   const actual = planeLayer(world, BOX, name, plane, [])
   expect(actual).toBeTruthy()
   expect(actual).toEqual(planeLayer({ ...world, land }, BOX, name, plane, []))
   expect(actual?.foreground).toBeUndefined()
+})
+
+it('does not read foreground cover until the near material asks for a cell', () => {
+  const input = worldInput(loaded.get('haifa')!, NOON)
+  const coverAt = vi.fn((lat: number, lon: number) => input.cover!.coverAt(lat, lon))
+  const world = buildWorld({ ...input, cover: { coverAt } })
+  const calls = coverAt.mock.calls.length
+  const raster = foregroundOf(world.land)!
+  expect(coverAt).toHaveBeenCalledTimes(calls)
+  albedoAtGround(raster, 0, 0)
+  const read = coverAt.mock.calls.length - calls
+  expect(read).toBeGreaterThan(0)
+  expect(read).toBeLessThanOrEqual(9)
+  albedoAtGround(raster, 0, 0)
+  expect(coverAt).toHaveBeenCalledTimes(calls + read)
 })
 
 it('keeps the base colour past 700 m between foreground grid samples', () => {
@@ -114,5 +122,22 @@ it('interpolates BOA reflectance at the cell-size scale and fades across water',
   // IEC sRGB encoding of 50% linear reflectance, independent of the excluded water cells.
   expect(middle.rgb[0]).toBeCloseTo(0.73536, 5)
   expect(middle.rgb).toEqual([middle.rgb[0], middle.rgb[0], middle.rgb[0]])
-  expect(albedoAtGround(raster, 25, 50)).toBeUndefined()
+  expect(albedoAtGround(raster, 25, 125)).toBeUndefined()
+})
+
+it('continues to approach the eye below the innermost DEM sample', () => {
+  const ground = [{ km: 0, height: -2 }, { km: 0.4, height: 38 }]
+  expect(projectedRange(ground, 95, 0.4)).toBeCloseTo(0.4)
+  expect(projectedRange(ground, 80, 0.4)).toBeCloseTo(0.1)
+  expect(projectedRange(ground, 60, 0.4)).toBeCloseTo(0.05)
+  expect(projectedRange(ground, 96, 0.7)).toBe(0.7)
+})
+
+it('preserves a cell-width transition across cover even at the cell centres', () => {
+  const raster = {
+    east0: 0, north0: 0, eastStep: 50, northStep: 50, cols: 4,
+    rgba: Uint8Array.from({ length: 4 * 3 * 4 }, (_, i) => i % 4 === 3 || i % 16 >= 8 ? 255 : 0),
+  }
+  expect(albedoAtGround(raster, 50, 50)!.rgb[0]).toBeGreaterThan(0)
+  expect(albedoAtGround(raster, 100, 50)!.rgb[0]).toBeLessThan(1)
 })

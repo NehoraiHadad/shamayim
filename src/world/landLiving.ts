@@ -43,7 +43,6 @@ export interface LivingLand {
   own: LivingLandSample
   /** 3×3 grid over the place's own ground (±1.5 km east/north). */
   local: LandLocalPoint[]
-  foreground?: ForegroundAlbedo
   /** How the far GIBS colour was put on the near S2 reflectance scale (`landReflectance.ts`). */
   farGain: FarGain
 }
@@ -55,6 +54,13 @@ export interface LivingLandInput {
   /** Shown UTC calendar date (`YYYY-MM-DD`); defaults to `shownDate` when omitted. */
   shownUtcDate?: string
   camera: Camera; terrain: SceneTerrain; data?: LandData | null
+}
+
+// Keep raster construction off the place-load path and out of serializable world state.
+const foregrounds = new WeakMap<LivingLand, () => ForegroundAlbedo | undefined>()
+
+export function foregroundOf(land: LivingLand): ForegroundAlbedo | undefined {
+  return foregrounds.get(land)?.()
 }
 
 /** Builds the pure, structured-cloneable living-land state for a place on `(shownDate, shownUtcDate)`. */
@@ -94,10 +100,15 @@ export function livingLandOf(input: LivingLandInput): LivingLand {
     rays.push({ x, azimuth, bands })
   }
 
-  const foreground = data.cover || data.near ? foregroundAlbedo(lat, lon, Boolean(data.cover), data.near?.stepM,
-    (ptLat, ptLon, eastM, northM) => samplePoint(
-      sampler, ptLat, ptLon, terrain.heightNear?.(eastM / 1000, northM / 1000) ?? elevationM,
-      shownDate, utcDate, month, farGain,
-    )) : undefined
-  return { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain, foreground }
+  const land = { date: shownDate, utcDate, month, distancesM: [...LIVING_LAND_DISTANCES_M], rays, own, local, farGain }
+  if (data.cover || data.near) foregrounds.set(land, () => {
+    const foreground = foregroundAlbedo(lat, lon, Boolean(data.cover), data.near?.stepM,
+      (ptLat, ptLon, eastM, northM) => eastM === 0 && northM === 0 ? own : samplePoint(
+        sampler, ptLat, ptLon, terrain.heightNear?.(eastM / 1000, northM / 1000) ?? elevationM,
+        shownDate, utcDate, month, farGain,
+      ))
+    foregrounds.set(land, () => foreground)
+    return foreground
+  })
+  return land
 }

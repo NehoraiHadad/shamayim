@@ -19,6 +19,8 @@ export interface ForegroundAlbedo {
   cols: number
   /** Three encoded BOA channels and one dry-land validity byte per cell. */
   rgba: Uint8Array
+  /** Resolve an untouched cell before reading its bytes. */
+  read?(row: number, col: number): void
 }
 
 /** Read on the native WorldCover cell centres, or at the available Sentinel-2 GSD. */
@@ -33,41 +35,47 @@ export function foregroundAlbedo(
   const northStep = hasCover ? LAND_STEP * M_PER_DEG : nearStep!
   const eastStep = hasCover ? LAND_STEP * lonM : nearStep!
   const axis = (origin: number, step: number) => {
-    const first = Math.floor((origin - FOREGROUND_M) / step - 0.5)
-    const last = Math.ceil((origin + FOREGROUND_M) / step - 0.5)
+    // Include the full support of the cell footprint filter at the 700 m boundary.
+    const first = Math.floor((origin - FOREGROUND_M) / step - 1)
+    const last = Math.ceil((origin + FOREGROUND_M) / step)
     return { start: (first + 0.5) * step - origin, count: last - first + 1 }
   }
   const east = axis(hasCover ? lon * lonM : 0, eastStep)
   const north = axis(hasCover ? lat * M_PER_DEG : 0, northStep)
   const rgba = new Uint8Array(east.count * north.count * 4)
-  const reachSq = (FOREGROUND_M + Math.hypot(eastStep, northStep)) ** 2
-  for (let r = 0; r < north.count; r++) {
+  const loaded = new Uint8Array(east.count * north.count)
+  const read = (r: number, c: number) => {
+    const cell = r * east.count + c
+    if (r >= north.count || loaded[cell]) return
+    const e = east.start + c * eastStep
     const n = north.start + r * northStep
-    for (let c = 0; c < east.count; c++) {
-      const e = east.start + c * eastStep
-      // Corner samples outside the foreground disk cannot contribute to a bilinear lookup.
-      if (e * e + n * n > reachSq) continue
-      const s = sample(lat + n / M_PER_DEG, lon + e / lonM, e, n)
-      if (s.cover === WATER) continue
-      const i = (r * east.count + c) * 4
-      for (let k = 0; k < 3; k++) rgba[i + k] = Math.round(s.albedo[k] * 255)
-      rgba[i + 3] = 255
-    }
+    const s = sample(lat + n / M_PER_DEG, lon + e / lonM, e, n)
+    loaded[cell] = 1
+    if (s.cover === WATER) return
+    const i = cell * 4
+    for (let k = 0; k < 3; k++) rgba[i + k] = Math.round(s.albedo[k] * 255)
+    rgba[i + 3] = 255
   }
-  return { east0: east.start, north0: north.start, eastStep, northStep, cols: east.count, rgba }
+  return { east0: east.start, north0: north.start, eastStep, northStep, cols: east.count, rgba, read }
 }
 
-/** Four ground cells contribute, with open-water weights omitted and renormalized. */
+/** Integrate the linear reconstruction over one native cell in each ground axis. */
 export function albedoAtGround(field: ForegroundAlbedo, eastM: number, northM: number) {
-  const { east0, north0, eastStep, northStep, cols, rgba } = field
+  const { east0, north0, eastStep, northStep, cols, rgba, read } = field
   const x = (eastM - east0) / eastStep, y = (northM - north0) / northStep
-  const c = Math.floor(x), r = Math.floor(y), u = x - c, v = y - r
-  if (c < 0 || c + 1 >= cols || r < 0 || (r + 1) * cols * 4 >= rgba.length) return undefined
+  const c = Math.round(x), r = Math.round(y), u = x - c, v = y - r
+  // Integral of a unit-width box over the linear tent basis, a quadratic B-spline.
+  const weights = (d: number) => [0.5 * (0.5 - d) ** 2, 0.75 - d * d, 0.5 * (0.5 + d) ** 2]
+  const wx = weights(u), wy = weights(v)
   let red = 0, green = 0, blue = 0, sum = 0
-  for (let dy = 0; dy <= 1; dy++) for (let dx = 0; dx <= 1; dx++) {
-    const i = ((r + dy) * cols + c + dx) * 4
+  for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
+    const row = r + dy - 1, col = c + dx - 1
+    if (row < 0 || col < 0 || col >= cols) continue
+    const w = wx[dx] * wy[dy]
+    if (!w) continue
+    read?.(row, col)
+    const i = (row * cols + col) * 4
     if (!rgba[i + 3]) continue
-    const w = (dx ? u : 1 - u) * (dy ? v : 1 - v)
     red += w * LINEAR[rgba[i]]; green += w * LINEAR[rgba[i + 1]]; blue += w * LINEAR[rgba[i + 2]]; sum += w
   }
   if (sum > 0) return { rgb: linearRgbToSrgb([red / sum, green / sum, blue / sum]), dryShare: sum }
