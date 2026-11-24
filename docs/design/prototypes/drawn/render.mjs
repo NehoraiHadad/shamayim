@@ -8,6 +8,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CLIP, launch, loadScene, openPage, root, sceneUrl, startServer } from '../../../../e2e/harness.mjs'
 import { momentName, parseMoment } from '../../../../e2e/moments.mjs'
+import { swapIn } from './swap.mjs'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const args = process.argv.slice(2)
@@ -22,23 +23,7 @@ const tree = path.resolve(option('tree', root)), dpr = Number(option('dpr', 2))
 const proto = path.join(tree, 'docs/design/prototypes/drawn')
 if (path.resolve(proto) !== path.resolve(here)) fs.cpSync(here, proto, { recursive: true })
 
-/** The registry's drawn painters, and the sky's base (painted on the canvas here, not a CSS gradient), from this folder. */
-const swap = {
-  name: 'drawn-prototype',
-  enforce: 'pre',
-  config: () => ({ server: { fs: { strict: false } } }),
-  resolveId(source, importer = '') {
-    const from = importer.split('?')[0].replaceAll('\\', '/')
-    // Packages come from this checkout: another tree has none of its own.
-    if (/^[@a-z]/i.test(source) && !path.isAbsolute(source) && tree !== root) return this.resolve(source, path.join(root, 'index.html'), { skipSelf: true })
-    if (as !== 'concept' || from.includes('/prototypes/drawn/')) return null
-    if (source === './drawn/painters') return path.join(proto, 'painters.ts')
-    if (source.endsWith('/sky/skyBackground') || source.endsWith('/sky/skyBackground.ts')) return path.join(proto, 'skyBase.ts')
-    return null
-  },
-}
-
-const server = await startServer(tree, { plugins: [swap], cacheDir: path.join(tree, '.vite-drawn') })
+const server = await startServer(tree, { plugins: [swapIn(as, tree)], cacheDir: path.join(tree, '.vite-drawn') })
 const browser = await launch()
 fs.mkdirSync(outDir, { recursive: true })
 try {

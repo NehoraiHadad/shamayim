@@ -40,3 +40,28 @@ jobs:
           name: drawn-concept-${{ matrix.as }}-${{ github.sha }}
           path: out/
           retention-days: 14
+
+  cost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [haifa, tel-aviv, shadmot-mehola, rosh-pina, haifa@thunder, jerusalem@broken]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm i --no-save playwright@1.63.0 && npx playwright install --with-deps chromium
+      - run: git apply docs/design/prototypes/drawn/foundations.patch
+      - shell: bash
+        run: node --experimental-strip-types --no-warnings docs/design/prototypes/drawn/bench.mjs ${{ matrix.case }} | tee cost.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drawn-cost-${{ matrix.case }}-${{ github.sha }}
+          path: cost.log
+          retention-days: 14
