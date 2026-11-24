@@ -18,8 +18,9 @@ export const TOPS: Layer = { size: 0.5, up: 0.42, least: -0.25 }
 
 /** Clumps by the crown's size (px), at most; a clump's size of its crown's, how far its corners break the edge. */
 const MANY = 1.5, MOST = 9, CLUMP = 0.44, BREAK = 0.24
-/** A clump's corners in a small crown and in a large one; from which size (px) it is large. */
-const CORNERS = [6, 9] as const, LARGE = 2.2
+/** From which size (px) a crown is large; a clump's corners in a small crown and in a large one. */
+export const LARGE = 2.2
+const CORNERS = [6, 9] as const
 
 /** One crown's clumps, ready to be laid a layer at a time. */
 export function foliage(brush: ReceiverBrush, { x, y, rx, ry }: CrownAt, seed: number): (ink: ReceiverInk, alpha: number, layer: Layer) => void {

@@ -3,7 +3,7 @@ import { rng } from '../shared/base/core'
 import { css, mix, type Ctx2D } from '../shared/base/hand'
 import { receiverBrush } from '../shared/land/receiverBrush'
 import { tree } from '../shared/town/marks'
-import { BODY, foliage, TOPS, UNDER } from './foliage'
+import { BODY, foliage, LARGE, TOPS, UNDER, WHOLE } from './foliage'
 
 /** The lit leaves' shift to the light's side, of a clump; their strength in the light and under an even sky. */
 const ACROSS = 0.5, LIT = 0.8, EVEN = 0.4
@@ -20,9 +20,12 @@ export function paintTree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, l: numbe
   ctx.fillRect(-w * 0.45, -0.3, w * 0.9 + 0.6, 0.6)
   ctx.fillRect(-0.3, y, 0.6, -y)
   const layer = foliage(receiverBrush(ctx), { x: 0, y, rx, ry }, seed)
-  layer([mix(t.green, t.shade, 0.4)], 0.96, UNDER)
-  layer([t.green], 0.9, BODY)
-  for (const side of [-1, 1]) layer([t.greenLit], LIT * Math.max(0, -side * l), { ...TOPS, across: side * ACROSS })
+  if (rx < LARGE) layer([t.green], 0.94, WHOLE)
+  else {
+    layer([mix(t.green, t.shade, 0.4)], 0.96, UNDER)
+    layer([t.green], 0.9, BODY)
+  }
+  if (l) layer([t.greenLit], LIT * Math.abs(l), { ...TOPS, across: -Math.sign(l) * ACROSS })
   layer([t.greenLit], EVEN * (1 - Math.abs(l)), TOPS)
   ctx.restore()
 }

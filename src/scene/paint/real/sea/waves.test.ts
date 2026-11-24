@@ -9,10 +9,10 @@ const ripples: Streak[] = Array.from({ length: 60 }, (_, i) => ({ x: 10 + i * 37
 /** Every wave's box, as traced. */
 function laid(on: Water, streaks = ripples, strength = 5) {
   const boxes: { x: number; y: number; w: number }[] = [], alphas: number[] = []
-  let at = [0, 0]
+  let at: number[] = []
   const ctx = {
     beginPath() {}, moveTo: (x: number, y: number) => { at = [x, y] },
-    quadraticCurveTo: (_cx: number, _cy: number, x: number) => { if (x > at[0]) boxes.push({ x: at[0], y: at[1], w: x - at[0] }) },
+    lineTo: (x: number, y: number) => { if (y === at[1]) boxes.push({ x: at[0], y, w: x - at[0] }) },
     fill() { alphas.push(Number(/([\d.]+)\)$/.exec(this.fillStyle)?.[1])) }, fillStyle: '',
   }
   layWaves(ctx as unknown as Ctx2D, on, streaks, [1, 1, 1], [[0, 0, 0], 1], 0.5, strength)

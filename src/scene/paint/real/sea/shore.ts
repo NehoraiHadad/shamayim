@@ -59,10 +59,7 @@ export function layShore(ctx: Ctx2D, s: SeaDesc, shine: Shine): void {
       const u = r(), v = r(), w = (0.9 + 2.6 * p.near) * (0.5 + v)
       if (u > share * (0.75 + 0.35 * Math.sin(p.x * 0.17 + p.y * 0.23 + off))) continue
       const out = off * p.near + (v - 0.4) * 0.9 * p.near
-      ctx.save()
-      ctx.transform(p.tx, p.ty, -p.ty, p.tx, p.x + p.nx * out, p.y + p.ny * out)
-      crest(ctx, -w / 2, 0, w, 0.4 + 0.75 * p.near * (0.5 + u))
-      ctx.restore()
+      crest(ctx, p.x + p.nx * out - p.tx * w / 2, p.y + p.ny * out - p.ty * w / 2, w, 0.4 + 0.75 * p.near * (0.5 + u), p.tx, p.ty)
     }
     ctx.fill()
   }

@@ -39,14 +39,17 @@ export function paintRealSea(ctx: Ctx2D, s: SeaDesc, shine: Shine, t: number, ha
   layShore(ctx, s, shine)
 }
 
-/** Draws `paint` everywhere but on the water: no grain of the town's on the sea. */
+/** Draws `paint` everywhere but on the water: no grain of the town's on the sea. Two parts, so only the sea's rows pay for its edge. */
 export function offSea(ctx: Ctx2D, sea: SeaDesc | null | undefined, box: { x: number; y: number; w: number; h: number }, paint: () => void): void {
-  ctx.save()
-  if (sea) {
-    outline(ctx, sea.points)
-    ctx.rect(box.x - 9, box.y - 9, box.w + 18, box.h + 18)
+  if (!sea) return paint()
+  const x = box.x - 9, y = box.y - 9, w = box.w + 18, row = Math.max(y, Math.floor(sea.top))
+  for (const [from, to, edge] of [[y, row, false], [row, box.y + box.h + 9, true]] as const) {
+    ctx.save()
+    if (edge) outline(ctx, sea.points)
+    else ctx.beginPath()
+    ctx.rect(x, from, w, to - from)
     ctx.clip('evenodd')
+    paint()
+    ctx.restore()
   }
-  paint()
-  ctx.restore()
 }

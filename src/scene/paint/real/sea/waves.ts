@@ -17,6 +17,8 @@ const HIGH = [0.45, 1.4] as const, STEEP = 0.16, BREAK = 0.3, PIECE = 0.82
 const TRAIN = [0, -1, 1], APART = [0.9, 4.2] as const, ASKEW = 0.42
 /** How far a slick takes a stroke's strength down. */
 const SLICK = 0.7
+/** No wave fainter is laid. */
+const FAINT = 0.04
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const depthAt = ({ top, bottom }: Water, y: number) => Math.min(1, Math.max(0, (y - top) / Math.max(1, bottom - top)))
@@ -27,17 +29,19 @@ function gust(x: number, y: number): number {
   return 1 - SLICK * Math.min(1, Math.max(0, 0.5 - 0.5 * v))
 }
 
-/** A low crest: pointed at its ends, its top rounder than its foot. */
-export function crest(ctx: Ctx2D, x: number, y: number, w: number, h: number): void {
+/** A low crest's form, of its length and height: pointed at its ends, its top rounder than its foot. */
+const CREST = [[0.28, -0.42], [0.58, -0.46], [1, 0], [0.5, 0.25]] as const
+
+/** A low crest from its left end, along (tx, ty). */
+export function crest(ctx: Ctx2D, x: number, y: number, w: number, h: number, tx = 1, ty = 0): void {
   ctx.moveTo(x, y)
-  ctx.quadraticCurveTo(x + w * 0.45, y - h, x + w, y)
-  ctx.quadraticCurveTo(x + w * 0.5, y + h * 0.5, x, y)
+  for (const [u, v] of CREST) ctx.lineTo(x + u * w * tx - v * h * ty, y + u * w * ty + v * h * tx)
 }
 
-const wave = (water: Water, by: number): Trace => (ctx, s, hair, i) => {
+const wave = (water: Water, by: number, train: readonly number[]): Trace => (ctx, s, hair, i) => {
   const d = depthAt(water, s.y), long = s.w * lerp(water.long[0], water.long[1], Math.sqrt(d)), odd = Math.sin(i * 2.4)
   const pieces = d < BREAK ? 1 : 2 + i % 2
-  for (const row of TRAIN) {
+  for (const row of train) {
     const w = long * (1 - 0.3 * Math.abs(row)), step = w / pieces, h = Math.max(hair, Math.min(lerp(HIGH[0], HIGH[1], d), step * STEEP))
     const x = s.x + (s.w - w) / 2 + row * ASKEW * odd * w, y = s.y + row * (0.8 + 0.3 * odd) * lerp(APART[0], APART[1], d) + by * h
     if (y < water.top || water.clear?.some((b) => x < b.x + b.w && x + w > b.x && y - 2 * h < b.y + b.h && y + 2 * h > b.y)) continue
@@ -50,9 +54,12 @@ const wave = (water: Water, by: number): Trace => (ctx, s, hair, i) => {
 
 /** Waves of one face; `other` is the face beneath it (its ink and its share of the strength). */
 export function layWaves(ctx: Ctx2D, water: Water, streaks: readonly Streak[], face: RGB, other: readonly [RGB, number], hair: number, strength: number): void {
-  const at = (share: number) => streaks.map((s) => ({ ...s, alpha: Math.min(0.75, s.alpha * strength * share * gust(s.x, s.y)) }))
-  paintStreaks(ctx, at(other[1]), other[0], hair, wave(water, 0.8))
-  paintStreaks(ctx, at(1), face, hair, wave(water, 0))
+  const at = (share: number) => streaks.map((s) => {
+    const alpha = Math.min(0.75, s.alpha * strength * share * gust(s.x, s.y))
+    return { ...s, alpha: alpha > FAINT ? alpha : 0 }
+  })
+  paintStreaks(ctx, at(other[1]), other[0], hair, wave(water, 0.8, [0]))
+  paintStreaks(ctx, at(1), face, hair, wave(water, 0, TRAIN))
 }
 
 /** The light's sparks, as crests. */
