@@ -111,3 +111,10 @@ resolution with the finer surface as a kept overlay. The first phase 2 step is t
 - Settlement composition (number over the village, odd or sparse houses) is the foundations session's, track V.
 - Palms keep today's hand. Jerusalem noon, dusk, fog, dust, snow and near rain are planned, not drawn.
 - The plane and the sheet cost more than today (§4).
+
+Manager's review of round 2 (stills 64dc3313), for the next round, after the owner's verdict:
+- keep: the land's relief, the night glow, the rosh-pina column's light, one hand in the storm's tower;
+- storm: the left deck is a flat dark matte with smudged highlights; it needs inner volume at today's mean brightness (§3);
+- tel-aviv and haifa: the fronts lost window texture against today; no painter may draw less detail than today's;
+- jerusalem: the dark over the hole reads as a separate object, not as the deck's near edge;
+- far towers: the ragged edge.
