@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NEAR_DROP, outsideProject } from '../data/city/outsideView'
 import type { LocalTime } from '../domain/types'
-import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES } from '../test/scenePlaces'
+import { DATUM_PLACES, SCENE_PLACES, SKYLINE_STUDY_PLACES, VILLAGE_PLACES } from '../test/scenePlaces'
+import { groundFn } from '../data/landmarks/seat'
 import { loadPlaces, stubPublicFetch, worldInput, type LoadedPlace } from '../test/sceneWorld'
 import { LAND_TOP, placeDotY, verticalScale, VSCALE } from './outside'
 import type { OutsideView, WorldState } from './types'
@@ -52,7 +53,7 @@ describe('at every harness place', () => {
   const worlds = new Map<string, WorldState>()
   beforeAll(async () => {
     stubPublicFetch()
-    loaded = await loadPlaces(places)
+    loaded = await loadPlaces([...places, ...VILLAGE_PLACES.filter(({ id }) => id === 'majdal-shams')])
   }, 120_000)
   afterAll(() => { vi.unstubAllGlobals() })
   const worldOf = (id: string) => {
@@ -104,5 +105,17 @@ describe('at every harness place', () => {
     const view = world.place3 as OutsideView
     // Tiberias's crest at the dot stands 274 m over the town: the dot well under the ridge line, no longer on it.
     expect(view.dot.y - world.terrain.near!.points.find(([x]) => x >= view.dot.x)![1]).toBeGreaterThan(20)
+  })
+
+  it('draws the place?s ground as one edge, never a comb of single columns', { timeout: 120_000 }, () => {
+    const TOOTH_PX = 2.5, APART_PX = 4
+    const teeth = ['majdal-shams', 'ein-gedi'].flatMap((id) => {
+      const points = worldOf(id).terrain.near!.points
+      const at = groundFn(points, 375)
+      const found = points.filter(([x, y]) => x > APART_PX && x < 375 - APART_PX
+        && Math.min(at(x - APART_PX), at(x + APART_PX)) - y > TOOTH_PX)
+      return found.map(([x, y]) => `${id} ${x.toFixed(1)} ${y.toFixed(1)}`)
+    })
+    expect(teeth).toEqual([])
   })
 })

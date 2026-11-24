@@ -298,18 +298,19 @@ export function lookOf(frame: OutsideFrame): OutsideLook {
   }
 }
 
-/** The place's ground sampled over its frame (and boundary): km east / north and height (m). */
+/** The place's ground over its frame (and boundary): rows of spots, km east / north and height (m); null off it. */
 function groundSamples(frame: OutsideFrame, heightNear: (dx: number, dy: number) => number | null,
   inPlace: ((dx: number, dy: number) => boolean) | undefined) {
-  const out: { dx: number; dy: number; h: number }[] = []
+  const rows: (GroundSpot | null)[][] = []
   for (let dy = frame.s; dy <= frame.n + 1e-9; dy += GROUND_STEP) {
+    const row: (GroundSpot | null)[] = []
     for (let dx = frame.w; dx <= frame.e + 1e-9; dx += GROUND_STEP) {
-      if (inPlace && !inPlace(dx, dy)) continue
-      const h = heightNear(dx, dy)
-      if (h !== null) out.push({ dx, dy, h })
+      const h = inPlace && !inPlace(dx, dy) ? null : heightNear(dx, dy)
+      row.push(h === null ? null : { dx, dy, h })
     }
+    rows.push(row)
   }
-  return out
+  return rows
 }
 
 /**
@@ -356,11 +357,12 @@ function lieOf(input: OutsideInput) {
     const lift = press < 1 ? (dx: number, dy: number) => -(1 - press) * outsideProject(frame, dx, dy).near * NEAR_DROP : undefined
     const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), ...(lift ? { lift } : {}) }
     const levelY = (dx: number, dy: number) => baseYAt(ground, centerX, outsideProject(frame, dx, dy).near, floor, 0, lift?.(dx, dy) ?? 0)
-    return { frame, lie, topM, fabric, bounds, levelY, spots: [], around: null, baseY: null, vscale: null }
+    return { frame, lie, topM, fabric, bounds, levelY, spots: [], ownRows: [], around: null, baseY: null, vscale: null }
   }
   const h0 = heightNear(0, 0) ?? topM
   const near0 = outsideProject(frame, 0, 0).near
-  const samples = groundSamples(frame, heightNear, inPlace)
+  const sampleRows = groundSamples(frame, heightNear, inPlace)
+  const samples = sampleRows.flat().filter((g) => g !== null)
   // The heights the picture holds: the place's land, its built rows, its water (a lake or the sea in the frame, the
   // coastal sea's shore at 0 m), the near ridge's crest behind it at the dot, and below sea level, sea level.
   const { mask } = input
@@ -383,6 +385,8 @@ function lieOf(input: OutsideInput) {
   // drawn under it); water is not land. And the land drawn round it on the same scale (`landAround`): it is in the
   // picture too.
   const spots = samples.filter((_, i) => !wet[i])
+  const dry = new Set(spots)
+  const ownRows = sampleRows.map((row) => row.map((g) => g && dry.has(g) ? { ...g, x: outsideProject(frame, g.dx, g.dy).x } : null))
   squares.forEach(({ dx, dy }, i) => { if (!Number.isNaN(cellGround[i])) spots.push({ dx, dy, h: cellGround[i] }) })
   const around = landAround(frame, heightNear, spots, width)
   // Land beyond the frame's far edge is farther than the place: one metre there is less than one at the place, by its
@@ -412,7 +416,7 @@ function lieOf(input: OutsideInput) {
   const levelY = (dx: number, dy: number, h = 0) => Math.min(floor, yDot + offset(dx, dy, h))
   const baseY = (dx: number, dy: number) => levelY(dx, dy, heightNear(dx, dy) ?? h0)
   const lie: PlaceLie = { ...(inPlace ? { inPlace } : {}), baseY }
-  return { frame, lie, topM, fabric, bounds, levelY, spots, around, baseY, vscale: { s, dotY: yDot - 1, h0 } }
+  return { frame, lie, topM, fabric, bounds, levelY, spots, ownRows, around, baseY, vscale: { s, dotY: yDot - 1, h0 } }
 }
 
 /** The land as the outside view draws it: the near line and the far line (as many points as the panorama's ridge, evenly across 375 px), each with its heights (m). */
@@ -451,8 +455,9 @@ export function drawnTerrain(terrain: SceneTerrain, nearLine: NearLine | null): 
 export const NEAR_MARGIN = 40
 export const NEAR_BLEND = 24
 
-/** A spot of the land round the place: km east and north, its height (m) and its x on the screen (layout px). */
-interface AroundSpot { dx: number; dy: number; h: number; x: number }
+/** A spot of the land: km east and north of the place, its height (m); `x`: on the screen (layout px). */
+interface GroundSpot { dx: number; dy: number; h: number }
+interface RowSpot extends GroundSpot { x: number }
 
 /**
  * The land round the place the outside view lays on the place's scale (owner decision 14, follow-up): the local ground
@@ -461,7 +466,7 @@ interface AroundSpot { dx: number; dy: number; h: number; x: number }
  * screen span it is laid over (on the local grid's own 250 m): the place's own span (`spots`) widened by `NEAR_MARGIN` px each side.
  */
 function landAround(frame: OutsideFrame, heightNear: (dx: number, dy: number) => number | null,
-  spots: readonly { dx: number; dy: number }[], width: number): { rows: (AroundSpot | null)[][]; left: number; right: number; own: [number, number] } {
+  spots: readonly GroundSpot[], width: number): { rows: (RowSpot | null)[][]; left: number; right: number; own: [number, number] } {
   let own0 = Infinity, own1 = -Infinity
   for (const g of spots) {
     const x = outsideProject(frame, g.dx, g.dy).x
@@ -469,9 +474,9 @@ function landAround(frame: OutsideFrame, heightNear: (dx: number, dy: number) =>
   }
   const margin = NEAR_MARGIN * width / 375
   const left = Math.max(0, Math.floor(own0 - margin)), right = Math.min(Math.ceil(width), Math.ceil(own1 + margin))
-  const rows: (AroundSpot | null)[][] = []
+  const rows: (RowSpot | null)[][] = []
   for (let dy = frame.n; dy >= -LOCAL_REACH_KM; dy -= LOCAL_STEP_KM) {
-    const row: (AroundSpot | null)[] = []
+    const row: (RowSpot | null)[] = []
     for (let dx = -LOCAL_REACH_KM; dx <= LOCAL_REACH_KM + 1e-9; dx += LOCAL_STEP_KM) {
       // Within the frame's box the land is the place's own ground.
       const h = dx >= frame.w && dx <= frame.e && dy >= frame.s ? null : heightNear(dx, dy)
@@ -490,7 +495,7 @@ function landAround(frame: OutsideFrame, heightNear: (dx: number, dy: number) =>
  * panorama's near ridge. Points evenly across (as many as the panorama's ridge), with the land's height (m) at each (its snow). Null where the place has
  * no local ground (the panorama's ridge as it is).
  */
-function nearLineOf(input: OutsideInput, spots: readonly { dx: number; dy: number; h: number }[],
+function nearLineOf(input: OutsideInput, spots: readonly GroundSpot[], rows: readonly (RowSpot | null)[][],
   around: ReturnType<typeof landAround>, levelY: (dx: number, dy: number, h?: number) => number, frame: OutsideFrame,
   scale: number): NearLine | null {
   const { terrain, width } = input
@@ -503,9 +508,10 @@ function nearLineOf(input: OutsideInput, spots: readonly { dx: number; dy: numbe
     if (i >= left && i <= right && y < top[i]) { top[i] = y; topM[i] = h }
   }
   for (const g of spots) edge(outsideProject(frame, g.dx, g.dy).x, levelY(g.dx, g.dy, g.h), g.h)
-  // Each row of the land round it is a profile across the screen: laid as a line from spot to spot, so a far row (its
-  // spots a px or less apart) and a near one alike draw a continuous edge, never a comb of single columns.
-  for (const row of around.rows) {
+  // Each row of the place's ground and of the land round it is a profile across the screen: laid as a line from spot to
+  // spot, so a far row (its spots a px or less apart) and a near one alike draw a continuous edge, never a comb of single
+  // columns. (The place's built cells, on no row, are single spots above.)
+  for (const row of rows) {
     let prev: { x: number; y: number; h: number } | null = null
     for (const g of row) {
       if (!g) { prev = null; continue }
@@ -847,10 +853,10 @@ function zeroAlongRow(terrain: SceneTerrain, frame: OutsideFrame, width: number)
 /** The place seen from outside: its frame, its own boundary and slope, mass and spires, the towers beyond, its sea. */
 export function outsidePlace(input: OutsideInput): OutsidePlace {
   const { place, landmarks, city, floor, width, terrain, centerX } = input
-  const { frame, lie, topM, bounds, fabric, levelY, spots, around, baseY, vscale } = lieOf(input)
+  const { frame, lie, topM, bounds, fabric, levelY, spots, ownRows, around, baseY, vscale } = lieOf(input)
   // The near land the place stands in front of: its own ground and the terrain behind it, on its own scale (the
   // panorama's ridge beyond its span); everything of the place is laid against it.
-  const nearLine = vscale && around ? nearLineOf(input, spots, around, levelY, frame, vscale.s) : null
+  const nearLine = vscale && around ? nearLineOf(input, spots, [...ownRows, ...around.rows], around, levelY, frame, vscale.s) : null
   const ground = nearLine ? groundFn(nearLine.points, width) : input.ground
   const shaped = { ...input, ground }
   const land = baseY ? landOf(shaped, frame, spots, baseY) : null
