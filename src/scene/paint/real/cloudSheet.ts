@@ -52,6 +52,7 @@ function colour(data: Uint8ClampedArray, desc: LayerOf<'cloudSheet'>, field: She
     for (let i = 0; i < w; i++, p++) {
       if (alpha[p] <= 0.003) continue
       point.tone = field.tone[p]
+      point.cover = field.cover[p]
       light?.(i, j, p, point)
       tone(point, rgb)
       // The source's share and the towns' light are on the cloud, whatever its own light.

@@ -29,8 +29,8 @@ export interface SheetField {
   w: number; h: number
   /** Each row's scale: 1 overhead, small far off; how far its clouds are bodies of their own, not the far deck's mean (0–1). */
   scale: Float32Array; near: Float32Array
-  /** Drawn opacity 0–1, thickness 0–1, the model's tone 0–1, its source's share, the towns' light 0–1, the noise's bend. */
-  alpha: Float32Array; thick: Float32Array; tone: Float32Array; source: Float32Array; city: Float32Array; bend: Float32Array
+  /** Drawn opacity 0–1, the model's own soft cover, thickness 0–1, the model's tone 0–1, its source's share, the towns' light 0–1, the noise's bend. */
+  alpha: Float32Array; cover: Float32Array; thick: Float32Array; tone: Float32Array; source: Float32Array; city: Float32Array; bend: Float32Array
   /** A hole's far wall, and the straight edge of an underside, 0–1. */
   wall: Float32Array; flat: Float32Array
   /** How open the deck is, 0–1: what is closed keeps the model's own cover and tone. */
@@ -45,7 +45,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
   const holed = open * (1 - smoothstep(DECK_UP_TO, HEAPS_FROM, clear))
   const { buf, cols, rows, scale } = softCover(desc, make.soft)
   const w = Math.ceil(width * RASTER) + 1, h = Math.ceil(span * RASTER) + 1, grid = () => new Float32Array(w * h)
-  const field: SheetField = { w, h, scale: new Float32Array(h), near: new Float32Array(h), alpha: grid(), thick: grid(), tone: grid(), source: grid(), city: grid(),
+  const field: SheetField = { w, h, scale: new Float32Array(h), near: new Float32Array(h), alpha: grid(), cover: grid(), thick: grid(), tone: grid(), source: grid(), city: grid(),
     bend: grid(), wall: grid(), flat: grid(), open, grain: cloudGrain(make, hashId(desc.id)) }
   const { alpha, grain } = field, next = cols * 4
   for (let j = 0, p = 0; j < h; j++) {
@@ -66,7 +66,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       field.tone[p] = texel(0) / sure
       field.source[p] = here < LEAST ? 1 : texel(1) / sure
       field.city[p] = texel(2) / sure
-      alpha[p] = here
+      alpha[p] = field.cover[p] = here
       if (!open && !veiled) continue
       const x = i / RASTER - width / 2, bend = field.bend[p] = grain.bend(x, y), wisp = grain.wisp(x, y, bend)
       if (veiled) {
@@ -76,7 +76,7 @@ export function sheetField(desc: LayerOf<'cloudSheet'>): SheetField {
       }
       // An underside: cloud over it, open air under it.
       const flat = Math.min(1, Math.max(0, STEP * (across(n + over + 3) - across(n + under + 3)))), noise = grain.noise(x, y, bend, wisp)
-      const far = grainedSheetAlpha(veiledSheetAlpha(here, open), noise, open), cover = coverOf(make, a, noise + grain.fine(x, y, bend), wisp, flat)
+      const far = grainedSheetAlpha(veiledSheetAlpha(here, open), 0.25 + noise / 2, open), cover = coverOf(make, a, noise + grain.fine(x, y, bend), wisp, flat)
       alpha[p] = far + near * (here + open * (cover - here) - far)
       field.thick[p] = thickOf(make, a, noise, flat)
       field.flat[p] = flat * holed

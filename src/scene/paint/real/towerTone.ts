@@ -47,7 +47,7 @@ export function towerTone(s: CloudSprite, shape: TowerShape): (x: number, y: num
     point.light = at(light.light)
     point.shade = at(light.shade)
     point.relief = -facing * round
-    point.thick = here.a
+    point.thick = point.cover = here.a
     tone(point, out)
     const shaded = BASE * (1 - smoothstep(0, 1, (shape.depth - y) / (shape.depth + CLIMB * s.tall))), silver = SILVER * s.silver * Math.max(0, here.side * tx - here.rise * ty) ** 2
     for (let n = 0; n < 3; n++) {

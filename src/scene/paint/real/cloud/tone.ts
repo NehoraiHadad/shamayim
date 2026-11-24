@@ -27,6 +27,8 @@ const LOW = 0.6, LOW_SHADE = 0.35, WARM = [0.03, 0.2] as const
 /** How bright a body and a shade are at most against the lit colour, with a light of its own, and how far they are held to it (a low sun's lit colour is deep,
  *  the sky's on the body pale: unchecked, the shade side would be the bright one). */
 const BODY_UP_TO = 1, SHADE_UP_TO = 0.9, HELD = 0.43
+/** How much of the model's tone a far deck's thickest keeps, its crowns too small to see (the rest leans to the lit colour, the thin all). */
+const FAR_GREY = 0.55
 /** Steps of the model's ramp from lit to shade, and the place past its end a shade may stand at; how near its ends a place bends. */
 const RAMP = 255, FULL = 1.1, TOE = 0.24
 
@@ -35,6 +37,8 @@ export interface CloudPoint {
   tone: number; light: number; shade: number
   /** How far a head faces away from the light, and how thick the cloud is. */
   relief: number; thick: number
+  /** The model's own cover there. */
+  cover: number
   /** What distance leaves of the contrast. */
   near: number
   /** How far it is a hole's far wall, and the straight edge of an underside (0–1). */
@@ -42,7 +46,7 @@ export interface CloudPoint {
 }
 
 export const cloudPoint = (): CloudPoint =>
-  ({ tone: 0, light: 1, shade: 0, relief: 0, thick: 0, near: 1, wall: 0, flat: 0 })
+  ({ tone: 0, light: 1, shade: 0, relief: 0, thick: 0, cover: 1, near: 1, wall: 0, flat: 0 })
 
 const lightness = (c: RGB) => 0.21 * c[0] + 0.72 * c[1] + 0.07 * c[2]
 /** A colour no brighter than `most`, by `part`. */
@@ -74,11 +78,14 @@ export function cloudTone(tones: Pick<LayerOf<'cloudSheet'>, 'lit' | 'body' | 's
   return (p: CloudPoint, out: Float32Array) => {
     const { tone, near, light } = p
     const heads = p.relief * RELIEF * self * Math.min(1, 1.6 * p.thick) * (IN_SHADE + (1 - IN_SHADE) * light)
-    // Far off and in a closed deck it is the model's own tone and colours.
-    const there = tone + near * own * (MODEL_SHARE * tone + p.shade + heads - tone + EDGE * p.flat - WALL * p.wall)
-    const place = within(there, own * near)
-    const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * near * Math.max(0, place - UNDER_FROM)
-    const crown = 1 + over * CROWN_TO * clamp(((0.4 - there) * 2.4) / CROWN_TO) * (0.35 + 0.65 * light) * near * own
-    for (let k = 0; k < 3; k++) out[k] = Math.min(1, (model[n + k] + (ramp[n + k] - model[n + k]) * near) * (1 - DEEPEST[k] * under) * crown)
+    const there = tone + own * (MODEL_SHARE * tone + p.shade + heads - tone + EDGE * p.flat - WALL * p.wall), place = within(there, own)
+    const n = Math.round(Math.min(1, place) * RAMP) * 3, under = range * self * Math.max(0, place - UNDER_FROM)
+    const crown = 1 + over * CROWN_TO * clamp(((0.4 - there) * 2.4) / CROWN_TO) * (0.35 + 0.65 * light) * own
+    // Far off it is the model's tone, leaning to the lit colour as its crowns do; a closed deck's is the model's throughout.
+    const m = Math.round(Math.min(1, Math.max(0, tone)) * RAMP) * 3, grey = 1 - own * (1 - FAR_GREY * p.cover ** 2)
+    for (let k = 0; k < 3; k++) {
+      const far = lit[k] + (model[m + k] - lit[k]) * grey
+      out[k] = Math.min(1, far + near * (ramp[n + k] * (1 - DEEPEST[k] * under) * crown - far))
+    }
   }
 }
