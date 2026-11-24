@@ -51,14 +51,18 @@ function groupFrom(raw: unknown): TileGroup | null {
   return inRows > houses.length ? null : { corner: o, places: p, osmShare: s, rows: r, houses }
 }
 
-/** A tile from parsed JSON, or null: one bad group makes the whole file none, as a half-read file would be. */
-export function readTile(raw: unknown): VillageTile | null {
+/**
+ * A tile from parsed JSON, or null: one bad group makes the whole file none, as a half-read file would be. With `release`,
+ * a tile of any other release is none too: it is an older file, and its groups may not be the ones this app was built with.
+ */
+export function readTile(raw: unknown, release?: string): VillageTile | null {
   if (!isRecord(raw) || raw.v !== TILE_VERSION) return null
-  const { licence, licenceUrl, credits, source, release, built, groups } = raw
-  if (licence !== ODBL.id || licenceUrl !== ODBL.url || !isText(source) || !isText(release) || !isDay(built)) return null
+  const { licence, licenceUrl, credits, source, release: of, built, groups } = raw
+  if (licence !== ODBL.id || licenceUrl !== ODBL.url || !isText(source) || !isText(of) || !isDay(built)) return null
+  if (release !== undefined && of !== release) return null
   if (!Array.isArray(credits) || !credits.length || credits.length > MAX_CREDITS || !credits.every(isText)) return null
   if (!Array.isArray(groups) || groups.length > MAX_GROUPS) return null
   const read = groups.map(groupFrom)
   if (read.some(group => !group)) return null
-  return { licence, licenceUrl, credits, source, release, built: built as string, groups: read as TileGroup[] }
+  return { licence, licenceUrl, credits, source, release: of, built: built as string, groups: read as TileGroup[] }
 }

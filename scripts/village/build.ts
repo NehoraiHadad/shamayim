@@ -12,7 +12,7 @@ import { tileKeysOf, tilesOf } from './tiles'
 import { placesIn, storedTiles, textsOf, writeTiles } from './write'
 
 const { positionals: [input], values } = parseArgs({ allowPositionals: true, options: {
-  out: { type: 'string', default: 'public/data/village/il' }, source: { type: 'string', default: 'scripts/village/source.json' } } })
+  out: { type: 'string', default: 'public/data/village/il' }, list: { type: 'string', default: 'src/data/village/tileList.json' }, source: { type: 'string', default: 'scripts/village/source.json' } } })
 if (!input) throw new Error('Usage: tsx scripts/village/build.ts <groupsDir> [--out dir] [--source file]')
 
 const pin = JSON.parse(await readFile(values.source, 'utf8')) as Pin
@@ -43,7 +43,7 @@ console.table(shareTable(groups, builtCover('public/data/land/il')))
 console.log('the other two limits:')
 console.table(limitTable(groups))
 
-await writeTiles(values.out, texts, pin.release)
+await writeTiles(values.out, values.list, texts, pin.release)
 const faults = [...faultsOf(counts, facts, pin), ...servingFaults(served), ...sizeFaults(new Map([...texts].map(([key, text]) => [key, Buffer.byteLength(text)]))),
   ...lostPlaces(placesIn(before.values()), placesIn(tiles.values()), pin.tolerance)]
 for (const fault of faults) console.error(`FAIL: ${fault}`)

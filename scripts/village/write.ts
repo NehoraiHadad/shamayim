@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { readTile, type StoredTile } from '../../src/data/village/tile'
+import type { TileList } from '../../src/data/village/villageData'
 
 const TILE_FILE = /^(-?\d+_-?\d+)\.json$/
 
@@ -34,14 +36,21 @@ export function textsOf(tiles: ReadonlyMap<string, StoredTile>, before: Readonly
   }))
 }
 
+/** The app's list of the tiles (`src/data/village/tileList.json`); its version changes with any byte of any tile. */
+export function listOf(texts: ReadonlyMap<string, string>, release: string): TileList {
+  const cells = [...texts.keys()].sort()
+  const hash = createHash('sha256')
+  for (const key of cells) hash.update(`${key}:${texts.get(key)}\n`)
+  return { release, version: hash.digest('hex').slice(0, 10), cells }
+}
+
 /** Writes the tiles and the list of them, and takes away tiles that are no more. */
-export async function writeTiles(dir: string, texts: ReadonlyMap<string, string>, release: string) {
+export async function writeTiles(dir: string, listPath: string, texts: ReadonlyMap<string, string>, release: string) {
   await mkdir(dir, { recursive: true })
   for (const name of await readdir(dir)) {
     const key = TILE_FILE.exec(name)?.[1]
     if (key && !texts.has(key)) await unlink(join(dir, name))
   }
   for (const [key, text] of texts) await writeFile(join(dir, `${key}.json`), text)
-  const index = { v: 1, licence: 'ODbL-1.0', release, cells: [...texts.keys()].sort() }
-  await writeFile(join(dir, 'index.json'), JSON.stringify(index))
+  await writeFile(listPath, `${JSON.stringify(listOf(texts, release))}\n`)
 }

@@ -2,7 +2,14 @@ name: Build village footprints
 
 # Real building footprints for villages (Overture Maps, pinned in scripts/village/source.json). A push to a working branch
 # only builds and measures. Tiles are committed only when asked for: by hand with a branch name, or by a push whose commit
-# message says "[village tiles]". Nothing is deployed, and the default branch is never written.
+# message says "[village tiles]". A message with "[village search]" also measures Open-Meteo's search points against the
+# tiles. Nothing is deployed, and the default branch is never written.
+#
+# The pin, once a month (Overture deletes a release after 60 days; the committed tiles stay valid and are not touched):
+# 1. Read the new release's changelog (docs.overturemaps.org/release-calendar) for the buildings theme's columns.
+# 2. On a working branch, set "release" in scripts/village/source.json and "expected" to null, and push.
+# 3. The run checks the schema (fetch.py) and stops with the measured counts: compare them with the ones before.
+# 4. Put them in "expected" and push with "[village tiles]" in the message; review the data commit; merge.
 on:
   workflow_dispatch:
     inputs:
@@ -80,14 +87,25 @@ jobs:
       - name: Tiles, measures and gates
         shell: bash
         run: npx tsx scripts/village/build.ts "$RUNNER_TEMP/groups" 2>&1 | tee "$RUNNER_TEMP/groups/build.txt"
+      - name: Search points
+        if: contains(github.event.head_commit.message, '[village search]')
+        shell: bash
+        run: npx tsx scripts/village/search.ts 2>&1 | tee "$RUNNER_TEMP/groups/search.txt"
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: village-tiles
           path: |
             public/data/village
+            src/data/village/tileList.json
+          retention-days: 14
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: village-report
+          path: |
+            ${{ runner.temp }}/groups/*.txt
             ${{ runner.temp }}/groups/facts.json
-            ${{ runner.temp }}/groups/build.txt
           retention-days: 14
 
   commit:
@@ -109,10 +127,10 @@ jobs:
         env:
           BRANCH: ${{ needs.build.outputs.branch }}
         run: |
-          tiles=$(find "$RUNNER_TEMP/built" -type d -path '*data/village' | head -n 1)
-          test -n "$tiles"
-          rm -rf public/data/village && mkdir -p public/data && cp -r "$tiles" public/data/village
-          git add -A public/data/village
+          test -d "$RUNNER_TEMP/built/public/data/village/il" && test -f "$RUNNER_TEMP/built/src/data/village/tileList.json"
+          rm -rf public/data/village
+          cp -r "$RUNNER_TEMP/built/." .
+          git add -A public/data/village src/data/village/tileList.json
           if git diff --cached --quiet; then echo "Village tiles are unchanged."; exit 0; fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com

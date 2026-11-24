@@ -68,6 +68,11 @@ export default defineConfig({
           urlPattern: /\/data\/land\//,
           handler: 'StaleWhileRevalidate',
           options: { cacheName: 'land-data' },
+        }, {
+          // Its addresses carry the tiles' version: an older build's entries are never asked for again, and fall out here.
+          urlPattern: /\/data\/village\//,
+          handler: 'StaleWhileRevalidate',
+          options: { cacheName: 'village-data', expiration: { maxEntries: 60 } },
         }],
       },
     }),
