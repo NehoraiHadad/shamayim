@@ -1,4 +1,4 @@
-import { frontFirst, shownBlocks } from './fabricCover'
+import { shownBlocks } from './fabricCover'
 import type { OutsideBox } from './outsideView'
 
 /** A built cell on the screen. */
@@ -18,14 +18,14 @@ export interface FabricSite {
  */
 export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
   const standing: FabricSite[] = []
-  const slots = new Map<string, { site: FabricSite; off: number }>()
+  const slots = new Map<number, { site: FabricSite; off: number }>()
   for (const site of sites) {
     if (!site.slotW) { standing.push(site); continue }
     const { x, top, foot } = site.box
     const slotW = site.slotW * 1.1, slotH = Math.max(1.2, .6 * (foot - top))
     const sx = Math.round(x / slotW), sy = Math.round(foot / slotH)
     const off = Math.hypot((x - sx * slotW) / slotW, (foot - sy * slotH) / slotH)
-    const key = `${sx}:${sy}`
+    const key = sx * 1e6 + sy
     const held = slots.get(key)
     if (held && held.off <= off) continue
     slots.set(key, { off, site })
@@ -39,10 +39,10 @@ export function standingSites(sites: readonly FabricSite[]): FabricSite[] {
  * (`shownBlocks`): the houses as they stand, so a low-rise place keeps its layout, then the blocks in an order of their own.
  */
 export function composeBodies(sites: readonly FabricSite[], houseTopM: number): OutsideBox[] {
-  const isBlock = ({ body }: FabricSite) => (body.heightM ?? 0) >= houseTopM
-  const blocks = sites.filter(isBlock)
-  const widened = blocks.filter(({ box, body }) => body.w > box.w).map(({ body }) => body)
-  const shown = shownBlocks(widened), hidden = new Set(widened.filter(body => !shown.has(body)))
-  return [...sites.filter(site => !isBlock(site)).map(({ body }) => body),
-    ...blocks.map(({ body }) => body).filter(body => !hidden.has(body)).sort(frontFirst)]
+  const houses: OutsideBox[] = [], blocks: FabricSite[] = []
+  for (const site of sites) {
+    if ((site.body.heightM ?? 0) >= houseTopM) blocks.push(site)
+    else houses.push(site.body)
+  }
+  return [...houses, ...shownBlocks(blocks)]
 }

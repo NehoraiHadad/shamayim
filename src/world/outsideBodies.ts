@@ -34,7 +34,7 @@ export function outsideBodies(view: OutsideView, clear: readonly ScreenBox[], sx
   const boxes = skyline.boxes.flatMap(box => {
     const km = outsideItemKm(frame, baseKm, box), block = roofM(box) >= HOUSE_TOP_M
     // A wide block keeps its clear side, and leaves a mapped stack behind it readable; a house is whole or not there.
-    const zones = block ? [...clear, ...stacks.filter(stack => stack.km > km && stack.base <= box.foot)] : clear
+    const zones = block && stacks.length ? [...clear, ...stacks.filter(stack => stack.km > km && stack.base <= box.foot)] : clear
     const body = clearBody(zones, box.x * sx, box.w * sx, box.top, box.foot, block)
     return body ? [{ box, km, ...body }] : []
   })

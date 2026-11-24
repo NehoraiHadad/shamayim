@@ -182,7 +182,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
         const built = square?.built ?? 0, frontM = raster?.front?.(lat, lon)
         const front = built > 0 ? Math.min(1, Math.max(MIN_FRONT, Math.sqrt(built) * FRONT_K)) : 1
         const shift = (random() - .5) * (1 - front) * wKm
-        cells.push({ dx: dx + shift, dy, wKm: wKm * front, ...heights, seed, ...(frontM ? { frontM } : {}) })
+        cells.push({ dx: dx + shift, dy, wKm: wKm * front, heightM: heights.heightM, siteHeightM: heights.siteHeightM, seed, frontM })
         const list = builtRows.get(row)
         if (list) list.push(col)
         else builtRows.set(row, [col])
@@ -209,8 +209,7 @@ function fabricOf(place: Coordinate, input: OutsideInput, inPlace: ((dx: number,
     if (!(inPlace?.(sq.dx, sq.dy) ?? true)) continue
     const lat = place.lat + sq.dy / 111.32, lon = place.lon + sq.dx / (111.32 * cos)
     const seed = hashId(`${sq.dx.toFixed(3)}:${sq.dy.toFixed(3)}`), frontM = raster?.front?.(lat, lon)
-    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(raster?.at(lat, lon), lat, lon, seeded(seed)()), seed,
-      ...(frontM ? { frontM } : {}) })
+    cells.push({ dx: sq.dx, dy: sq.dy, wKm: LON_STEP * 111.32 * cos, ...heightsAt(raster?.at(lat, lon), lat, lon, seeded(seed)()), seed, frontM })
   }
   return { cells, trees, source: 'raster' as const }
 }

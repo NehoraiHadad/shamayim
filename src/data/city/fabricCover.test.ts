@@ -8,6 +8,7 @@ import { visible } from './skylineMass'
 const body = (x: number, w: number, h: number, near = .5, foot = 100, seed = 1): OutsideBox =>
   ({ x, w, foot, top: foot - h, near, kind: 'mass', heightM: 25, seed })
 const widened = (box: OutsideBox): FabricSite => ({ box: { ...box, w: 1 }, slotW: 0, body: box })
+const shown = (boxes: OutsideBox[]) => shownBlocks(boxes.map(widened))
 /** The px of a body over another's roof and beside it. */
 const shownArea = (rear: OutsideBox, front: OutsideBox) => {
   const from = Math.max(rear.x - rear.w / 2, front.x - front.w / 2), to = Math.min(rear.x + rear.w / 2, front.x + front.w / 2)
@@ -18,12 +19,12 @@ const shownArea = (rear: OutsideBox, front: OutsideBox) => {
 it('keeps a taller block behind a lower one, however their fronts line up', () => {
   for (const w of [9, 9.3, 12, 30]) {
     const front = body(100, w, 10, .5), rear = body(101.52, 9, 20, .49, 99.8, 2)
-    expect(shownBlocks([rear, front])).toEqual(new Set([front, rear]))
+    expect(shown([rear, front])).toEqual([front, rear])
   }
 })
 
 it('leaves a block out once less than the narrowest building of it shows, beside a wall or over a roof', () => {
-  const front = body(100, 9, 10), behind = (w: number, h: number) => shownBlocks([front, body(100, w, h, .4, 99.9, 2)]).size
+  const front = body(100, 9, 10), behind = (w: number, h: number) => shown([front, body(100, w, h, .4, 99.9, 2)]).length
   expect(behind(9, 9.9)).toBe(1)
   for (const [share, count] of [[.95, 1], [1.05, 2]]) {
     expect(behind(9 + share * LEAST_SHOWN_PX, 5)).toBe(count)
@@ -61,18 +62,18 @@ it('never jumps by more than the sliver as a frontage grows through the cutoff',
   const rear = body(102, 8, 16, .4, 99.9, 2), step = .1
   const areas = Array.from({ length: 160 }, (_, i) => {
     const front = body(100, 2 + i * step, 10)
-    return (2 + i * step) * 10 + (shownBlocks([front, rear]).has(rear) ? shownArea(rear, front) : 0)
+    return (2 + i * step) * 10 + (shown([front, rear]).includes(rear) ? shownArea(rear, front) : 0)
   })
   const low = { ...rear, top: rear.foot - 9 }
   const beside = Array.from({ length: 160 }, (_, i) => {
     const front = body(100, 2 + i * step, 10)
-    return (2 + i * step) * 10 + (shownBlocks([front, low]).has(low) ? shownArea(low, front) : 0)
+    return (2 + i * step) * 10 + (shown([front, low]).includes(low) ? shownArea(low, front) : 0)
   })
   for (const [all, h] of [[areas, 16], [beside, 9]] as const) {
     for (let i = 1; i < all.length; i++) expect(Math.abs(all[i] - all[i - 1])).toBeLessThan(LEAST_SHOWN_PX * h + step * 10)
   }
-  expect(shownBlocks([body(100, 18, 10), low]).size).toBe(1)
-  expect(shownBlocks([body(100, 18, 10), rear]).size).toBe(2)
+  expect(shown([body(100, 18, 10), low]).length).toBe(1)
+  expect(shown([body(100, 18, 10), rear]).length).toBe(2)
 })
 
 it('draws the same bodies whatever order the same set comes in, level and equally near ones too', () => {

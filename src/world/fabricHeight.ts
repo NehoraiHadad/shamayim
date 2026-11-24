@@ -14,6 +14,8 @@ const SPARSE = .2
 
 const squareKey = (lat: number, lon: number) => Object.values(squareOf(lat, lon)).join(':')
 const squareM2 = (lat: number) => LAT_STEP * LON_STEP * Math.cos(lat * Math.PI / 180) * 111_320 ** 2
+/** A site laid out as the roof that stands on it. */
+const whole = (heightM: number) => ({ heightM, siteHeightM: heightM })
 const rasterLevels = (heightM: number) => Math.min(MAX_LEVELS, Math.round(heightM / RASTER_STOREY_M))
 
 /**
@@ -38,11 +40,11 @@ export function fabricHeights(city: CityResult | null | undefined) {
     if (square) square.push(tower)
     else towersOf.set(key, [tower])
   }
-  return (at: RasterSquare | undefined, lat: number, lon: number, u: number): { heightM: number; siteHeightM?: number } => {
-    if (at && at.built >= SPARSE) return { heightM: roofHeight(at.levels, at.p90, u) }
+  return (at: RasterSquare | undefined, lat: number, lon: number, u: number): { heightM: number; siteHeightM: number } => {
+    if (at && at.built >= SPARSE) return whole(roofHeight(at.levels, at.p90, u))
     const house = HOUSE_M[u < .6 ? 0 : 1]
     const typical = at ? roofHeight(at.levels, 0, 0) : house
-    if (typical < HOUSE_TOP_M || typicalIsTower(at!, lat, towersOf.get(squareKey(lat, lon)) ?? [])) return { heightM: house }
+    if (typical < HOUSE_TOP_M || typicalIsTower(at!, lat, towersOf.get(squareKey(lat, lon)) ?? [])) return whole(house)
     return { heightM: typical, siteHeightM: house }
   }
 }
