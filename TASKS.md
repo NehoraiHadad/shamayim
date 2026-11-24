@@ -1241,8 +1241,12 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
             what a settlement shows -> owner's approval -> code. Foundations session, own worktree from its town patch
             Verified 24 Nov, green, sent to the owner: label `8040e277` (leader pole at Haifa/Tel Aviv still long), minarets out `d1e04862`,
             V2b prototype 2076ba37 (real footprints at 755 of 2187 places, cover cells elsewhere; ODbL credit needed): owner chose this,
-            being built. Label and dot NOT approved: must clearly speak of the place in the centre; 3 options as stills asked for
+            being built. Owner chose label option A with the height only, no place name (24 Nov); foundations builds it as a slice
+            bf3b316f (minarets out, dusk, near ground) approved and merged 9416f668, main CI 45348662552 running
+            The blend experiment is closed. Owner's lighter bar (24 Nov): larger slices, CI green on the exact sha, before/after stills,
+            one perf check at merge-ready, one independent review; tests only on GitHub
+            Next READYs: clouds 545d90a1, town 676d6cd3, lamp 9e3fd10c, sky, village first stills, label
       - [ ] 1f. Before/after stills of 1c–1e approved by the owner, merged, main CI green
 - [~] 2a. Drawn style end to end: map, plan, 3 stills approved, build, approved, merged (woodblock direction approved 24 Nov; build plan, code waits for `src/scene`)
-- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan, code waits for `src/scene`)
+- [~] 2b. Real style improved: map, plan, 3 stills approved, build, approved, merged (round 2 direction approved 24 Nov; build plan accepted, S1 open from 9416f668, S2 after the label)
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
