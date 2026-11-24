@@ -1,4 +1,5 @@
-import { cloudLight } from './light'
+import { smoothstep } from '../../../../domain/smoothstep'
+import { around, cloudLight } from './light'
 import { RASTER, type SheetField } from './sheetField'
 import type { CloudPoint } from './tone'
 
@@ -9,6 +10,8 @@ const BEFORE = 70
 const CELL = 3, MIDDLE = 1
 /** What of its heads' sides a broad body keeps. */
 const HEADS_KEPT = 0.3
+/** How far round a point (px overhead) the sky is cloud, and how full, where it is inside a deck. */
+const ROUND = 75, FULL = [0.86, 0.99] as const
 
 /** The mean of each `CELL`² cells of a w × h grid, on the light's grid. */
 function coarse(full: Float32Array, w: number, h: number, cw: number, ch: number): Float32Array {
@@ -39,8 +42,10 @@ function meanShade({ tone, thick }: SheetField): number {
 export function sheetLight(field: SheetField, from: { x: number; y: number }, beam: number) {
   const { w, h } = field, cw = Math.max(2, Math.ceil(w / CELL)), ch = Math.max(2, Math.ceil(h / CELL))
   const thick = coarse(field.thick, w, h, cw, ch), scale = Float32Array.from({ length: ch }, (_, j) => field.scale[Math.min(h - 1, CELL * j + MIDDLE)])
-  const { light, shade } = cloudLight({ w: cw, h: ch, k: RASTER / CELL, thick, scale, calm: field.calm }, { x: from.x / CELL, y: from.y / CELL }, beam, meanShade(field))
-  const relief = reliefOf(field, thick, cw, ch, from)
+  const calm = around({ w: cw, h: ch, k: RASTER / CELL, thick: coarse(field.cover, w, h, cw, ch), scale }, ROUND)
+  for (let n = 0; n < calm.length; n++) calm[n] = Math.max(field.calm, smoothstep(FULL[0], FULL[1], calm[n]))
+  const { light, shade } = cloudLight({ w: cw, h: ch, k: RASTER / CELL, thick, scale, calm }, { x: from.x / CELL, y: from.y / CELL }, beam, meanShade(field))
+  const relief = reliefOf(field, thick, calm, cw, ch, from)
   return (i: number, j: number, p: number, point: CloudPoint) => {
     const x = Math.min(cw - 1.001, Math.max(0, (i - MIDDLE) / CELL)), y = Math.min(ch - 1.001, Math.max(0, (j - MIDDLE) / CELL))
     const c = x | 0, r = y | 0, tx = x - c, ty = y - r, n = r * cw + c, m = n + cw
@@ -58,15 +63,15 @@ export function sheetLight(field: SheetField, from: { x: number; y: number }, be
 }
 
 /** How far the heads face away from the light, on the light's grid. */
-function reliefOf({ w, bend, scale, grain, calm }: SheetField, thick: Float32Array, cw: number, ch: number, from: { x: number; y: number }): Float32Array {
-  const out = new Float32Array(cw * ch), middle = (w - 1) / 2, before = BEFORE * RASTER, kept = 1 + (HEADS_KEPT - 1) * calm
+function reliefOf({ w, bend, scale, grain }: SheetField, thick: Float32Array, calm: Float32Array, cw: number, ch: number, from: { x: number; y: number }): Float32Array {
+  const out = new Float32Array(cw * ch), middle = (w - 1) / 2, before = BEFORE * RASTER
   for (let j = 0, n = 0; j < ch; j++) {
     const row = Math.min(scale.length - 1, CELL * j + MIDDLE)
     grain.row(scale[row])
     for (let i = 0; i < cw; i++, n++) {
       if (!thick[n]) continue
       const x = Math.min(w - 1, CELL * i + MIDDLE), dx = from.x - x, dy = from.y - row, far = Math.max(before, Math.sqrt(dx * dx + dy * dy))
-      out[n] = kept * grain.relief((x - middle) / RASTER, row / RASTER, dx / far, dy / far, bend[row * w + x])
+      out[n] = (1 + (HEADS_KEPT - 1) * calm[n]) * grain.relief((x - middle) / RASTER, row / RASTER, dx / far, dy / far, bend[row * w + x])
     }
   }
   return out

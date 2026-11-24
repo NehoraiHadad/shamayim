@@ -7,9 +7,9 @@ import { smoothstep } from '../../../../domain/smoothstep'
  * the fine one models the heads, the broad one (light scattered many times) the whole mass.
  */
 
-/** What is lit: its thickness 0–1 on a grid of `k` cells per sky px, its scale by row (1 overhead, small far off); how far it is one
- *  broad body, whose inside varies over its large forms alone (0–1). */
-export interface LitBody { w: number; h: number; k: number; thick: Float32Array; scale: Float32Array; calm: number }
+/** What is lit: its thickness 0–1 on a grid of `k` cells per sky px, its scale by row (1 overhead, small far off); how far a cell
+ *  is inside one broad body, which varies over its large forms alone (0–1). */
+export interface LitBody { w: number; h: number; k: number; thick: Float32Array; scale: Float32Array; calm: Float32Array }
 
 /** The light that reaches each cell (0–1), and how far toward the model's shade the cell's own shade takes it. */
 export interface CloudLight { light: Float32Array; shade: Float32Array }
@@ -30,7 +30,9 @@ const OWN_SHADE = 0.7, BASE = 0.42, LIT = 0.2
 const TO_MEAN = 0.9
 /** Deep in a mass its own puffs show: what a puff thicker than those round it takes of the shade, and from which depth on; what of it
  *  a broad body keeps. */
-const PUFFS = 1.3, INSIDE = [0.5, 0.75] as const, PUFFS_KEPT = 0.12
+const PUFFS = 1.6, INSIDE = [0.5, 0.75] as const, PUFFS_KEPT = 0.12
+/** How far a broad body's light is held to its mean. */
+const HELD = 0.6
 /** How far round a point its depth in the mass is taken, sky px overhead. */
 const DEEP = 26
 
@@ -38,7 +40,7 @@ const through = (loss: number, depth: number) => (1 - MANY) * Math.exp(-loss * d
 
 /** `from`: the light's place, in cells of the grid. `beam`: how much of it is direct, 0–1. `mean`: the model's own mean shade. */
 export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: number, mean: number, foot?: Foot): CloudLight {
-  const { w, h, k, thick, scale } = body, size = w * h, direct = FROM_SUN * beam, deep = depth(body), puffs = PUFFS * (1 + (PUFFS_KEPT - 1) * body.calm)
+  const { w, h, k, thick, scale } = body, size = w * h, direct = FROM_SUN * beam, deep = around(body, DEEP), { calm } = body
   const light = new Float32Array(size), shade = new Float32Array(size)
   let all = 0, mass = 0
   const at = (x: number, y: number) => gridAt(thick, w, h, x, y)
@@ -63,20 +65,20 @@ export function cloudLight(body: LitBody, from: { x: number; y: number }, beam: 
       const under = Math.exp(-2 * LOSS_SKY * down) * (1 - Math.exp(-LOSS_SKY * sky)), base = foot ? Math.max(under, foot.base[j]) : under
       const here = light[n] = direct * through(LOSS_SUN, sun) + (1 - direct) * through(LOSS_SKY, sky) * (foot ? foot.sky[j] : 1)
       shade[n] = OWN_SHADE * (1 - here) ** 1.25 * (0.45 + 0.55 * deep[n]) + BASE * base * (0.4 + 0.6 * deep[n]) - LIT * here
-        - puffs * (thick[n] - deep[n]) * smoothstep(INSIDE[0], INSIDE[1], deep[n])
+        - PUFFS * (1 + (PUFFS_KEPT - 1) * calm[n]) * (thick[n] - deep[n]) * smoothstep(INSIDE[0], INSIDE[1], deep[n])
       all += shade[n] * thick[n]
       mass += thick[n]
     }
   }
-  const over = mass ? TO_MEAN * (all / mass - mean) : 0
-  for (let n = 0; n < size; n++) shade[n] -= over
+  const middle = mass ? all / mass : 0, to = mass ? middle - TO_MEAN * (middle - mean) : 0
+  for (let n = 0; n < size; n++) shade[n] = to + (1 - HELD * calm[n]) * (shade[n] - middle)
   return { light, shade }
 }
 
-/** The thickness round a point, over the cloud's own reach: what stands between it and any bright rim. */
-function depth({ w, h, k, thick, scale }: LitBody): Float32Array {
+/** The thickness round each cell, over `px` (overhead): what stands between it and any bright rim. */
+export function around({ w, h, k, thick, scale }: Omit<LitBody, 'calm'>, px: number): Float32Array {
   const across = new Float32Array(w * h), total = new Float32Array((h + 1) * w), out = new Float32Array(w * h)
-  const reach = (j: number) => Math.max(1, Math.round(DEEP * scale[j] * k))
+  const reach = (j: number) => Math.max(1, Math.round(px * scale[j] * k))
   for (let j = 0; j < h; j++) {
     const r = reach(j), row = j * w
     let sum = 0

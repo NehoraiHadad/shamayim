@@ -79,5 +79,5 @@ function lightIn(s: CloudSprite, shape: TowerShape, tx: number, ty: number, beam
     }
   }
   const far = 1e4
-  return { light: cloudLight({ w, h, k, thick, scale, calm }, { x: w / 2 + tx * far, y: h / 2 + ty * far }, beam, MEAN, foot), w, h, k, x0, y0 }
+  return { light: cloudLight({ w, h, k, thick, scale, calm: new Float32Array(w * h).fill(calm) }, { x: w / 2 + tx * far, y: h / 2 + ty * far }, beam, MEAN, foot), w, h, k, x0, y0 }
 }
