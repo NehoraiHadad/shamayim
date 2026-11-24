@@ -1273,9 +1273,11 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       Drawn clouds b76775ad owner-approved (24 Nov), verified; conflicts with the strip in drawn/cloudSheet.ts and sheetPrint.ts: joined as 1d7e252d (CI 45427963062: check, worker, stills, perf green, real identity equal), merged 350efdbd
       Clear sky (owner at Shadmot Mehola, 24 Nov 16:50: clear, app drew clouds): MAX_SHIFT 40 caps the satellite correction; claude/clear-sky by the vote-prep session, domain and data only. 0dbadb6e owner-approved, merged e021acb7 (CI 45441364133 green). Later: infrared second witness (real cloud after a clear afternoon is hidden till overhead; partial night fog cleared)
       Real ground 5e1bc182, trees and sea f24854eb, air ddde10f9 verified (CI green, drawn identity 8/8). Owner 24 Nov: join into claude/real-join on 350efdbd, bring back the ground grain and the trees green, one CI and perf pair, show, merge
+      Joined c46c3da5 (CI 45448264566; drawn identity 8/8, run 45448273657), owner-approved, merged b76225e8 (24 Nov; CI 45453984245 green on attempt 2: density.perf cold place 16.8 then 4.0 ms, machine noise). Later: shorter cold paint (+5..17 %, thunder land more), smooth sea at tel-aviv
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
       Test mail to the vote address arrived (owner, 24 Nov)
       Ready 9033482c (main 7e4b5ce6 in, CI 45404925681 green, panel stills seen by the manager); merge main again after the styles, re-verify
+      Last pre-release pass sent to the vote-prep session on main b76225e8 (24 Nov); then owner: final look at both styles, worker deploy, merge
       Owner (24 Nov): move to the finish; looks good now, polish later, no tens of rounds per problem
 - [ ] 4. After the vote: special-sky slice (owner, 24 Nov): the moon reddens near the horizon by the air it shines through (as the sun does);
       one quiet "special event" line, any kind of event, empty on most days (owner, 24 Nov: general, not only night skies).
