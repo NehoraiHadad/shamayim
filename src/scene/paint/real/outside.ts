@@ -3,12 +3,15 @@ import { castShadow, TOWER_CAST, TOWER_CONTACT } from '../shared/town/castShadow
 import { drawGlyph, drawLamps, glyphShadow, glyphLight } from '../shared/town/glyphs'
 import type { Lamp } from '../shared/town/glyphs/kit'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
-import { grain, rockOf, tree } from '../shared/town/marks'
+import { grain, rockOf } from '../shared/town/marks'
 import { paintBox } from './outsideBox'
-import { paintOutsideLand, paintOutsideSea } from '../shared/town/outsideGround'
+import { paintOutsideLand } from '../shared/town/outsideGround'
 import { stripPhase } from '../shared/town/stripPhase'
+import { hairOf } from '../shared/land/water'
 import { paintPass } from '../shared/base/paintPass'
 import { paintTower } from './outsideTower'
+import { paintTree } from './outsideTree'
+import { offSea, paintRealSea } from './sea/outsideSea'
 import { paintFoldedWindows } from './town/foldedWindows'
 import { nightLight, paintStreetLight, paintWindowBloom } from './town/nightTown'
 import { paintNightWater } from './town/nightWater'
@@ -24,7 +27,7 @@ import { paintNightWater } from './town/nightWater'
  * mass under any cloud (tops lighter, feet darker, the face to the brighter sky).
  * MEDIUM: the scene's flat opaque bodies cut from the ridge colour, hard edges, no outline; one light: the face toward
  * the true sun lit, the other in shade; haze in the tones (by row); a mass is many boxes, each its own plaster, its roof
- * edge catching the sky. ORDER: the coastal sea (wash down the band, ripples, the shore, the light's path) → the cast
+ * edge catching the sky. ORDER: the coastal sea (its body, waves, the light's path, the shore) → the cast
  * shadows of towers and marks → the bodies back to front (beyond the place, then the place by where it stands) → the
  * grain over all → lamps and halos (windows lit by night, aviation lights), which no grain dulls. By night the town's own
  * light with them (`town/nightTown`): on the street behind each nearer body, round the windows, down the sea.
@@ -37,7 +40,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   const lateralLight = glyphLight(s), night = nightLight(desc)
   paintPass(ctx, 'background', () => {
     if (desc.land) paintOutsideLand(ctx, desc.land, s)
-    if (desc.sea) paintOutsideSea(ctx, desc.sea, s, stripPhase(desc, env))
+    if (desc.sea) paintRealSea(ctx, desc.sea, s, stripPhase(desc, env), hairOf(env))
   })
   for (const item of desc.items) {
     if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
@@ -51,7 +54,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
       else paintTower(ctx, item, tones, s, lamps, f, env.scale)
     }
     else if (item.kind === 'tree') {
-      paintPass(ctx, 'background', () => tree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
+      paintPass(ctx, 'background', () => paintTree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
     if (night) {
@@ -59,7 +62,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
       paintStreetLight(ctx, env, item, night)
     }
   }
-  paintPass(ctx, 'background', () => grain(ctx, env, 13, 1 - .4 * s.night))
+  paintPass(ctx, 'background', () => offSea(ctx, desc.sea, desc.bounds, () => grain(ctx, env, 13, 1 - .4 * s.night)))
   if (night && desc.sea) paintNightWater(ctx, desc.sea, desc.items, night, stripPhase(desc, env))
   if (night) paintWindowBloom(ctx, env, lamps, night)
   drawLamps(ctx, lamps, 1 / env.scale)

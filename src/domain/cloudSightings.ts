@@ -21,12 +21,31 @@ const MAX_KM = 28
 /** At this cover, the forecast's own cloud field already fills the sky: no need to place single clouds. */
 const BUSY_COVER = 50
 const MAX_SIGHTINGS = 3
+/** As fast as a cloud seen earlier may have come here. */
+const DRIFT_KMH = 40
+
+/** A patch's pixels, km east and north of the place. */
+type Cells = readonly (readonly [number, number])[]
+
+/** East and north of the place, km, of a pixel of an `n`×`n` mask centred on it. */
+const cellAt = (k: number, n: number, km: number): [number, number] =>
+  [(k % n + 0.5 - n / 2) * km, (n / 2 - Math.floor(k / n) - 0.5) * km]
+
+/** Whether a patch may have been there in every one of these earlier masks: some cloud within its drift since then. */
+export function stoodBefore(earlier: readonly { mask: readonly boolean[]; minutes: number }[], n: number, boxKm: number) {
+  const km = boxKm / n
+  const clouds = earlier.map(({ mask, minutes }) => ({ reach: km + (DRIFT_KMH * minutes) / 60,
+    cells: mask.flatMap((cloud, k) => cloud ? [cellAt(k, n, km)] : []) }))
+  return (patch: Cells) => clouds.every(({ reach, cells }) =>
+    patch.some(([x, y]) => cells.some(([ex, ey]) => Math.hypot(x - ex, y - ey) <= reach)))
+}
 
 /**
  * The cloud patches in a square cloud mask centred on the place (row-major, north row first, `true` = cloud), nearest
  * and biggest first. A patch is a 4-connected group of cloudy pixels; its direction and distance are its centroid's.
+ * `keep` says which patches are clouds at all.
  */
-export function cloudSightings(mask: boolean[], n: number, boxKm: number): CloudSighting[] {
+export function cloudSightings(mask: boolean[], n: number, boxKm: number, keep: (patch: Cells) => boolean = () => true): CloudSighting[] {
   const km = boxKm / n
   const seen = new Uint8Array(n * n)
   const out: (CloudSighting & { size: number })[] = []
@@ -40,8 +59,7 @@ export function cloudSightings(mask: boolean[], n: number, boxKm: number): Cloud
       const k = stack.pop()!
       const i = k % n, j = Math.floor(k / n)
       count += 1
-      // East and north of the place, km.
-      const x = (i + 0.5 - n / 2) * km, y = (n / 2 - j - 0.5) * km
+      const [x, y] = cellAt(k, n, km)
       sx += x; sy += y
       cells.push([x, y])
       for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -54,7 +72,7 @@ export function cloudSightings(mask: boolean[], n: number, boxKm: number): Cloud
     }
     const cx = sx / count, cy = sy / count
     const distanceKm = Math.hypot(cx, cy)
-    if (distanceKm > MAX_KM) continue
+    if (distanceKm > MAX_KM || !keep(cells)) continue
     const azimuth = ((Math.atan2(cx, cy) * 180) / Math.PI + 360) % 360
     // Spread across the line of sight: the patch's extent perpendicular to the direction it is seen in.
     const ux = distanceKm > 0 ? -cy / distanceKm : 1, uy = distanceKm > 0 ? cx / distanceKm : 0

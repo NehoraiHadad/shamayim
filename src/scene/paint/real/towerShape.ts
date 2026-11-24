@@ -52,13 +52,16 @@ const NEAR = [80, 170] as const, NEAR_SMALLER = 0, NEAR_FINER = 0.3, NEAR_ROUGHE
 const ROOM = 1.5
 const NOISE_SEED = 4127
 
+/** The cloud at a point: its alpha, 0…1, its lumps' relief there, and how far its head's side faces: across (+ right), and up. */
+export interface TowerPoint { a: number; bump: number; side: number; rise: number }
+
 export interface TowerShape {
   /** The base's depth below the near edge, px. */
   depth: number
   /** How far from the middle the cloud can reach, px. */
   reach: number
-  /** The cloud at (x, y): its alpha, 0…1, and its relief there; null in open sky. */
-  at(x: number, y: number): { a: number; bump: number } | null
+  /** The cloud at (x, y); null in open sky. The point is reused. */
+  at(x: number, y: number): TowerPoint | null
   /** The surface's relief at (x, y), about 0: lumps stand out, creases lie in. */
   relief(x: number, y: number): number
 }
@@ -96,28 +99,39 @@ export function towerShape(s: CloudSprite): TowerShape {
     foot = (1 - far * (1 - FOOT_LEFT) * (1 - smoothstep(0, FOOT, -y / s.tall))) * (1 - UNDER_FADE * smoothstep(Math.min(0, depth - FADE_DEEP * s.w), depth, y))
     rough = 1 + (BASE_ROUGH - 1) * smoothstep(straight - 0.3 * s.w, straight + 0.3 * bowl, y)
   }
+  const point: TowerPoint = { a: 0, bump: 0, side: 0, rise: 0 }
   const at = (px: number, y: number) => {
     if (y !== rowY) toRow(y)
-    let mass = -9, core = -9, main = row[0], rho = 9
+    let mass = -9, core = -9, main = row[0], rho = 9, side = 0, rise = 0
+    const sense = y > 0 ? -1 : 1
     for (const h of row) {
       const across = (px - h.axis) / h.wide, r = Math.sqrt(across * across + h.beyond * h.beyond)
       const inside = 1 - r
       core = Math.max(core, CORE - r)
       if (inside > mass) { main = h; rho = r }
       const meet = Math.max(0, 1 - Math.abs(inside - mass) / CREASE)
+      // Two heads' sides meet in their crease as their masses do.
+      const own = inside > mass ? 1 - meet / 2 : meet / 2
+      side += (across - side) * own
+      rise += (sense * h.beyond - rise) * own
       mass = Math.max(inside, mass) + (meet * meet * CREASE) / 4
     }
     if (mass < -REACH) return null
-    const bump = relief(px, y)
+    const bump = point.bump = relief(px, y)
+    point.side = Math.max(-1, Math.min(1, side))
+    point.rise = Math.max(-1, Math.min(1, rise))
     const body = foot * Math.min(1, 1 + MOTTLE * Math.min(0, bump))
-    if (core > CORE / 2) return { a: body, bump }
+    if (core > CORE / 2) {
+      point.a = body
+      return point
+    }
     // The outline moves by the noise partly read at the outline itself: one value out from the axis, so a lump stands out
     // of the mass more than it parts from it.
     const out = 1 / Math.max(0.3, rho)
     const edge = relief(main.axis + (px - main.axis) * out, main.knee + (y - main.knee) * out)
     const inside = Math.max(mass + rough * (EDGE * edge + (1 - EDGE) * bump), (core / CORE) * soft * 2)
-    const a = smoothstep(0, soft, inside) * body
-    return a > 0 ? { a, bump } : null
+    point.a = smoothstep(0, soft, inside) * body
+    return point.a > 0 ? point : null
   }
   // The noise and the sway carry the outline out by about a quarter of a head.
   const reach = Math.max(...heads.map((h) => Math.abs(h.x) + ROOM * Math.max(h.half, halfAt(h, -h.tall)) + Math.abs(carriedAt(h, -h.tall, s.lean))))

@@ -1,5 +1,6 @@
 import type { Normal } from '../../world/livingLight'
 import type { RGB, WorldState } from '../../world/types'
+import type { FallTile } from './fallTile'
 import type { LandIrradiance } from './landIrradiance'
 import type { LampKind } from './layers/lamp'
 import type { outsideShape } from './outsideShape'
@@ -46,6 +47,8 @@ export interface StyleLight {
   lamp?: readonly LampKind[]
   /** Asks for the cloud sheets' places in their own air (`CloudAir`). */
   cloudAir?: boolean
+  /** Asks for the near rain and snow on a larger tile. */
+  fallTile?: FallTile
   outside?: (facts: OutsideFacts) => OutsideLook
   sky?: { grade?: SkyGrade }
 }

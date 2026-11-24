@@ -5,6 +5,7 @@ import type { WorldState } from '../../world/types'
 import { farCitiesLayer } from './farCities'
 import { canopyOf } from './canopy'
 import { plantWindOf } from './landWind'
+import { withFallTile } from './fallTile'
 import { landDustLayers } from './landDust'
 import { withCloudAir } from './cloudAir'
 import { withLamp } from './lamp'
@@ -14,6 +15,7 @@ import { outsideLayer, outsideMass, outsideHome } from './outside'
 import { planeLayers } from './planes'
 import { bodyLayers } from './bodies'
 import { carriedCells, carriedSheet, minuteStart } from './advect'
+import { skyBelowEye } from './crest'
 import { cloudLayersForSky } from './cloudLayers'
 import { flashLayersOf } from './flash'
 import { shimmerLayerOf } from './shimmer'
@@ -95,7 +97,7 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: St
 
 /** The layers with what the hand's light asks of the model beyond its own. */
 const asked = (layers: LayerDesc[], world: WorldState, box: SceneBox, light: StyleLight) =>
-  withCloudAir(withLamp(layers, world, box, light.lamp), world, box, light.cloudAir)
+  withCloudAir(withLamp(withFallTile(layers, light.fallTile), world, box, light.lamp), world, box, light.cloudAir)
 
 type OutsideMemo = { box: string; layer: ReturnType<typeof outsideLayer> }
 const outsideMemo = new WeakMap<StyleLight, WeakMap<WorldState, OutsideMemo>>()
@@ -122,8 +124,8 @@ export function skyLayers(world: WorldState, box: SceneBox, life: LifeClock = LI
   const geom = skyGeom(world, box)
   const field = starsLayer(world, box, geom)
   const cloudLayers = cloudLayersForSky(world, box, geom)
-  const from = minuteStart(life)
-  const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from) : carriedCells(layer, from)))
+  const from = minuteStart(life), below = skyBelowEye(world, box, geom)
+  const carried = cloudLayers.map((layer) => (layer.kind === 'cloudSheet' ? carriedSheet(layer, from, below) : carriedCells(layer, from)))
   const shimmer = shimmerLayerOf(world, box, geom)
   // C10: the brightest stars twinkle on their own strips; the planets stay steady; the Milky Way, the meteors, the birds,
   // the aircraft and their contrails, the rainbow and the halo, all from the world's life, night sky and optics.

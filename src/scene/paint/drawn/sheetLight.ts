@@ -5,7 +5,7 @@ import { toneOf } from '../shared/cloud/deck'
 import { mix } from '../shared/base/hand'
 import { cloudInks, type CloudInks } from './cloudInks'
 import { lowLight, whitened } from './cloudLight'
-import { leanAt } from './sheetCaps'
+import { leanAt } from './sheetCap'
 import type { Eased } from './sheetEdge'
 import { fieldAt } from './sheetField'
 
@@ -20,8 +20,8 @@ const SIDE = 0.6, TONE = 0.9, TONE_MOST = 0.16
  *  what it keeps more where there are few, and the cover that is; the chroma its inks take (its body is half the sky's),
  *  what of a shade's cool turn a closed one has not, and what a dull light takes of its top and foot. */
 const KEEPS = 0.55, CLOSED = 0.1, COVER = [0.45, 0.8] as const, GAIN = 1.2, GREY = 0.7, DULL = 0.4
-/** The altitudes (degrees) a lamp stands low between, what it does to the side that faces it, and how far off it is whole (of the width). */
-const LOW = [8, 32] as const, ACROSS = 0.45, OFF = 0.4
+/** The altitudes (degrees) a lamp stands low between, and high; what each does to the side that faces it, and how far off it is whole (of the width). */
+const LOW = [8, 32] as const, HIGH = [40, 75] as const, ACROSS = 0.45, FLANK = 0.24, OFF = 0.4
 /** The beam at the ground a sheet's light is all sky's under, and all sun's from. */
 const BEAM = [0.03, 0.3] as const
 /** What a low sun takes of a cap's light: it comes from below. */
@@ -37,6 +37,9 @@ export interface SheetLight {
   under: (rgb: RGB, gx: number, gy: number) => RGB
 }
 
+/** What a lamp at an altitude does to the side that faces it. */
+const acrossAt = (altitude: number) => (ACROSS + (FLANK - ACROSS) * smoothstep(LOW[0], LOW[1], altitude)) * (1 - smoothstep(HIGH[0], HIGH[1], altitude))
+
 export function sheetLight(desc: LayerOf<'cloudSheet'>, { f, alpha, wide }: Eased): SheetLight {
   const { city, lamp } = desc, low = lowLight(desc), grid = (of: Float32Array, gx: number, gy: number) => fieldAt(of, f.cols, f.rows, gx, gy)
   let solid = 0, tones = 0
@@ -47,7 +50,7 @@ export function sheetLight(desc: LayerOf<'cloudSheet'>, { f, alpha, wide }: Ease
   const dull = (desc.daylit ?? 0) * (lamp?.body === 'sun' ? 1 - smoothstep(BEAM[0], BEAM[1], lamp.strength) : 0), grey = Math.max(closed, dull)
   const t = cloudInks({ lit: desc.lit, bright: mix(whitened(desc.lit), desc.lit, low), body, shade: desc.shade, least: dull, gain: GAIN + (1 - GAIN) * dull, cool: 1 - GREY * grey })
   // A low sun lights the feet, and the side of the sky it stands on.
-  const up = SIDE * (0.7 - 0.35 * t.heavy) * (1 - DULL * dull) * (1 - 2 * low), place = lamp?.sun ?? lamp, across = place ? ACROSS * (1 - smoothstep(LOW[0], LOW[1], place.altitude)) : 0
+  const up = SIDE * (0.7 - 0.35 * t.heavy) * (1 - DULL * dull) * (1 - 2 * low), place = lamp?.sun ?? lamp, across = place ? acrossAt(place.altitude) * (1 - dull) : 0
   return {
     t,
     crest: 1 - BELOW * low,
