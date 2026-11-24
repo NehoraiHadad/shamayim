@@ -7,6 +7,7 @@ import { cityDomes } from './cityLight'
 import { srgbRgbToLinear } from './landRadiance'
 import { afterglowWeight } from './landSkyIrradiance'
 import type { SkyGeom } from './sky'
+import { gradeSky } from './skyTone'
 import { mixRgb } from './tone'
 import type { Glow, RGB, SceneBox } from './types'
 
@@ -60,7 +61,8 @@ function ridgeGlowColour(world: WorldState): RGB {
  * The glows of the sky (sky px): round the sun a three-layer glow (a broad warm sky, a nearer brightening, the bright
  * aureole), its colour the sun's after air mass and aerosol, weaker as the sun climbs and as the cloud in front takes its
  * direct light, suppressed by dust. The twilight glow sits where the sun crosses the land around sunrise and sunset.
- * At night a cool halo surrounds the moon and domes of lit air sit over the towns.
+ * At night a cool halo surrounds the moon and domes of lit air sit over the towns. Graded here, as the
+ * hand paints them: `solarSkyGlows` is also a light on things.
  */
 export function skyGlows(world: WorldState, box: SceneBox, geom: SkyGeom): Glow[] {
   const out = [...cityDomes(world, geom), ...solarSkyGlows(world, box.landTop, geom.left, geom.s)]
@@ -71,7 +73,7 @@ export function skyGlows(world: WorldState, box: SceneBox, geom: SkyGeom): Glow[
     if (strength > 0.02) out.push({ x: geom.left + moon.x * geom.s, y: box.landTop + moon.y, r: 64 * geom.s, rgb: [0.78, 0.82, 1],
       alpha: 0.22 * strength })
   }
-  return out
+  return out.map((glow) => ({ ...glow, rgb: gradeSky(world, glow.rgb) }))
 }
 
 /** Solar glow over the palette horizon at a point on the reference sky surface. */
