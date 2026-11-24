@@ -132,7 +132,6 @@ export function cloudSheetOf(world: WorldState, geom: SkyGeom, snapshot: Snapsho
         localTone += thick * (baseTone - thinTone)
       }
       tone[index] = unit(cellular && opacity ? (resolved * localTone + unresolved * farTone) / opacity : localTone)
-      ;(globalThis as { diag?: unknown[][] }).diag?.push([layer.lattice, row, col, +ys[row].toFixed(0), +xs[col].toFixed(0), +local.toFixed(2), +multiplier.toFixed(2), +thinned.toFixed(2), +alpha[index].toFixed(3), +tone[index].toFixed(3), +(1 - 1 / (1 + DIFFUSE_EXTINCTION * depth * multiplier * thinned)).toFixed(3), f, cellular ? 1 : 0])
       fingerprint = Math.imul(fingerprint ^ Math.round(alpha[index] * 255) ^ (Math.round(tone[index] * 255) << 8), 16777619)
     }
   }

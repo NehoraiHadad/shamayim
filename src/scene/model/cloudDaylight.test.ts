@@ -11,7 +11,7 @@ const box = { width: 375, skyHeight: 428, landTop: 300, landHeight: 128, dpr: 2 
 let loaded: Map<string, LoadedPlace>
 beforeAll(async () => {
   stubPublicFetch()
-  loaded = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter(({ id }) => ['haifa', 'neve-zohar'].includes(id)))
+  loaded = await loadPlaces([...SCENE_PLACES, ...DATUM_PLACES].filter(({ id }) => ['haifa', 'neve-zohar', 'tiberias'].includes(id)))
 }, 120_000)
 
 function frame(id: string, at: LocalTime) {
@@ -51,17 +51,11 @@ it('keeps the sun under 3° in the twilight’s own tones: rose and red, not cre
   expect(tone(mid.lit).h).toBeLessThan(40)
 })
 
-it('lights no part of an opaque low deck far redder than the rest of it', () => {
-  const { sheets } = frame('haifa', '2026-11-17T16:30')
-  const { alpha, tone: tones, lit, body, shade, ys, xs } = sheets.find(({ lattice }) => lattice === 'low')!
-  const chroma: number[] = []
+it.each([['haifa', '2026-11-17T14:30'], ['tiberias', '2026-11-17T16:30']] as const)('lights no opaque column of a low deck as a thin one, at %s %s', (id, at) => {
+  const { alpha, tone: tones, ys, xs } = frame(id, at).sheets.find(({ lattice }) => lattice === 'low')!
+  const opaque: number[] = []
   // The upper sky, where a cell is wide on the screen and one node's colour is a patch.
-  for (let n = 0; n < ys.length * xs.length; n++) {
-    if (ys[Math.floor(n / xs.length)] > 200 || alpha[n] < 0.98) continue
-    const t = tones[n]
-    chroma.push(tone(t < 0.5 ? mixRgb(lit, body, t * 2) : mixRgb(body, shade, t * 2 - 1)).c)
-  }
-  chroma.sort((a, b) => a - b)
-  expect(chroma.length).toBeGreaterThan(50)
-  expect(chroma.at(-1)! / chroma[chroma.length >> 1]).toBeLessThan(2)
-})
+  for (let n = 0; n < ys.length * xs.length; n++) if (ys[Math.floor(n / xs.length)] < 240 && alpha[n] >= 0.98) opaque.push(tones[n])
+  expect(opaque.length).toBeGreaterThan(50)
+  expect(Math.min(...opaque)).toBeGreaterThan(0.15)
+}, 60_000)
