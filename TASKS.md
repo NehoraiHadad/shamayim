@@ -1241,6 +1241,8 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       - [x] Round 2 on the manager's four criticisms (prototype only, stills on CI: the `concept` dispatch input of `ci.yml`): ground raked
             and gully banks, house corners and casts, haze graded as the sky; one cloud hand for sheets and towers; hole walls; round heads
             Stills: notes `real/concept/round2/`
-      - [ ] Owner's verdict on the concept; contract needs (a) the lamp, (b) the sky's grade go to the manager
-      - [ ] Phase 2 after the manager opens `src/scene`: plane in perf budget first, then REAL-STYLE.md §5; CI stills, perf, READY
+      - [x] Owner approved the direction (round 2, 5afc056d), with fixes during the build
+      - [x] Build plan: notes `real/BUILD-PLAN.md` (S0-S14, needs N1-N9 for foundations, every open fix), reviewed by another model
+      - [ ] N1 the lamp, N2 the sky's grade, N3 bounds: the manager to foundations
+      - [ ] Phase 2 after the manager opens `src/scene`: S0, S1 (town by night), S2 (houses by day) first, then the plane and the clouds; per slice: CI stills, perf pair, READY
 - [ ] 3. Vote: main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)

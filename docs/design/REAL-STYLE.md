@@ -95,11 +95,8 @@ resolution with the finer surface as a kept overlay. The first phase 2 step is t
 
 ## 5. Order in phase 2
 
-1. Contract (a) and (b) by whoever the manager names; today's pictures byte-identical.
-2. `plane` in budget (the risk), then `cloudSheet` with the sky's grade: the first owner look.
-3. `cloudCells` and `shafts`; night `outside`; `canopy` and trees; sea; `outside` by day.
-4. Dusk, fog, near rain, dust, snow, smoke, as the shared pieces open.
-5. Still set before and after on CI (both styles; drawn byte-identical), perf, a second-model review, READY.
+The slices, their files, proofs, stills, perf shares and the open fixes are in the shared notes, `real/BUILD-PLAN.md` (it replaces the order that stood here:
+town by night and houses by day need no contract and come first; then the plane, the perf risk; then the clouds).
 
 ## 6. Known weak points of the concept
 
