@@ -33,29 +33,25 @@ function top(r: number, random: () => number): P[] {
 }
 
 export function cap(ctx: Ctx2D, at: CapAt, ink: Inks): void {
-  const random = rng(at.seed), { r } = at, pts = top(r, random), last = pts.length - 1
-  ctx.save()
-  ctx.translate(at.x, at.y)
-  ctx.rotate(at.tilt)
+  const random = rng(at.seed), { r } = at, c = Math.cos(at.tilt), s = Math.sin(at.tilt)
+  const pts = top(r, random).map(([x, y]): P => [at.x + x * c - y * s, at.y + x * s + y * c]), last = pts.length - 1
   ctx.beginPath()
   pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
   ctx.closePath()
-  // Gone at the higher end of the chord, so the chord itself never shows.
-  const wipe = ctx.createLinearGradient(0, -r * 1.05, 0, Math.min(-0.1 * r, pts[0][1], pts[last][1]))
+  // Gone at the higher end, so that the side that closes it never shows: the light comes down on every cap alike.
+  const wipe = ctx.createLinearGradient(0, at.y - r * 1.05, 0, Math.min(at.y - 0.1 * r, pts[0][1], pts[last][1]))
   wipe.addColorStop(0, css(ink.lit))
-  wipe.addColorStop(0.35, css(mix(ink.lit, ink.local, 0.5)))
-  wipe.addColorStop(0.7, css(mix(ink.local, ink.shade, 0.5), 0.75))
+  wipe.addColorStop(0.35, css(mix(ink.lit, ink.local, 0.6)))
+  wipe.addColorStop(0.75, css(mix(ink.local, ink.shade, 0.5), 0.7))
   wipe.addColorStop(1, css(ink.shade, 0))
   ctx.fillStyle = wipe
   ctx.fill()
-  if (at.line > 0.05) {
-    const cut = random() < WHOLE ? [0.06, 0.94] : [0.05 + 0.3 * random(), 0.95 - 0.35 * random()]
-    ctx.beginPath()
-    carve(ctx, pts.slice(Math.round(cut[0] * last), Math.round(cut[1] * last)), LINE * Math.min(1.25, 0.6 + r / 26), at.seed, 1)
-    ctx.fillStyle = css(ink.key, LINE_ALPHA * at.line)
-    ctx.fill()
-  }
-  ctx.restore()
+  if (at.line <= 0.05) return
+  const cut = random() < WHOLE ? [0.06, 0.94] : [0.05 + 0.3 * random(), 0.95 - 0.35 * random()]
+  ctx.beginPath()
+  carve(ctx, pts.slice(Math.round(cut[0] * last), Math.round(cut[1] * last)), LINE * Math.min(1.25, 0.6 + r / 26), at.seed, 1)
+  ctx.fillStyle = css(ink.key, LINE_ALPHA * at.line)
+  ctx.fill()
 }
 
 /** The caps, the mass's top first, so that a lower one stands before it. */

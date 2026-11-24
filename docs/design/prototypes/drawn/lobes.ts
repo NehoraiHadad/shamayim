@@ -7,7 +7,7 @@ import { fractal, rng } from '../../../../src/scene/paint/shared/base/core'
 
 /** A mass on a grid: over 0 inside, `side` its place in the mass (1 top … -1 foot), `most` a row's largest lobe (cells). */
 export interface Mass { cols: number; rows: number; at: Float32Array; side: Float32Array; most: (row: number) => number; seed: number }
-export interface Lobe { x: number; y: number; r: number; side: number; tilt: number }
+export interface Lobe { x: number; y: number; r: number; side: number; tilt: number; n: number }
 
 /** A lobe's most against its distance to the edge: a round mass is several lobes, not one ball. */
 const INNER = 0.78
@@ -15,11 +15,11 @@ const DIAG = Math.SQRT2, LEAST = 1.15, APART = 0.62, BIN = 12
 /** How far a lobe swells (against its radius); it rises by as much, so that its foot stays in the mass. */
 const OVER = 0.12
 /** Slow noise over the mass: where it is busy its lobes are many and small ones stand too, where it is quiet only the tops have any. */
-const SLOW = 0.16, QUIET = 0.43, CALM = 0.4, BUSY = 0.55
+const SLOW = 0.16, QUIET = 0.38, CALM = 0.25, BUSY = 0.55
 /** A lobe's least and most against its row's, how seldom it is large; how small it may be where the mass is busy. */
 const SIZE = [0.2, 1.1] as const, SELDOM = 1.5, TINY = 0.4
 /** How far a lobe leans out of its mass, and at random (rad); the cells the lean is taken over, and the fall that is all of it. */
-const LEAN = 0.75, SWAY = 0.5, ABOUT = 3, FALL = 6
+const LEAN = 0.4, SWAY = 0.3, ABOUT = 3, FALL = 6
 /** Lobes smaller than this share of their row's most stand only on a top; none stand at the foot or in the far rows (cells). */
 const SMALL = 0.42, TOP = 0.05, FOOT = -0.5, NEAR = 6
 
@@ -57,7 +57,7 @@ export function lobesOf(mass: Mass): Lobe[] {
       if (busy < QUIET && mass.side[n] < CALM) continue
       const r = Math.min(INNER * d[n], most * (SIZE[0] + (SIZE[1] - SIZE[0]) * random() ** SELDOM * Math.min(1, 2.4 * (1 - busy))))
       if (r < SMALL * most * (busy > BUSY ? TINY : 1) && mass.side[n] <= TOP) continue
-      found.push({ x: i, y: j, r, side: mass.side[n], tilt: LEAN * lean(d, n) + SWAY * (random() - 0.5) })
+      found.push({ n, x: i, y: j, r, side: mass.side[n], tilt: LEAN * lean(d, n) + SWAY * (random() - 0.5) })
     }
   }
   found.sort((a, b) => b.r - a.r)
