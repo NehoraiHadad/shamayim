@@ -29,7 +29,8 @@ function outlineShift({ placeId, t }: CloudField, layer: FieldLayer, range: numb
   return along && range * along * noise.at(range * east, range * north)
 }
 
-function ray(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number, columnStep?: number) {
+/** One ray's, with no width. */
+export function rayThrough(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number, columnStep?: number) {
   const east = Math.sin(az * rad), north = Math.cos(az * rad)
   const cos = Math.cos(alt * rad), slope = Math.tan(alt * rad)
   const curvature = 1 / (2 * R_EFF_KM)
@@ -92,13 +93,10 @@ function ray(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number
 /** Five equal-weight samples over the disc. The supplied snapshot belongs to the shown minute. */
 export function transmitAlong(field: CloudField, snapshot: FieldSnapshot, az: number, alt: number, t = field.t, columnStep?: number) {
   if (t !== field.t) throw new RangeError('Transmission requires the field at the snapshot minute')
-  const centre = { azimuth: az, altitude: alt }
-  return transmitAcross(field, snapshot, [centre, ...[0, 1, 2, 3].map((k) => onCircle(centre, 0.19, k * Math.PI / 2))], columnStep)
-}
-
-/** The mean of the rays to these directions (deg). */
-export function transmitAcross(field: CloudField, snapshot: FieldSnapshot, to: { azimuth: number; altitude: number }[], columnStep?: number) {
-  let sum = 0
-  for (const { azimuth, altitude } of to) sum += ray(field, snapshot, azimuth, altitude, columnStep)
-  return sum / to.length
+  let sum = rayThrough(field, snapshot, az, alt, columnStep)
+  for (let k = 0; k < 4; k++) {
+    const p = onCircle({ azimuth: az, altitude: alt }, 0.19, k * Math.PI / 2)
+    sum += rayThrough(field, snapshot, p.azimuth, p.altitude, columnStep)
+  }
+  return sum / 5
 }

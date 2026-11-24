@@ -1,12 +1,13 @@
 import { coinOf } from '../../world/air'
-import { transmitAcross } from '../../world/field/transmit'
+import { rayThrough } from '../../world/field/transmit'
 import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
+import { sheetAlphaAt } from './cloudSheetGrid'
 import { colourKey, layerKey, skyBoxKey } from './keys'
 import { coversOf, skyGeom, veilOf, type SkyGeom } from './sky'
 import { mixRgb } from './tone'
-import type { Disc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
+import type { Disc, LayerDesc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
 
 /** Look. The light a painter's thickest cloud still lets through: its cores are 1 less it. */
 export const CORE_LEAK = 0.08
@@ -14,14 +15,21 @@ export const CORE_LEAK = 0.08
  *  under a thicker one the two together let through what the cloud truly does (half a code value of 255 at a depth of 6.2). */
 const shownThrough = (transmission: number) => Math.min(1, transmission / CORE_LEAK)
 
-/** What the clouds let through of a disc as it is drawn (far larger than its half degree): from its middle and its limb, by
- *  the air they are drawn in. */
-function throughDisc({ cloudField }: WorldState, geom: SkyGeom, x: number, y: number, r: number): number {
-  if (!cloudField) return 1
+/** What the clouds let through of a disc as it is drawn (far larger than its half degree), from its middle and its limb:
+ *  the sheets as they are drawn over it, the towers along the rays of where it is drawn. */
+function throughDisc({ cloudField }: WorldState, geom: SkyGeom, clouds: readonly LayerDesc[], x: number, y: number, r: number): number {
   // A part below the horizon is the land's: a pixel over it instead.
-  const at = (dx: number, dy: number) =>
-    ({ azimuth: geom.azimuthAt(x + dx), altitude: geom.domeAltitudeAt(Math.min(geom.horizon - 1, y + dy)) })
-  return transmitAcross(cloudField.field, cloudField.snapshot, [at(0, 0), at(-r, 0), at(r, 0), at(0, -r), at(0, r)])
+  const at = (dx: number, dy: number) => ({ x: x + dx, y: Math.min(geom.horizon - 1, y + dy) })
+  const face = [at(0, 0), at(-r, 0), at(r, 0), at(0, -r), at(0, r)]
+  const sheets = clouds.filter((layer) => layer.kind === 'cloudSheet')
+  const towers = cloudField?.snapshot.filter(({ layer }) => layer?.lattice === 'tower') ?? []
+  let sum = 0
+  for (const p of face) {
+    const light = sheets.reduce((left, sheet) => left * (1 - sheetAlphaAt(sheet, p.x, p.y)), 1)
+    sum += light && cloudField && towers.length
+      ? light * rayThrough(cloudField.field, towers, geom.azimuthAt(p.x), geom.domeAltitudeAt(p.y)) : light
+  }
+  return sum / face.length
 }
 
 const WHITE: RGB = [1, 1, 1]
@@ -38,13 +46,13 @@ const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
  * still drawn: whatever land and structures are drawn in front of it hide it (the land surface lies over the sky), and the
  * light judges it on that same drawn line (`world/drawnSkyline.ts`).
  */
-export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): Disc | null {
+export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): Disc | null {
   const sun = world.bodies.sun
   if (!sun.up) return null
   const aerosol = world.air
   const { rgb, strength } = sunLight(Math.max(0, sun.altitude), aerosol)
   const coin = coinOf(aerosol), veil = veilOf(world), x = geom.left + sun.x * geom.s, y = box.landTop + sun.y
-  const through = throughDisc(world, geom, x, y, SUN_R)
+  const through = throughDisc(world, geom, clouds, x, y, SUN_R)
   const core = mixRgb(mixRgb(rgb, WHITE, 0.5 * strength), COIN, coin)
   const limb: RGB = mixRgb([rgb[0] * 0.86, rgb[1] * 0.78, rgb[2] * 0.66], COIN, coin)
   return {
@@ -59,7 +67,7 @@ export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeo
  * The moon where the world puts it, in its true phase with the lit limb at its sky bearing, as the SVG scene
  * shows it (`moonLook`): bone by night, sky-pale by day, veiled from 40 % cover up, gone under overcast or thick haze.
  */
-export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): MoonDisc | null {
+export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): MoonDisc | null {
   const moon = world.bodies.moon
   const { low, mid, high } = coversOf(world)
   const union = 1 - (1 - low) * (1 - mid) * (1 - high)
@@ -73,7 +81,7 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
   const x = geom.left + moon.x * geom.s, y = box.landTop + moon.y
   return {
     x, y, r: MOON_R, rgb: mixRgb(bone, day, look.daylight),
-    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, x, y, MOON_R)),
+    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, MOON_R)),
     fraction: moon.illumination,
     tilt: moon.tilt,
     daylight: look.daylight, ring: look.ring,
@@ -85,10 +93,10 @@ const r1 = (v: number) => Math.round(v * 4) / 4
 /** Over the clouds (6–8) and the rain's edge (8.5), under the flashes (9) and the near fall (11). */
 const AUREOLE_Z = 8.6
 
-/** The sun and the moon, each its own small layer round its disc (a scrub repaints only the disc that moved). */
-export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box)): LayerOf<'bodies'>[] {
+/** The sun and the moon under these clouds, each its own small layer round its disc (a scrub repaints only the disc that moved). */
+export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): LayerOf<'bodies'>[] {
   const out: LayerOf<'bodies'>[] = []
-  const moon = moonDisc(world, box, geom)
+  const moon = moonDisc(world, box, geom, clouds)
   if (moon) {
     const pad = MOON_R + 3
     out.push({ kind: 'bodies', id: 'bodies.moon', surface: 'sky', z: 4, sun: null, moon,
@@ -96,7 +104,7 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
       key: layerKey('moon', skyBoxKey(box), r1(moon.x), r1(moon.y), colourKey(moon.rgb), Math.round(moon.alpha * 255),
         Math.round(moon.fraction * 200), Math.round(moon.tilt), Math.round(moon.daylight * 50), moon.ring, Math.round(moon.earthshine * 255)) })
   }
-  const sun = sunDisc(world, box, geom)
+  const sun = sunDisc(world, box, geom, clouds)
   if (sun) {
     const pad = Math.ceil(SUN_R * 3.2)
     out.push({ kind: 'bodies', id: 'bodies.sun', surface: 'sky', z: 5, sun, moon: null,
