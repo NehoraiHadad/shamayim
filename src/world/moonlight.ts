@@ -8,6 +8,8 @@ export interface MoonSky { altitude: number; azimuth: number; fraction: number }
 
 /** How much of white stays in the low moon's colour: copper on the horizon, not a flat red. */
 const COPPER = 0.33
+/** Over a blue night a dimmed yellow reads green: this much of the lost blue is taken off the green too, towards gold. */
+const GOLD = 0.2
 /** A bright day's air in front of the moon adds its own light, so the tint shows this much less. */
 const DAY_WASH = 0.75
 /** The dark eye follows a dimming disc: it sees about this power of the light lost. */
@@ -25,7 +27,7 @@ export function moonAir(altitude: number, air: Aerosol, daylight = 0): { tint: R
   const top = Math.max(...raw)
   const [r, g, b] = raw.map((v) => white + (1 - white) * v / top)
   const lost = low.strength / Math.max(1e-6, solarBeam(90, air).strength)
-  return { tint: [r, g, b], dim: Math.min(1, lost) ** (EYE_POWER * (1 - daylight)) }
+  return { tint: [r, g * (1 - GOLD * (1 - b)), b], dim: Math.min(1, lost) ** (EYE_POWER * (1 - daylight)) }
 }
 
 /** A colour seen through air of this tint. */
