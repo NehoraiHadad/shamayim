@@ -5,7 +5,7 @@ import type { Caption } from './types'
 /** What stands between the name and the height. */
 export const JOIN = ' · '
 /** The tick from the inscription to the roofs (px): drawn only where it reaches them and is more than a speck. */
-const TICK = { max: 13, min: 3 }
+const TICK = { max: 16, min: 5 }
 /** The spot's column stays this far inside the inscription (px). */
 const HOLD = 8
 /** What a px aside and a covered px of a far town cost, in px of height over the roofs. */

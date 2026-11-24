@@ -9,6 +9,8 @@ import { CaptionMark, Rule, SpotDot } from './marks'
 const cover: CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }
 /** Px from the middle of the lettering to its baseline. */
 const BASE = 4.1
+/** Px between the ground line and the height set into it. */
+const GAP = 3
 
 /** The place's height as one thing with the place (a design option), from the model's facts, in the given hand. */
 export function CaptionOverlay({ item, width, style, hand: id }: { item: CaptionItem; width: number; style?: CSSProperties; hand: SceneStyle }) {
@@ -21,7 +23,7 @@ export function CaptionOverlay({ item, width, style, hand: id }: { item: Caption
     style: { fontFamily: hand.font, fontSize: hand.size, fontWeight: hand.weight } }
   return (
     <svg viewBox={`0 0 ${width} ${SCENE_H}`} preserveAspectRatio="none" style={{ ...cover, ...style }} aria-hidden="true">
-      {line && <GroundRule id={key} line={line} gap={[item.x - item.w / 2, item.x + item.w / 2]} hand={hand} tone={ground} width={width} />}
+      {line && <GroundRule id={key} line={line} gap={[item.x - item.w / 2 - GAP, item.x + item.w / 2 + GAP]} hand={hand} tone={ground} width={width} />}
       {tick && <Rule points={[[spot.x, tick.top], [spot.x, tick.bottom]]} hand={hand} tone={tone} />}
       <SpotDot x={spot.x} y={spot.y} fill={item.accent} ring={ground.halo} hand={id} />
       <g transform={`rotate(${(item.slope * 180 / Math.PI).toFixed(2)} ${item.x} ${middle})`}>

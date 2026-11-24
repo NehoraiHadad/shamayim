@@ -10,7 +10,7 @@ export interface CaptionHand {
   rule: { path: Stroke; width: number; alpha: number }[]
 }
 
-const HALO = { width: 3.4, blur: .9, alpha: .85 }
+const HALO = { width: 3.2, blur: 1.1, alpha: .85 }
 
 export const CAPTION_HANDS: Record<SceneStyle, CaptionHand> = {
   real: { font: 'var(--font-sans)', size: 12, weight: 600, halo: HALO, rule: [{ path: penPath, width: .9, alpha: .78 }] },

@@ -10,7 +10,7 @@ const FADE = 22
 /** The line along the place's feet, open where the height stands in it, fading out at both ends. */
 export function GroundRule({ id, line, gap, hand, tone, width }: { id: string; line: NonNullable<CaptionItem['line']>; gap: [number, number]
   hand: CaptionHand; tone: CaptionTone; width: number }) {
-  const x1 = line[0][0], x2 = line[line.length - 1][0], share = Math.min(.5, FADE / (x2 - x1))
+  const x1 = line[0][0], x2 = line[line.length - 1][0], share = Math.min(.2, FADE / (x2 - x1))
   const parts = [line.filter(([x]) => x < gap[0]), line.filter(([x]) => x > gap[1])].filter(part => part.length > 1)
   return (
     <>

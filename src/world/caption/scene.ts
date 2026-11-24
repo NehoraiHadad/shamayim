@@ -5,7 +5,7 @@ import { DOT_R, LABEL_PX, textWidth, type Point } from '../layout'
 import { SCENE_W } from '../sceneBox'
 import { groundAt } from '../sceneLight'
 import type { Pt, WorldState } from '../types'
-import { coverOf } from './cover'
+import { CAPTION_FLOOR, coverOf } from './cover'
 import { lineAt } from './feetLine'
 import { ownExtent, type OwnExtent } from './ownExtent'
 
@@ -22,17 +22,20 @@ export interface CaptionScene {
   onLand(x: number, y: number): boolean
 }
 
+/** How far under the place's foot a caption on the land may step (px), and what a px of it costs, in px along the foot. */
+export const DOWN = { max: 10, cost: 2 }
+
 /** Room for the lettering of either hand (px). */
 export const letterWidth = (text: string) => Math.ceil(textWidth(text, LABEL_PX) * 1.1) + 2
 
 /** Lettering leans with the ground no more than this. */
-const LEAN = Math.tan(7 * Math.PI / 180)
+const LEAN = Math.tan(4 * Math.PI / 180)
 
-/** Lettering `w` wide centred at a column, `drop` px under the line and leaning with it: its place and height, and its slope. */
+/** Lettering `w` wide centred at a column, `drop` px under the line and leaning with it, above the sheet: its place, height and slope. */
 export function along(line: readonly Pt[], x: number, w: number, drop: number) {
   const slope = Math.max(-LEAN, Math.min(LEAN, (lineAt(line, x + w / 2) - lineAt(line, x - w / 2)) / w))
   const h = INK_H + Math.abs(slope) * w
-  return { x, y: lineAt(line, x) + drop - h / 2, h, slope }
+  return { x, y: Math.min(lineAt(line, x) + drop - h / 2, CAPTION_FLOOR - h), h, slope }
 }
 
 export function captionScene(world: WorldState): CaptionScene | null {

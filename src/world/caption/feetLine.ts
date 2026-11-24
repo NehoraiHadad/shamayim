@@ -4,9 +4,9 @@ import { CAPTION_FLOOR } from './cover'
 import { INK_H, type CaptionScene } from './scene'
 
 /** The line runs this far under the feet (px), and this far past the last house. */
-const UNDER = 4, PAST = 9
+const UNDER = 4, PAST = 16
 /** Half the line of a place with no houses round its spot (px), and how far under the spot it lies. */
-const BARE = 22, BARE_UNDER = 6
+const BARE = 34, BARE_UNDER = 6
 /** Px between the line's points, and half the window its bends are eased over. */
 const STEP = 3, EASE = 18
 /** Px the line stays inside the figure. */

@@ -15,13 +15,13 @@ function haloFor(ink: string, from: string, to: string) {
 
 /**
  * The lettering's ink and its halo, for what lies behind it: the light ink in the land's dark over land; over the sky
- * whichever of the two stands out more from it, in the sky's own tone.
+ * whichever of the two stands out more from it, in the sky's own tone (the pale ground of its horizon under dark letters, which a bluer one would smudge).
  */
 export function captionTone(palette: SkyLight, on: 'sky' | 'land'): CaptionTone {
   const { ink, ridgeNear } = palette
   if (on === 'land') return { ink, halo: ridgeNear }
   const sky = mix(palette.mid, palette.horizon, .8)
   return ratio(ridgeNear, sky) >= ratio(ink, sky)
-    ? { ink: ridgeNear, halo: haloFor(ridgeNear, sky, '#FFFFFF') }
+    ? { ink: ridgeNear, halo: haloFor(ridgeNear, mix(palette.horizon, '#FFFFFF', .2), '#FFFFFF') }
     : { ink, halo: haloFor(ink, sky, '#000000') }
 }
