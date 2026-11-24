@@ -12,9 +12,9 @@ export interface Layer { size: number; up: number; across?: number; least: numbe
 
 /** A crown too small for clumps; the dark between them; the leaves; their tops. */
 export const WHOLE: Layer = { size: 1, up: 0, least: -1 }
-export const UNDER: Layer = { size: 1.08, up: -0.1, least: -1 }
-export const BODY: Layer = { size: 0.82, up: 0.16, least: -1 }
-export const TOPS: Layer = { size: 0.5, up: 0.42, least: -0.25 }
+export const UNDER: Layer = { size: 1.12, up: -0.1, least: -1 }
+export const BODY: Layer = { size: 0.94, up: 0.14, least: -1 }
+export const TOPS: Layer = { size: 0.52, up: 0.42, least: -0.25 }
 
 /** Clumps by the crown's size (px), at most; a clump's size of its crown's, how far its corners break the edge. */
 const MANY = 1.5, MOST = 9, CLUMP = 0.44, BREAK = 0.24

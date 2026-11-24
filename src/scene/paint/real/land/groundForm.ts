@@ -2,13 +2,13 @@ import { TEXEL } from '../../../model/planeBands'
 import { linearLuminance } from '../../../model/landRadiance'
 import type { LayerOf } from '../../../model/types'
 import { fractal } from '../../shared/base/core'
-import { materialAt } from '../../shared/land/planeMaterial'
+import { materialAt, mottle } from '../../shared/land/planeMaterial'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { foldsOf } from './folds'
 
 /*
  * The ground's own surface, seen at a slant: the model's palette where it lies, broken into patches of soil and scrub that
- * lengthen across the slope and shrink toward the crest, and the small form the light rakes over. No light in it.
+ * lengthen across the slope and shrink toward the crest, its fine grain, and the small form the light rakes over. No light in it.
  */
 
 /** A texel's reflectance (3 each), then its fall across, its fall away from the eye and its open sky (3 each). */
@@ -61,10 +61,11 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const green = smooth(-0.18, 0.12, (base[1] - base[0]) / Math.max(1e-4, base[1] + base[0]))
     const scrub = rough * (0.2 + 0.8 * green) * smooth(0.02, 0.5, read(14, CLUMP) + 0.45 * fine - 0.25 * patch)
     const shift = rough * PATCHES * patch, dark = (1 + shift) * (1 - SCRUB * scrub) * (1 - BED * folds[n]), o = n * 3
+    const grain = dark * (t.grainAmount ? mottle(seed, bounds.x + off, y, t.grainAmount) : 1)
     height[n] = rough * (b * SWELL[0] * broad + m * SWELL[1] * middle + f * SWELL[2] * fine + 2 * scrub) - DEEP * folds[n]
-    rho[o] = clamp01(base[0] * dark * (1 + 0.14 * shift - 0.1 * scrub))
-    rho[o + 1] = clamp01(base[1] * dark * (1 + 0.04 * scrub))
-    rho[o + 2] = clamp01(base[2] * dark * (1 - 0.2 * shift))
+    rho[o] = clamp01(base[0] * grain * (1 + 0.14 * shift - 0.1 * scrub))
+    rho[o + 1] = clamp01(base[1] * grain * (1 + 0.04 * scrub))
+    rho[o + 2] = clamp01(base[2] * grain * (1 - 0.2 * shift))
     was += linearLuminance(base)
     is += 0.2126 * rho[o] + 0.7152 * rho[o + 1] + 0.0722 * rho[o + 2]
   }
