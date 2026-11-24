@@ -1270,7 +1270,7 @@ Start point: main `fcd96b26` (PR 11 merged, main CI 45213933787 green).
       claude/real-plane (B), claude/real-sea (E), claude/real-air (F), one build + one review + one fix round each
       Polish later: ring at dusk (jerusalem 16:30), large clouds a little flat (tel-aviv 12:00), dark smudge shadmot 15:00 / neve-zohar 16:00
       Bug (owner, live, both styles): bare strip under the clouds where the sea horizon dips below eye level (karmei-tzur; run 45417571791). Slice claude/real-strip, first to merge. Merged 77337d11 (b7c9db35, owner "yes to all", 24 Nov; CI 45424749985 green; with the small cloud touch 337074df)
-      Drawn clouds b76775ad owner-approved (24 Nov), verified; conflicts with the strip in drawn/cloudSheet.ts and sheetPrint.ts: drawn session joins main 77337d11, then manager verifies and merges
+      Drawn clouds b76775ad owner-approved (24 Nov), verified; conflicts with the strip in drawn/cloudSheet.ts and sheetPrint.ts: joined as 1d7e252d (CI 45427963062: check, worker, stills, perf green, real identity equal), merged 350efdbd
       Clear sky (owner at Shadmot Mehola, 24 Nov 16:50: clear, app drew clouds): MAX_SHIFT 40 caps the satellite correction; claude/clear-sky by the vote-prep session, domain and data only
 - [~] 3. Vote: prepared at 0b6be665 (CI 45290736249 green, `vote/RELEASE.md`); main into `claude/style-vote` (25c252ba), re-verify, owner approves merge and worker deploy (worker first)
       Test mail to the vote address arrived (owner, 24 Nov)
