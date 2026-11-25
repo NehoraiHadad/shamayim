@@ -1,6 +1,7 @@
 import type { LayerOf } from '../../../model/types'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
-import { bodiesOf, livedOn, townMarks, type Lane } from '../../shared/land/townGround'
+import { bodiesOf, livedOn, townMarks, type Body, type Lane } from '../../shared/land/townGround'
+import { REAL_MARKS } from '../town/measure'
 
 /*
  * The town's ground on the real plane's texels: how much of each is lived on, and its lanes, yards, gardens and small trees,
@@ -10,10 +11,14 @@ import { bodiesOf, livedOn, townMarks, type Lane } from '../../shared/land/townG
 export interface Settled {
   /** Lived-on ground, lane, trodden yard, garden, a small tree's crown (0 … 1 each); the tree's height (px). */
   lived: Float32Array; lane: Float32Array; yard: Float32Array; garden: Float32Array; tree: Float32Array; lift: Float32Array
+  /** The share of the open sky a house takes from the ground at its foot (0 … `HELD`). */
+  held: Float32Array
 }
 
 /** How much a lane wears away along its length, and over what (px). */
 const WORN = 0.45, WORN_PX = 5
+/** The sky a house takes from the ground before its foot: at most this share, over this depth and this reach past its sides (of its width). */
+const HELD = 0.3, HELD_DEEP = 0.3, HELD_SIDE = 0.15
 
 export function settledOf(t: PlaneTexelCtx, desc: LayerOf<'plane'>): Settled | null {
   const town = desc.town, bodies = town ? bodiesOf(town) : []
@@ -21,8 +26,8 @@ export function settledOf(t: PlaneTexelCtx, desc: LayerOf<'plane'>): Settled | n
   const { wPx: cols, hPx: rows, bounds, texel } = t, cells = cols * rows, seed = desc.grain.seed
   const grid = { x: bounds.x + texel / 2, y: bounds.y + texel / 2, cols, rows, cell: texel }
   const out: Settled = { lived: livedOn(bodies, grid, seed), lane: new Float32Array(cells), yard: new Float32Array(cells),
-    garden: new Float32Array(cells), tree: new Float32Array(cells), lift: new Float32Array(cells) }
-  const { lanes, patches, shrubs } = townMarks(town)
+    garden: new Float32Array(cells), tree: new Float32Array(cells), lift: new Float32Array(cells), held: new Float32Array(cells) }
+  const { lanes, patches, shrubs } = townMarks(town, REAL_MARKS)
   // Each mark over the texels of its box: `at` gives a texel's share of it from its middle (px).
   const over = (x0: number, x1: number, y0: number, y1: number, at: (x: number, y: number, n: number) => void) => {
     const i0 = Math.max(0, Math.floor((x0 - bounds.x) / texel)), i1 = Math.min(cols - 1, Math.ceil((x1 - bounds.x) / texel))
@@ -49,7 +54,21 @@ export function settledOf(t: PlaneTexelCtx, desc: LayerOf<'plane'>): Settled | n
       out.lift[n] = Math.max(out.lift[n], 0.9 * s.h * Math.sqrt(Math.max(0, 1 - d)))
     })
   }
+  for (const b of bodies) held(b, texel, over, out.held)
   return out
+}
+
+/**
+ * The sky a house takes from the ground before it: the most at its foot, none a third of its width down or past its sides,
+ * each edge eased over half a texel so a small house still darkens its own.
+ */
+function held({ x0, x1, foot, w }: Body, texel: number, over: Over, into: Float32Array) {
+  const deep = HELD_DEEP * w + texel / 2, side = HELD_SIDE * w + texel / 2
+  over(x0 - side, x1 + side, foot - texel / 2, foot + deep, (x, y, n) => {
+    const down = 1 - Math.max(0, y - foot) / deep, out = Math.max(0, x0 - x, x - x1) / side
+    if (down <= 0 || out >= 1) return
+    into[n] = Math.max(into[n], HELD * down * down * (1 - out * out))
+  })
 }
 
 type Over = (x0: number, x1: number, y0: number, y1: number, at: (x: number, y: number, n: number) => void) => void

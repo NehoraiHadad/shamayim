@@ -40,12 +40,17 @@ export function tileTooth(ctx: Ctx2D, x: number, y: number, w: number, tooth: ()
   ctx.restore()
 }
 
-export function solarHeater(ctx: Ctx2D, x: number, top: number, shades: ReturnType<typeof accessoryTones>) {
+/** A roof's solar heater: its tank a fifth of the roof's width (1.1 px across at its own scale), its panel's glass half
+ *  the roof's own colour (it mirrors the sky over a dusty roof, not a blue). */
+const HEATER = .2, TANK = 1.1, PANEL_ROOF = .5
+
+export function solarHeater(ctx: Ctx2D, x: number, top: number, shades: ReturnType<typeof accessoryTones>, w: number, roof: RGB) {
+  const k = HEATER * w / TANK
   ctx.fillStyle = css(shades.heater)
-  ctx.fillRect(x, top - .9, 1.1, .5)
-  ctx.fillStyle = css(shades.panel)
+  ctx.fillRect(x, top - .9 * k, TANK * k, .5 * k)
+  ctx.fillStyle = css(mix(shades.panel, roof, PANEL_ROOF))
   ctx.beginPath()
-  ctx.moveTo(x - 1.2, top); ctx.lineTo(x - .15, top - .8); ctx.lineTo(x - .15, top)
+  ctx.moveTo(x - 1.2 * k, top); ctx.lineTo(x - .15 * k, top - .8 * k); ctx.lineTo(x - .15 * k, top)
   ctx.closePath()
   ctx.fill()
 }

@@ -2,7 +2,7 @@ import type { LayerOf } from '../../model/types'
 import { castShadow, TOWER_CAST, TOWER_CONTACT } from '../shared/town/castShadow'
 import { drawGlyph, drawLamps, glyphShadow, glyphLight } from '../shared/town/glyphs'
 import type { Lamp } from '../shared/town/glyphs/kit'
-import type { Ctx2D, PaintEnv } from '../shared/base/hand'
+import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { grain, rockOf } from '../shared/town/marks'
 import { paintBox } from './outsideBox'
 import { stripPhase } from '../shared/town/stripPhase'
@@ -16,6 +16,8 @@ import { offSea, paintRealSea } from './sea/outsideSea'
 import { paintFoldedWindows } from './town/foldedWindows'
 import { nightLight, paintStreetLight, paintWindowBloom } from './town/nightTown'
 import { paintNightWater } from './town/nightWater'
+import { apron, shadowedGround } from './town/apron'
+import { leafy } from './town/leaf'
 
 /*
  * The place seen from outside (stage C5, variant B) in the enriched hand.
@@ -29,7 +31,7 @@ import { paintNightWater } from './town/nightWater'
  * MEDIUM: the scene's flat opaque bodies cut from the ridge colour, hard edges, no outline; one light: the face toward
  * the true sun lit, the other in shade; haze in the tones (by row); a mass is many boxes, each its own plaster, its roof
  * edge catching the sky. ORDER: the coastal sea (its body, waves, the light's path, the shore) → the cast
- * shadows of towers, boxes and marks → the grain over that ground (the land's tooth: plaster, glass, the marks and the
+ * shadows of towers, boxes and marks (and, with the light ahead, toward the eye: `town/apron`) → the grain over that ground (the land's tooth: plaster, glass, the marks and the
  * trees keep clean faces, no salt on a wall at 2×) → the bodies back to front (beyond the place, then the place by where
  * it stands), each with its street's shade on what stands behind it (`town/alleys`, `town/bodyForm`) and a clay roof
  * with the grain again, its own tooth → the small trees before the houses' feet (`town/fronts`) → lamps and halos
@@ -40,6 +42,8 @@ import { paintNightWater } from './town/nightWater'
 
 /** A box's own contact and cast: lighter than a tower's, a low body's shadow being short and open to the sky. */
 const BOX_CONTACT = { alpha: .35, height: .6 }
+/** How much darker than the shadowed ground a body's contact is (the ground under its eave sees little sky). */
+const CONTACT_DARK = .35
 const BOX_CAST = { alpha: .6, inset: 0, edgeY: -.15, tipY: .35, bottomY: .8, tipInset: (reach: number) => Math.min(.8, reach) }
 
 /** The place seen from outside, back to front. */
@@ -48,24 +52,30 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   const lateralLight = glyphLight(s), night = nightLight(desc)
   // The place's own land is the near plane's (it prints the town's ground in the ground's own material).
   if (desc.sea) paintPass(ctx, 'background', () => paintRealSea(ctx, desc.sea!, s, stripPhase(desc, env), hairOf(env)))
+  // The casts in the ground's own dark (its contact the darker), not the walls' blue grey.
+  const shadows = tiers.map((t) => shadowedGround(t, desc.land?.tone))
+  const casts = shadows.map((shade) => ({ shade, deep: mix(shade, [0, 0, 0], CONTACT_DARK) }))
   for (const item of desc.items) {
-    if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
-    else if (item.kind === 'box') castShadow(ctx, { x: item.x, base: item.foot, w: item.w, h: item.foot - item.top }, tiers[item.tier],
-      s.cast, BOX_CONTACT, BOX_CAST)
-    else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)
+    if (item.kind === 'tower') {
+      castShadow(ctx, item, casts[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
+      apron(ctx, item.x, item.base, item.w, item.h, shadows[item.tier], s.cast, TOWER_CAST.alpha)
+    } else if (item.kind === 'box') {
+      castShadow(ctx, { x: item.x, base: item.foot, w: item.w, h: item.foot - item.top }, casts[item.tier], s.cast, BOX_CONTACT, BOX_CAST)
+      apron(ctx, item.x, item.foot, item.w, item.foot - item.top, shadows[item.tier], s.cast, BOX_CAST.alpha)
+    } else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)
   }
   // The ground's grain is of the background; a roof's (its clay's tooth) belongs to the body, like its paint.
   const tooth = () => grain(ctx, env, 13, 1 - .4 * s.night)
   paintPass(ctx, 'background', () => offSea(ctx, desc.sea, desc.bounds, tooth))
-  const lamps: Lamp[] = [], alleys = alleysOf(desc.items)
+  const lamps: Lamp[] = [], alleys = alleysOf(desc.items, desc.key)
   for (const [i, item] of desc.items.entries()) {
     if (item.kind === 'box' || item.kind === 'tower') {
       const f = desc.receivers[item.tier][item.receiver], tones = tiers[item.tier]
-      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale, alleys[i], tooth)
-      else paintTower(ctx, item, tones, s, lamps, f, env.scale, alleys[i])
+      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale, alleys[i], tooth, casts[item.tier].deep)
+      else paintTower(ctx, item, tones, s, lamps, f, env.scale, alleys[i], casts[item.tier].deep)
     }
     else if (item.kind === 'tree') {
-      paintPass(ctx, 'background', () => paintTree(ctx, item.tree, tiers[item.tier], s, lateralLight, rockOf(desc, env, item.tree.seed)))
+      paintPass(ctx, 'background', () => paintTree(ctx, item.tree, leafy(tiers[item.tier]), s, lateralLight, rockOf(desc, env, item.tree.seed)))
     }
     else lamps.push(...drawGlyph(ctx, item.glyph, s))
     if (night) {
@@ -74,7 +84,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
     }
   }
   // The small trees before the houses' feet, after the houses (they belong to the town: no background pass).
-  for (const { tree, tier } of realFronts(desc.items)) paintTree(ctx, tree, tiers[tier], s, lateralLight, rockOf(desc, env, tree.seed))
+  for (const { tree, tier } of realFronts(desc.items, desc.key)) paintTree(ctx, tree, leafy(tiers[tier]), s, lateralLight, rockOf(desc, env, tree.seed))
   if (night && desc.sea) paintNightWater(ctx, desc.sea, desc.items, night, stripPhase(desc, env))
   if (night) paintWindowBloom(ctx, env, lamps, night)
   drawLamps(ctx, lamps, 1 / env.scale)

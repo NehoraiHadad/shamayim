@@ -115,14 +115,21 @@ export function vineyard(k: Kit, _h: number, d: GlyphDesc) {
   }
 }
 
-/** Solar field: panel strips that follow the slope, tilted to the sky (a lit top edge), dark glass below. */
+/** The steepest a solar field's rows run (px a px): a field is laid on a terrace cut level enough to stand its frames on. */
+const SOLAR_SLOPE = 0.15
+
+/** Solar field: panel strips along its terrace (the slope's lean, eased), tilted to the sky (a lit top edge), dark glass below. */
 export function solar(k: Kit, _h: number, d: GlyphDesc) {
   const { t } = k
   const half = d.w / 2
+  // The ground under the field's middle and its mean lean across it, held to a terrace's: a steeper ground line (the
+  // far ridge's under a near glyph) would stand the rows up as streaks.
+  const mid = groundAt(d, 0), lean = Math.max(-SOLAR_SLOPE, Math.min(SOLAR_SLOPE, (groundAt(d, half) - groundAt(d, -half)) / Math.max(1, d.w)))
+  const terrace = (x: number) => mid + lean * x
   const band = (from: number, to: number, y: number, thick: number, dx: number): number[] => {
     const top: number[] = [], bottom: number[] = []
-    for (let x = from; x < to; x += 1.5) top.push(x, groundAt(d, x) + y)
-    top.push(to, groundAt(d, to) + y)
+    for (let x = from; x < to; x += 1.5) top.push(x, terrace(x) + y)
+    top.push(to, terrace(to) + y)
     for (let i = top.length - 2; i >= 0; i -= 2) bottom.push(top[i] + dx, top[i + 1] + thick)
     return [...top, ...bottom]
   }

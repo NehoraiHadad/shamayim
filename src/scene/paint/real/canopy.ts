@@ -14,7 +14,7 @@ import { BODY, foliage, TOPS, UNDER, WHOLE } from './foliage'
 /** How far the crown stands up from the model's anchor, of its half height: its foot is on the ground. */
 const RISE = 0.16
 /** The foot's shade: its half width by the crown's, its strength. */
-const FOOT = [[1.35, 0.16], [1, 0.2], [0.62, 0.18]] as const
+const FOOT = [[1.35, 0.24], [1, 0.3], [0.62, 0.27]] as const
 
 function foot(brush: ReceiverBrush, x: number, y: number, r: number, alpha: number) {
   for (const [wide, strong] of FOOT) {

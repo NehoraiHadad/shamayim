@@ -7,9 +7,10 @@ import { paintPass } from '../shared/base/paintPass'
 const MIN_STOREY_PX = .85
 const BOX_WINDOW_WIDTH = .55
 const BOX_WINDOW_INSET_TOP = .7
-/** The bay pitch (px); the share of bays and of storeys left without openings; a dark opening's depth by day. */
+/** The bay pitch (px); the share of bays and of storeys left without openings; a dark opening's depth by day and by night
+ *  (by day a window is a dark hole in a lit wall: the room behind it takes little of the sky). */
 const ROW_PITCH = .95, ROW_H = .4, ROWS = .12
-const BAY = 1.25, BLIND_BAY = .16, BLIND_STOREY = .07, RECESS = .24
+const BAY = 1.25, BLIND_BAY = .16, BLIND_STOREY = .07, RECESS = [.6, .14] as const
 
 export type Box = Extract<OutsideItem, { kind: 'box' }>
 export type Tower = Extract<OutsideItem, { kind: 'tower' }>
@@ -48,7 +49,7 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'de
           emitWindow(ctx, wx, wy, BOX_WINDOW_WIDTH, wh, warm)
           if (k === 0) litTop.push(wx)
         } else {
-          ctx.fillStyle = css(recess, RECESS - .1 * s.night)
+          ctx.fillStyle = css(recess, RECESS[0] + (RECESS[1] - RECESS[0]) * s.night)
           ctx.fillRect(wx, wy, BOX_WINDOW_WIDTH, wh)
         }
         if (!on && catches && glint > 0) {

@@ -8,8 +8,29 @@ import { BODY, foliage, LARGE, TOPS, UNDER, WHOLE } from './foliage'
 /** The lit leaves' shift to the light's side, of a clump; their strength in the light and under an even sky. */
 const ACROSS = 0.5, LIT = 0.8, EVEN = 0.4
 
+/** Under this height (px) a cypress is a px-wide spike: a row of them along a street is a comb, not trees. */
+const SPIKE = 6
+/** Of such small cypresses: the share drawn as a round crown (a street's ficus, a pine) and the size each takes of its height. */
+const ROUNDED = .6, CROWN = [.55, .85] as const, TALLER = [.7, 1.25] as const
+
+/**
+ * A small cypress as a street's mixed trees are: most a round crown, the rest a cypress of its own height, so a row of
+ * them is not one spike repeated. By its seed.
+ */
+function mixed(tr: TreeDesc): TreeDesc {
+  if (tr.kind !== 'cypress' || tr.h >= SPIKE) return tr
+  const r = rng(tr.seed * 17 + 5), round = r() < ROUNDED, k = r()
+  if (round) {
+    const w = Math.max(tr.w, tr.h * (CROWN[0] + (CROWN[1] - CROWN[0]) * k))
+    return { ...tr, kind: 'tree', w, h: w }
+  }
+  const h = tr.h * (TALLER[0] + (TALLER[1] - TALLER[0]) * k)
+  return { ...tr, h, w: Math.max(tr.w, .32 * h) }
+}
+
 /** A round tree among the houses: leaf clumps, lit on the light's side (`l`, its strength) and on top; the others as everywhere. */
-export function paintTree(ctx: Ctx2D, tr: TreeDesc, t: Tones, s: Shine, l: number, rock: number): void {
+export function paintTree(ctx: Ctx2D, given: TreeDesc, t: Tones, s: Shine, l: number, rock: number): void {
+  const tr = mixed(given)
   if (tr.kind !== 'tree') return tree(ctx, tr, t, s, l, rock)
   const { w, seed } = tr, r = rng(seed), rx = w * 0.56, ry = w / 2, y = -ry - 0.2
   ctx.save()
