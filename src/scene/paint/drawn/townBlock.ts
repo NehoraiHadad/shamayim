@@ -28,6 +28,8 @@ const PRINT: Print = { tier: 'far', seated: false }
 /** A body under this height (device px) is two flat blocks, its roof or top and its wall, keyed only on the skyline: a ring
  *  of key round so few pixels is all line. */
 const SMALL_DEVICE = 6
+/** The least width (device px) that carries a paper-light slab, and the least height that carries the sun-side rim. */
+const SLAB_DEVICE = 8, RIM_DEVICE = 10
 /** A side is shown only where its edge stands to the air over at least this share of the body's height. */
 const SIDE_OPEN = 0.5
 /** How far the ground's key line runs past a body's walls (px). */
@@ -44,7 +46,9 @@ export function paintBlock(ctx: Ctx2D, b: Block, t: Tones, l: TownLight, lamps: 
   const w = Math.max(1 / s, x1 - x0), h = Math.max(1 / s, foot - top), plaster = plasterOf(t, stone)
   const own = planesOf(t, l, plaster, stone, print.tier, print.anchor)
   // At dusk a small body is one block of its ground's value: its slab no lighter than its wall.
-  const planes = print.anchor?.k && (foot - top) * s < SMALL_DEVICE ? { ...own, roof: mix(own.roof, own.front, print.anchor.k) } : own
+  // By day against the light, only a body wide enough to carry it takes the paper-light slab (no rows of white dashes).
+  const lit = w * s < SLAB_DEVICE ? { ...own, roof: own.smallRoof } : own
+  const planes = print.anchor?.k && (foot - top) * s < SMALL_DEVICE ? { ...lit, roof: mix(lit.roof, lit.front, print.anchor.k) } : lit
   // The back tier's key is the lighter joint's ink: at a pixel wide, a full key round a far house is all there is of it.
   const ink = print.tier === 'back' ? planes.joint : planes.ink
   if (b.low) {
@@ -79,7 +83,7 @@ export function paintBlock(ctx: Ctx2D, b: Block, t: Tones, l: TownLight, lamps: 
       if (ends.right) ctx.fillRect(x0 + w, foot - pen.line, GROUND_RUN, pen.line)
       if (!edges) ctx.fillRect(x0, foot - pen.line, w, pen.line)
     }
-    if (planes.rim && (side === 0 || planes.rim.right !== planes.right)) rimOf(ctx, x0, top + deep, w, h - deep, planes, pen, edges)
+    if (planes.rim && h * s > RIM_DEVICE && (side === 0 || planes.rim.right !== planes.right)) rimOf(ctx, x0, top + deep, w, h - deep, planes, pen, edges)
   }
   if (roofed) tileRoof(ctx, b, x0, top, w, front, t, l, planes, pen, small && !edges?.top.some((run) => run.key))
 }
