@@ -86,7 +86,7 @@ export function limitingMagnitude(sunAlt: number, moon: { altitude: number; illu
 }
 
 /** Extinction (mag) of a light low over the horizon: ~0.25 mag an airmass in clean air, more in haze. */
-function extinction(altitude: number, visibilityKm: number): number {
+export function extinction(altitude: number, visibilityKm: number): number {
   const h = Math.max(0.5, altitude)
   const airmass = 1 / Math.sin((h + 244 / (165 + 47 * h ** 1.1)) * RAD)
   return (0.2 + 6 / Math.max(3, visibilityKm)) * (airmass - 1)
@@ -118,7 +118,7 @@ export function planetsOf(input: NightSkyInput): PlanetBody[] {
  * How plainly the Milky Way shows (0–1): only in a truly dark sky: astronomical night (the sun below ~−15°), no moon up
  * (or a thin one), a clear and clean sky, and far from the towns' light (their glow, by the place's surroundings).
  */
-export function milkyWayStrength(input: NightSkyInput): number {
+export function milkyWayStrength(input: Pick<NightSkyInput, 'sun' | 'moon' | 'starsThrough' | 'visibilityKm' | 'glow'>): number {
   const night = smoothstep(-13, -17, input.sun.altitude)
   const moonLight = input.moon.illumination * smoothstep(-3, 3, input.moon.altitude)
   const noMoon = 1 - smoothstep(0.03, 0.2, moonLight)

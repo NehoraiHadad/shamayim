@@ -5,6 +5,7 @@ import {
 
 const RAD = Math.PI / 180
 const EARTH_RADIUS_KM = 6378.14
+const MOON_RADIUS_KM = 1737.4
 
 export function moonEquatorial(at: Date): EquatorialPosition {
   const d = daysSinceJ2000(at)
@@ -54,15 +55,19 @@ export function moonEquatorial(at: Date): EquatorialPosition {
   }
 }
 
+/** Position and angular radius as seen by the observer, using the same spherical Earth for both. */
 export function moonPosition(at: Date, lat: number, lon: number) {
   const moon = moonEquatorial(at)
   const horizontal = horizontalPosition(moon, at, lat, lon)
   const altitude = horizontal.altitude * RAD
-  const parallax = Math.asin(EARTH_RADIUS_KM / moon.distanceKm)
+  const horizontalKm = moon.distanceKm * Math.cos(altitude)
+  const aboveObserverKm = moon.distanceKm * Math.sin(altitude) - EARTH_RADIUS_KM
+  const observerDistanceKm = Math.hypot(horizontalKm, aboveObserverKm)
   return {
-    altitude: (altitude - parallax * Math.cos(altitude)) / RAD,
+    altitude: Math.atan2(aboveObserverKm, horizontalKm) / RAD,
     azimuth: horizontal.azimuth,
     distanceKm: moon.distanceKm,
+    angularRadiusDeg: Math.asin(MOON_RADIUS_KM / observerDistanceKm) / RAD,
   }
 }
 

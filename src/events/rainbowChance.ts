@@ -12,7 +12,7 @@ const PLAIN = 0.2
 /** The bow of the forecast hour: showers with the sun low behind the eye and between the clouds (`rainbowOf`). */
 function bowAt(sky: EventSky, ms: number) {
   const hour = sky.hourAt(ms), covers = sky.coversAt(ms), sun = sky.sunAt(ms)
-  if (!hour || !covers || (hour.precipProb ?? 100) < LIKELY || hour.precipitation < WET || sun.altitude < 2 || !sky.clear(sun)) return null
+  if (!hour || !covers || hour.precipProb == null || hour.precipProb < LIKELY || hour.precipitation < WET || sun.altitude < 2 || !sky.clear(sun)) return null
   const visibilityKm = hour.visibility == null ? 25 : hour.visibility / 1000
   const direct = cloudLight(covers, undefined, SKY_CLOUD_DEPTH_SCALE).clear * hazeDirect(sun.altitude, { visibilityKm })
   const bow = rainbowOf({ sun, direct, sunLights: true, covers, coin: 0,
@@ -22,5 +22,5 @@ function bowAt(sky: EventSky, ms: number) {
 
 /** A chance of a rainbow in the forecast's showers. */
 export const rainbowChance: Detector = (sky) =>
-  [{ what: 'תיתכן קשת בענן', perYear: 8, tell: 'span', from: sky.from, to: sky.to, stepMin: 15, leastMin: 30,
+  [{ what: 'תיתכן קשת בענן', perYear: 8, tell: 'span', weatherDependent: true, from: sky.from, to: sky.to, stepMin: 15, leastMin: 30,
     at: (ms) => bowAt(sky, ms) }]

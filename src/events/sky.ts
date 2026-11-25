@@ -2,6 +2,9 @@ import { moonPosition } from '../astro/moon'
 import { sunPosition } from '../astro/sun'
 import { utcOf } from '../astro/utc'
 import type { Place } from '../config/place'
+import type { FarData } from '../data/city/farData'
+import type { LandCover } from '../data/land/landData'
+import { israelRegionHe } from '../data/region/israelRegion'
 import type { SceneTerrain } from '../data/terrain/terrain'
 import { fractionOf } from '../domain/camera'
 import { addMinutes } from '../domain/minutes'
@@ -16,6 +19,17 @@ const HOUR = 3_600_000
 /** A body closer to the horizon than this (deg) is lost in its haze. */
 const LOWEST = 0.5
 
+export interface EventSurroundings { cover?: LandCover | null; far?: FarData | null }
+
+let lastGlow: { place: Place; cover: EventSurroundings['cover']; far: EventSurroundings['far']; glow: number } | undefined
+function glowOf(place: Place, data: EventSurroundings): number {
+  if (lastGlow?.place === place && lastGlow.cover === data.cover && lastGlow.far === data.far) return lastGlow.glow
+  const far = data.far && israelRegionHe(place.lat, place.lon) ? data.far : null
+  const glow = placeEnvOf(place, { cover: data.cover, far }).glow
+  lastGlow = { place, cover: data.cover, far: data.far, glow }
+  return glow
+}
+
 /** The land as the scene knows it: the ridge in view; beyond the view (the north), and with no land known, the horizon. */
 function clearOf(terrain: SceneTerrain): EventSky['clear'] {
   const { angleY, camera } = terrain
@@ -29,7 +43,7 @@ function clearOf(terrain: SceneTerrain): EventSky['clear'] {
 }
 
 /** The sky from `now` to the next sunrise; null while the land is on its way or the forecast does not hold the days. */
-export function eventSky(place: Place, forecast: Forecast, now: LocalTime, terrain: SceneTerrain): EventSky | null {
+export function eventSky(place: Place, forecast: Forecast, now: LocalTime, terrain: SceneTerrain, surroundings: EventSurroundings = {}): EventSky | null {
   if (terrain.status === 'loading') return null
   const today = forecast.days.findIndex((d) => d.date === now.slice(0, 10))
   if (today < 0) return null
@@ -51,8 +65,8 @@ export function eventSky(place: Place, forecast: Forecast, now: LocalTime, terra
     return { azimuth, altitude: apparentAltitude(altitude) }
   }
   return {
-    place: { lat, lon, timezone }, from: ms(now), to, night: { from: dusk ? ms(dusk) : to - 12 * HOUR, to },
-    glow: placeEnvOf(place, {}).glow, hourAt,
+    place: { lat, lon, timezone, elevation: place.elevation ?? forecast.elevation }, from: ms(now), to,
+    night: { from: dusk ? ms(dusk) : to - 12 * HOUR, to }, glow: glowOf(place, surroundings), hourAt,
     coversAt: (at) => {
       const hour = hourAt(at)
       return hour && layerCovers({ cloudCover: hour.cloudCover, thickCloud: hour.thickCloud, hour }).covers

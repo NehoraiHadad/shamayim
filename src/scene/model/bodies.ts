@@ -15,9 +15,10 @@ import { mixRgb, mixSrgb } from './tone'
 import type { Disc, LayerDesc, LayerOf, MoonDisc, RGB, SceneBox } from './types'
 
 const WHITE: RGB = [1, 1, 1]
-/** The discs' radii (px), as the SVG scene draws them (an 18 px sun, a 14 px moon). */
+/** The sun's reference radius (px). */
 export const SUN_R = 9
-export const MOON_R = 7
+/** Enlarge all lunar phases equally so the disc reads in the wide view. */
+export const MOON_MAGNIFICATION = 22
 /** The pale coin dust makes of the sun (the SVG's #F3E3B8). */
 const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
 
@@ -67,10 +68,11 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
   const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
   const air = moonAir(moon.altitude, world.air, look.daylight)
   const x = geom.left + moon.x * geom.s, y = box.landTop + moon.y
+  const r = moon.angularRadiusDeg * world.camera.pxPerDeg * geom.s * MOON_MAGNIFICATION
   return {
     // Dimmer is nearer the sky's own colour behind it, not thinner: the seas of a thin disc would show brighter than its face.
-    x, y, r: MOON_R, rgb: mixRgb(skyBehind(world, box, y), tinted(mixRgb(bone, day, look.daylight), air.tint), air.dim),
-    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, MOON_R)),
+    x, y, r, rgb: mixRgb(skyBehind(world, box, y), tinted(mixRgb(bone, day, look.daylight), air.tint), air.dim),
+    alpha: look.opacity * world.light.clear * shownThrough(throughDisc(world, geom, clouds, x, y, r)),
     fraction: moon.illumination,
     tilt: moon.tilt,
     daylight: look.daylight, ring: look.ring,
@@ -105,10 +107,10 @@ export function bodyLayers(world: WorldState, box: SceneBox, geom: SkyGeom = sky
   const physicalMoon = moonDisc(world, box, geom, clouds)
   const moon = physicalMoon && { ...physicalMoon, rgb: unfilterDisc(grade, physicalMoon.y, physicalMoon.rgb) }
   if (moon) {
-    const pad = MOON_R + 3
+    const pad = Math.ceil(moon.r) + 3
     out.push({ kind: 'bodies', id: 'bodies.moon', surface: 'sky', z: 4, sun: null, moon,
       bounds: { x: Math.floor(moon.x - pad), y: Math.floor(moon.y - pad), w: 2 * pad + 1, h: 2 * pad + 1 },
-      key: layerKey('moon', skyBoxKey(box), r1(moon.x), r1(moon.y), colourKey(moon.rgb), Math.round(moon.alpha * 255),
+      key: layerKey('moon', skyBoxKey(box), r1(moon.x), r1(moon.y), Math.round(moon.r * 100), colourKey(moon.rgb), Math.round(moon.alpha * 255),
         Math.round(moon.fraction * 200), Math.round(moon.tilt), Math.round(moon.daylight * 50), moon.ring, Math.round(moon.earthshine * 255)) })
   }
   const physicalSun = sunDisc(world, box, geom, clouds)

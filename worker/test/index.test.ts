@@ -40,6 +40,14 @@ describe('handle', () => {
     expect(denied.status).toBe(403)
   })
 
+  it('serves the optional comet feed without calling an upstream source per request', async () => {
+    const res = await call('https://w.test/v1/comets', { headers: { Origin: 'https://app.test' } })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://app.test')
+    expect(await res.json()).toMatchObject({ version: 1, collectedAt: null, tracks: [] })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('returns 404, 400 and 405 without calling upstream', async () => {
     expect((await call('https://w.test/v1/search?name=x')).status).toBe(404)
     expect((await call(`${URL_OK}&apikey=1`)).status).toBe(400)

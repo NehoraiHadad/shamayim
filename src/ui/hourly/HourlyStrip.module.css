@@ -7,15 +7,18 @@
   --band-h: max(50px, 3.125rem);
   --marker-top: calc(var(--band-top) + var(--band-h));
   --marker-row: max(24px, 1.5rem);
-  margin-block-start: var(--space-4);
   margin-inline: calc(-1 * var(--gutter)); /* Bleed through the sky content gutter. */
 }
 
 .strip[data-prob] { --prob-height: calc(var(--text-caption) * 1.35); }
 .sky {
+  --band-h: max(47px, 2.9375rem);
+  margin-block-start: var(--space-3);
   color: var(--ink);
   text-shadow: var(--sky-text-shadow);
 }
+
+.sky:not([data-prob]) { --band-h: max(44px, 2.75rem); }
 
 .sky .slot { text-shadow: inherit; }
 
@@ -24,65 +27,6 @@
   color: var(--sheet-ink);
   margin-block-start: var(--space-1);
   margin-inline: calc(-1 * var(--space-2)); /* Inset strip within the paper, with 8 px of extra scroll room. */
-}
-
-.heading {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
-  margin: 0 var(--gutter) var(--space-1);
-  font-size: var(--text-caption);
-}
-
-.heading h2 {
-  margin: 0;
-  font: 600 var(--text-sm) / 1.4 var(--font-sans);
-}
-
-.scrollButtons { display: none; }
-
-@media (any-pointer: fine) {
-  .heading {
-    min-block-size: 32px;
-    align-items: center;
-  }
-
-  .scrollHint { display: none; }
-
-  .scrollButtons {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
-
-  .scrollButtons button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-1);
-    min-inline-size: 32px;
-    min-block-size: 32px;
-    padding: 0 var(--space-2);
-    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
-    border-radius: 999px;
-    color: inherit;
-    background: color-mix(in srgb, var(--sky-top) 65%, transparent);
-    font: inherit;
-    font-weight: 600;
-    text-shadow: inherit;
-    cursor: pointer;
-  }
-
-  .scrollButtons button[aria-disabled='true'] {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .scrollButtons button:not([aria-disabled='true']):hover { background: var(--sky-top); }
-  .earlier svg { transform: rotate(-90deg); }
-  .later svg { transform: rotate(90deg); }
 }
 
 .graph { position: relative; }

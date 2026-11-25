@@ -3,6 +3,7 @@
  * requests to Open-Meteo follows the number of places rather than the number of users.
  */
 import { checkOrigin, corsHeaders, parseOrigins, preflight } from './cors'
+import { COMETS_CRON, COMETS_PATH, cometsResponse, refreshComets } from './comets'
 import { writeForecastLog } from './forecastLog'
 import { liveFor, refreshLive, type LiveRun } from './live'
 import { plain } from './plain'
@@ -86,6 +87,9 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext, 
   }
   if (url.pathname === TOTALS_PATH) return withHeaders(await voteTotals(env.LIVE, Date.now()), cors)
   if (url.pathname === '/v1/live') return withHeaders(await live(url, env), cors)
+  if (url.pathname === COMETS_PATH) {
+    return withHeaders(url.search ? plain(400, 'Comet feed takes no query parameters') : await cometsResponse(env.LIVE, Date.now()), cors)
+  }
   const route = routeFor(url.pathname)
   if (!route) return withHeaders(plain(404, 'Not found'), cors)
   const checked = canonicalQuery(route, url.searchParams)
@@ -107,7 +111,7 @@ export default {
   },
   /**
    * wrangler.toml [triggers]: hourly, read the IMS stations and store the live anomalies; every 6 hours, also log the
-   * IMS and Open-Meteo forecasts for later verification (forecastLog.ts).
+   * IMS and Open-Meteo forecasts for later verification (forecastLog.ts). Comet evidence is refreshed daily (comets.ts).
    */
   scheduled(event, env, ctx) {
     const kv = env.LIVE
@@ -116,6 +120,10 @@ export default {
       return
     }
     const deps = { kv, fetch: (i: RequestInfo | URL, init?: RequestInit) => fetch(i, init), now: Date.now }
+    if (event.cron === COMETS_CRON) {
+      ctx.waitUntil(refreshComets(deps).then((count) => console.log(`[comets] ${count} bright comets`)))
+      return
+    }
     if (event.cron === FORECAST_LOG_CRON) {
       ctx.waitUntil(writeForecastLog(deps).then((key) => console.log(`[log] ${key}`)))
       return

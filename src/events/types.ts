@@ -4,13 +4,15 @@ import type { Covers } from '../world/clouds'
 /*
  * Special events (the one quiet line on the page): any kind of event worth a look, at the shown place, on the device. A
  * detector offers candidates; one rule for all (`seen.ts`) drops what the place will not see and gives the rest one shape;
- * the rarest is told. A new event is a new detector in `index.ts`, nothing else.
+ * the best viewing prospects take priority, then rarity.
  */
 
 export interface Direction { azimuth: number; altitude: number }
 
 /** `at`: a moment; `from`: from then on; `span`: between the two. */
 export type Tell = 'at' | 'from' | 'span'
+export type Viewing = 'expected' | 'cloud-dependent' | 'weather-dependent'
+type EventKind = 'solar-eclipse' | 'solar-halo' | 'comet'
 
 /** What every event comes to: what, when, where to look, how rare. */
 export interface SpecialEvent {
@@ -19,6 +21,11 @@ export interface SpecialEvent {
   /** Wall clock at the place. */
   when: { from: LocalTime; to: LocalTime; tell: Tell }
   where: Direction
+  viewing: Viewing
+  kind?: EventKind
+  peak?: LocalTime
+  track?: { to: Direction }
+  approximateTime?: true
   /** About how many times a year the place could see one: the fewer, the rarer. */
   perYear: number
 }
@@ -29,6 +36,12 @@ export interface Candidate {
   perYear: number
   from: number
   to: number
+  kind?: EventKind
+  /** A physical maximum and other instants to check exactly, even off the regular sampling grid. */
+  peakAt?: number
+  sampleAt?: readonly number[]
+  track?: true
+  approximateTime?: true
   /** Minutes between looks (10 when not given). */
   stepMin?: number
   /** Shorter than this in sight (minutes), it is not told. */
@@ -39,13 +52,15 @@ export interface Candidate {
   sunBelow?: number
   /** Seen only while the thick (low and mid) cloud, or all of it, covers at most this share. */
   cloud?: { thick?: number; all?: number }
+  /** The forecast suggests the phenomenon itself, not just the conditions for seeing it. */
+  weatherDependent?: boolean
   /** `at` tells the best moment, `from` the first seen one, `span` the first run of seen ones. */
   tell: Tell
 }
 
 /** The sky over the place from now to the next sunrise. */
 export interface EventSky {
-  place: { lat: number; lon: number; timezone: string }
+  place: { lat: number; lon: number; timezone: string; elevation?: number }
   from: number
   to: number
   /** The night in it (or that it is in): sunset to sunrise. */

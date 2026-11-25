@@ -26,6 +26,8 @@ export interface Body {
 export interface MoonBody extends Body {
   /** 0 new … 0.5 full … 1 new; lit fraction 0–1; screen angle (deg) from moon toward sun. */
   phase: number; illumination: number; tilt: number
+  /** Radius of the full lunar disc as seen from the place, in degrees. */
+  angularRadiusDeg: number
 }
 
 export interface Light {

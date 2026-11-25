@@ -123,7 +123,7 @@ export default function App() {
   const sheet = forced ? SKY_THEMES[themeId] : paper
   const wearLine = useMemo(() => (wear ? { garments: wear.garments, paper: { sheet: sheet.sheet, ink: sheet.sheetInk, muted: sheet.sheetMuted,
     accent: sheet.sheetAccent } } : null), [wear, sheet.sheet, sheet.sheetInk, sheet.sheetMuted, sheet.sheetAccent])
-  const special = useSpecialEvent(place, forecast, now, terrain)
+  const special = useSpecialEvent(place, freshness === 'stale' ? null : forecast, now, terrain, arrivalMs, cover)
   const overhead = useOverheadDialog()
   const styleVote = useStyleVote()
   const modelRain = forecast ? firstRainHour(forecast.hours, now) : undefined
