@@ -180,8 +180,16 @@ function meets({ bodies, bins }: Standing, x0: number, x1: number, y0: number, y
 /** The seed of a town's marks: its bodies' and trees' own (the first part of its key), so every hand puts them in the same places. */
 const seedOf = (town: PlaneTown) => parseInt(town.key.split('.')[0], 36) || 0
 
+/**
+ * A hand's measure of the marks: the least width of a lane and depth of a yard (px, so a mark is not lost under its
+ * raster), the share of rows with a lane and the most lanes, the share of gaps that are yards, the share of houses with a
+ * front tree and how far past its house's sides one may stand (of its width). The drawn hand takes `MARKS`.
+ */
+export interface MarkMeasure { lane: number; yard: number; rows: number; many: number; yards: number; fronts: number; past: number }
+export const MARKS: MarkMeasure = { lane: 0, yard: 0, rows: LANE.share, many: LANE.many, yards: YARD, fronts: 0.12, past: 0 }
+
 /** The town's marks on its ground: few, calm, along its rows. */
-export function townMarks(town: PlaneTown): TownMarks {
+export function townMarks(town: PlaneTown, m: MarkMeasure = MARKS): TownMarks {
   const bodies = bodiesOf(town), next = rowsOf(bodies), r = rng(seedOf(town) + 811), stands = standing(bodies)
   const lanes: Lane[] = [], patches: Patch[] = [], shrubs: Shrub[] = []
   const head = new Uint8Array(bodies.length).fill(1)
@@ -196,54 +204,54 @@ export function townMarks(town: PlaneTown): TownMarks {
     rows.push(row)
   })
   rows.sort((a, b) => b.length - a.length || bodies[a[0]].x0 - bodies[b[0]].x0)
-  const most = Math.min(LANE.many, Math.max(1, Math.round(rows.filter((row) => row.length >= LANE.least).length * LANE.share)))
+  const most = Math.min(m.many, Math.max(1, Math.round(rows.filter((row) => row.length >= LANE.least).length * m.rows)))
   for (const row of rows) {
     if (lanes.length >= most || row.length < LANE.least) break
     if (r() > 0.75) continue
     const from = Math.floor(r() * Math.max(1, row.length - LANE.most)), run = row.slice(from, from + LANE.most).map((k) => bodies[k])
     const w = run.reduce((sum, b) => sum + b.w, 0) / run.length, front = (b: Body) => b.foot + LANE.front * b.w
     const pts: Pt[] = [[run[0].x0 - 0.5 * w, front(run[0])], ...run.map((b): Pt => [(b.x0 + b.x1) / 2, front(b)]), [run.at(-1)!.x1 + 0.5 * w, front(run.at(-1)!)]]
-    lanes.push({ pts, wide: LANE.wide * w, lane: true })
+    lanes.push({ pts, wide: Math.max(LANE.wide * w, m.lane), lane: true })
   }
   // The gaps between neighbours: a trodden yard, a garden (some with a small tree), or a path down the slope.
   let paths = 0
   next.forEach((n, a) => {
     if (n < 0) return
     const A = bodies[a], B = bodies[n], gap = B.x0 - A.x1, w = (A.w + B.w) / 2, roll = r(), s = Math.floor(r() * 1e6)
-    const x = (A.x1 + B.x0) / 2, y = Math.max(A.foot, B.foot) - 0.05 * w, rx = 0.5 * gap * (0.75 + 0.2 * r()), ry = 0.32 * w
+    const x = (A.x1 + B.x0) / 2, y = Math.max(A.foot, B.foot) - 0.05 * w, rx = 0.5 * gap * (0.75 + 0.2 * r()), ry = Math.max(0.32 * w, m.yard)
     // None in a narrow gap, past the town's few, or where a nearer house stands over it.
     if (gap < 0.45 * w || patches.length >= PATCHES || meets(stands, x - 0.3 * rx, x + 0.3 * rx, y, y + 0.1, (o) => o === A || o === B)) return
-    if (roll < YARD) patches.push({ x, y, rx, ry, garden: false, seed: s })
-    else if (roll < YARD + GARDEN) {
+    if (roll < m.yards) patches.push({ x, y, rx, ry, garden: false, seed: s })
+    else if (roll < m.yards + GARDEN) {
       patches.push({ x, y, rx, ry, garden: true, seed: s })
       const tw = Math.min(gap * 0.8, w * (0.42 + 0.2 * r())), th = w * (0.55 + 0.3 * r()), base = y + 0.15 * ry
       // A tree only where no house is drawn over it: the houses are printed after the ground, so a tree among them would fall behind.
       if (!green && r() < TREED && !meets(stands, x - tw / 2, x + tw / 2, base - th, base, () => false)) shrubs.push({ x, base, w: tw, h: th, seed: s })
-    } else if (roll < YARD + GARDEN + PATH.share && paths++ < PATH.many) {
+    } else if (roll < m.yards + GARDEN + PATH.share && paths++ < PATH.many) {
       const long = PATH.long * w, lean = (r() - 0.5) * 0.8 * w
-      lanes.push({ pts: [[x, y - 0.1 * w], [x + lean * 0.4, y + 0.5 * long], [x + lean, y + long]], wide: 0.7 * LANE.wide * w, lane: false })
+      lanes.push({ pts: [[x, y - 0.1 * w], [x + lean * 0.4, y + 0.5 * long], [x + lean, y + long]], wide: Math.max(0.7 * LANE.wide * w, 0.7 * m.lane), lane: false })
     }
   })
   return { lanes, patches, shrubs }
 }
 
-/** A small tree's share of the houses in front of which one stands, where the model's own trees are few; its size (of the house's width, of its height). */
-const FRONT = { share: 0.12, wide: [0.5, 0.8], tall: [0.35, 0.55], most: 1.15 } as const
+/** A small tree's size before a house (of the house's width, of its height; its share of the houses is the measure's `fronts`). */
+const FRONT = { wide: [0.5, 0.8], tall: [0.35, 0.55], most: 1.15 } as const
 
 /**
  * Small trees standing in front of a few houses, so the house's foot is hidden as a yard's tree hides it: never where a
  * nearer house would stand over the tree (it is drawn after the houses), fewer where the model's trees are many. Each
  * with the house it stands at (its index in the town's bodies).
  */
-export function frontTrees(town: PlaneTown): (Shrub & { at: number })[] {
+export function frontTrees(town: PlaneTown, m: MarkMeasure = MARKS): (Shrub & { at: number })[] {
   const bodies = bodiesOf(town), r = rng(seedOf(town) + 977), out: (Shrub & { at: number })[] = [], stands = standing(bodies)
-  const share = FRONT.share * Math.max(0, 1 - town.trees.length / 4 / Math.max(1, bodies.length) / GREEN_ENOUGH)
+  const share = m.fronts * Math.max(0, 1 - town.trees.length / 4 / Math.max(1, bodies.length) / GREEN_ENOUGH)
   bodies.forEach((b, at) => {
     const roll = r(), u = r(), wide = r(), tall = r(), seed = Math.floor(r() * 1e6)
     if (roll >= share) return
     const w = b.w * (FRONT.wide[0] + (FRONT.wide[1] - FRONT.wide[0]) * wide), base = b.foot + 0.22 * b.w
     const h = Math.min(FRONT.most * b.w, (b.foot - b.top) * (FRONT.tall[0] + (FRONT.tall[1] - FRONT.tall[0]) * tall), 2.4 * w)
-    const x = b.x0 + b.w * (0.2 + 0.6 * u)
+    const x = b.x0 + b.w * (0.2 - m.past + (0.6 + 2 * m.past) * u)
     if (h < 0.6 || meets(stands, x - w / 2, x + w / 2, base - h, base, (o) => o.foot <= b.foot)) return
     out.push({ x, base, w, h, seed, at })
   })

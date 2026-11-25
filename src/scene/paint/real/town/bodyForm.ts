@@ -14,8 +14,18 @@ import type { Alley } from './alleys'
  * alphas move with it. Screen px. Pure: randomness only from the body's seed.
  */
 
-/** How far (± share) one body's plaster departs from the receiver's. */
-const ALBEDO = .1
+/** How far (± share) one body's plaster departs from the receiver's; in a stone town, its stone's own. */
+const ALBEDO = .1, STONE_ALBEDO = .18
+/**
+ * A stone town's walls (Jerusalem limestone, the Judean hills' and the Dead Sea's villages): the receiver's grey plaster
+ * turned to the limestone's albedo, channel by channel (`LIME`, a luminance of 1: red over green over blue), so the stone
+ * takes the light on it (warm in the sun, cooler in the sky's shade, grey at dusk) and keeps its value; each body a
+ * quarry's own hue about it (some honey, some grey).
+ */
+const LIME_HUE: RGB = [1.09, 1.0, .82], QUARRY: RGB = [.04, 0, -.07]
+const LIME = LIME_HUE.map((c) => c / (.2126 * LIME_HUE[0] + .7152 * LIME_HUE[1] + .0722 * LIME_HUE[2])) as unknown as RGB
+/** How far a glass front is drawn to its own grey by day (it mirrors a pale sky and the town, not a blue). */
+const GLASS_GREY = .55
 /** The street's shade on what stands behind a body: its depth under the sky, and more as the sun rakes along it. */
 const ALLEY_SKY = .16, ALLEY_SUN = .12
 /** The front's own turn away from the sun: the share of the width (at most, px) that darkens, and how much. */
@@ -39,20 +49,44 @@ const SOFT = .3, SOFT_ALPHA = .3
 export const albedoOf = (seed: number) => rng(seed * 31 + 7)() * 2 - 1
 
 const scale = (c: RGB, k: number): RGB => [c[0] * k, c[1] * k, c[2] * k]
-const scaleFace = (f: FaceTones, k: number): FaceTones => ({ wall: scale(f.wall, k), foot: scale(f.foot, k), eave: scale(f.eave, k) })
 
 const lum = (c: RGB) => .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
 
+/** What a body's walls are, beyond the receiver's: the town's stone (0–1), the body's quarry (−1…1), a glass front by day (0–1). */
+export interface Walls { stone: number; quarry: number; glass: number }
+const PLAIN: Walls = { stone: 0, quarry: 0, glass: 0 }
+
 /**
  * The receiver's faces in this body's own plaster: every face scaled alike (an albedo, not a light). Its clay keeps the
- * receiver's own value: the eave's shadow parts roof from wall (`frontForm`).
+ * receiver's own value: the eave's shadow parts roof from wall (`frontForm`). In a stone town its walls are the stone's
+ * (`Walls`); a glass front by day its own grey. Its roof keeps the receiver's colour.
  */
-export function ownPlaster(f: BuildingFaces, own: number): BuildingFaces {
-  const k = 1 + ALBEDO * own
-  const front = scaleFace(f.front, k), shared = f.left === f.front
-  return { ...f, front, left: shared ? front : scaleFace(f.left, k), right: shared ? front : scaleFace(f.right, k),
-    unresolved: scale(f.unresolved, k), top: scale(f.top, k) }
+export function ownPlaster(f: BuildingFaces, own: number, walls: Walls = PLAIN): BuildingFaces {
+  const k = 1 + (ALBEDO + (STONE_ALBEDO - ALBEDO) * walls.stone) * own
+  const tint = [0, 1, 2].map((c) => k * (1 + walls.stone * (LIME[c] - 1 + walls.quarry * QUARRY[c])))
+  const wall = (c: RGB): RGB => {
+    const y = lum(c), grey = walls.glass ? mix(c, [y, y, y], GLASS_GREY * walls.glass) : c
+    return [grey[0] * tint[0], grey[1] * tint[1], grey[2] * tint[2]]
+  }
+  const face = (t: FaceTones): FaceTones => ({ wall: wall(t.wall), foot: wall(t.foot), eave: wall(t.eave) })
+  const front = face(f.front), shared = f.left === f.front
+  return { ...f, front, left: shared ? front : face(f.left), right: shared ? front : face(f.right),
+    unresolved: wall(f.unresolved), top: scale(f.top, k) }
 }
+
+/** How far a low sun's direct light dulls the clay toward its own grey (a raking light shows a roof's dust, not its red). */
+const CLAY_DULL = .45
+
+/** The body's clay under a low sun: its tiles' red dulled by the direct light that rakes them. */
+export function dulledClay(f: BuildingFaces, s: Pick<Shine, 'direct' | 'faces'>): BuildingFaces {
+  const k = CLAY_DULL * s.direct * Math.min(1, Math.max(0, (.5 - s.faces.top) / .4))
+  if (!f.tile || k <= 0) return f
+  const dull = (c: RGB): RGB => mix(c, [lum(c), lum(c), lum(c)], k)
+  return { ...f, tile: [dull(f.tile[0]), dull(f.tile[1]), dull(f.tile[2])], ...(f.tileBase ? { tileBase: dull(f.tileBase) } : {}) }
+}
+
+/** A body's own quarry (−1…1), a draw of its own seed apart from its plaster's. */
+export const quarryOf = (seed: number) => rng(seed * 53 + 11)() * 2 - 1
 
 /**
  * The flat roof's cap seen from a little above: the sky-lit plane, held near the lit wall so the caps do not stripe the
@@ -103,10 +137,12 @@ export function frontForm(ctx: Ctx2D, x: number, top: number, w: number, foot: n
 /**
  * Where a body meets the ground, in one fill: the street's shade up its foot (lost sky and bounce), then the plinth it
  * stands on, its own wall darkened, running down into the ground (a hill village's terrace wall), so no body hovers.
+ * `ground`: the dark of the ground it stands on (its shadowed ground's contact), else the town's deep shade.
  */
-export function seat(ctx: Ctx2D, x: number, foot: number, w: number, h: number, f: BuildingFaces, t: Pick<Tones, 'deep'>, detail: number) {
+export function seat(ctx: Ctx2D, x: number, foot: number, w: number, h: number, f: BuildingFaces, t: Pick<Tones, 'deep'>, detail: number,
+  ground?: RGB) {
   const up = Math.min(FOOT, h * FOOT_SHARE), down = Math.min(PLINTH_MAX, PLINTH * w + .2, .6 * h)
-  const stone = mix(f.front.foot, t.deep, .35), at = up / (up + down)
+  const stone = mix(f.front.foot, ground ?? t.deep, .35), at = up / (up + down)
   const g = ctx.createLinearGradient(0, foot - up, 0, foot + down)
   g.addColorStop(0, css(stone, 0))
   g.addColorStop(at, css(stone, FOOT_DEPTH * (.5 + .5 * detail)))

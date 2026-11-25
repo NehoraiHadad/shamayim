@@ -15,6 +15,8 @@ type Rect = readonly [number, number, number, number]
 /** A body's alley rects (x, y, w, h). */
 export type Alley = readonly Rect[]
 const cache = new WeakMap<readonly OutsideItem[], (Alley | undefined)[]>()
+/** The answers by the items' geometry (`itemsKey`): a new hour gives a new item list of the same bodies. */
+const byKey = new Map<string, (Alley | undefined)[]>()
 
 /** A body's extent (x0, y0, x1, y1): a box's walls, a tower's shaft and podium. */
 function extent(item: OutsideItem): Rect | null {
@@ -24,10 +26,10 @@ function extent(item: OutsideItem): Rect | null {
   return [item.x - item.w / 2 - podium, item.base - item.h, item.x + item.w / 2 + podium, item.base]
 }
 
-/** Per item (by index): the alley rects (x, y, w, h) on what stands behind it, or undefined. */
-export function alleysOf(items: readonly OutsideItem[]): (Alley | undefined)[] {
-  const cached = cache.get(items)
-  if (cached) return cached
+/** Per item (by index): the alley rects (x, y, w, h) on what stands behind it, or undefined. `key`: the items' geometry (`itemsKey`). */
+export function alleysOf(items: readonly OutsideItem[], key?: string): (Alley | undefined)[] {
+  const cached = cache.get(items) ?? (key === undefined ? undefined : byKey.get(key))
+  if (cached?.length === items.length) return cached
   const columns = new Map<number, Rect[]>()
   const out = items.map((item) => {
     const e = extent(item)
@@ -60,5 +62,9 @@ export function alleysOf(items: readonly OutsideItem[]): (Alley | undefined)[] {
     return rects.length ? rects : undefined
   })
   cache.set(items, out)
+  if (key !== undefined) {
+    if (byKey.size >= 4) byKey.delete(byKey.keys().next().value!)
+    byKey.set(key, out)
+  }
   return out
 }

@@ -16,7 +16,7 @@ import { settledOf, type Settled } from './settled'
 export interface GroundForm { rho: Float32Array; form: Float32Array }
 
 /** How flat the slant makes a mark; how far it follows the crest's line, eased over this many px; how far the marks are bent (px). */
-const FLAT = 2.4, FOLLOW = 0.7, EASED = 30, BENT = 18
+const FLAT = 1.8, FOLLOW = 0.7, EASED = 30, BENT = 18
 /** The marks' octaves (px across). */
 const OCTAVES = [3, 6, 12, 24, 48, 96] as const
 /** The depths the octaves' weights are kept for; the least weight an octave is read at. */
@@ -30,8 +30,10 @@ const LAYOUT = 3, ROCK = 0.75, SCRUB = 0.55
 const LEDGE = 1.6, UNDER = 0.22, BELOW = 0.35
 /** The size (px) of the drifts that gather rock in one place and leave bare rests in another. */
 const DRIFT = 150
-/** How much of the ground each takes: rock (more where the land is dry), scrub (by the model's green), how hard their edges. */
-const ROCKY = [0.06, 0.14] as const, SCRUBBY = [0.03, 0.3] as const, EDGE = 0.24
+/** How much of the ground each takes: rock (more where the land is dry, most in a desert), scrub (by the model's green), how hard their edges. */
+const ROCKY = [0.06, 0.14] as const, DESERT_ROCK = 0.45, SCRUBBY = [0.03, 0.3] as const, EDGE = 0.24
+/** The dryness (the plane's mean of its not-green) over which a land turns to desert: no grass, its rock bare. */
+const ARID = [0.3, 0.62] as const
 /** The tints (linear, of the ground's own): red soil, dry grass, scrub where green and where dry; limestone and its share. */
 const SOIL = [1.06, 0.96, 0.88], GRASS = [1.08, 1.07, 0.88], SCRUBS = [0.5, 0.6, 0.42], STONES = [0.66, 0.62, 0.56]
 const LIME = [0.5, 0.47, 0.4], LIMED = 0.45
@@ -45,7 +47,7 @@ const OPEN = 0.02
 const HILL = 0.6, HILL_PX = 16
 
 /** A town's ground: the scrub and rock it clears, the form it treads flat; its dust (tint of the ground's own value), how far it goes. */
-const CLEARED = { scrub: 0.6, rock: 0.35, form: 0.3 } as const, DUST = [1.22, 1.1, 0.86] as const, DUSTED = 0.55
+const CLEARED = { scrub: 0.9, rock: 0.35, form: 0.3 } as const, DUST = [1.3, 1.18, 0.9] as const, DUSTED = 0.8
 /** A yard's and a lane's tint and how far each goes; a garden's tint; a small tree's albedo (linear) and the grain it keeps. */
 const YARD_TINT = [1.36, 1.22, 0.98] as const, YARDED = 0.8, LANE_TINT = [1.7, 1.55, 1.28] as const, LANED = 1
 const GARDEN_TINT = [0.7, 0.92, 0.6] as const, GARDENED = 0.75, LEAF = [0.045, 0.06, 0.028] as const, LEAF_GRAIN = 0.35
@@ -122,7 +124,8 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     rock[n] = field(41, x / LEDGE, d, wR[level])
     drift[n] = smooth(0.3, 0.7, fractal(seed + 131, off, down, 1 / DRIFT, 1 / DRIFT, 1))
     scrub[n] = field(71, x, d, wS[level])
-    grain[n] = 2 * fractal(seed + 97, x, d, 1 / Math.max(2.2 * texel, 0.3 * c), 1 / Math.max(2.2 * texel, 0.3 * c), 1) - 1
+    // The grain at the finest the raster holds, near as far: the marks coarsen toward the eye, the grain does not.
+    grain[n] = 2 * fractal(seed + 97, x, d, 1 / (2.2 * texel), 1 / (2.2 * texel), 1) - 1
     broad[n] = 2 * fractal(seed + 3, off, down, 1 / 110, 1 / 110, 1) - 1
     materialAt(plain, bounds.x + off, y, clamp01(off / Math.max(1, bounds.w)), v, base)
     // A grey palette (a town's ground) warmed toward the soil it lies on, its light kept.
@@ -133,12 +136,14 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     if (y >= crestY[i] && y <= footY[i]) { dry += 1 - green[n]; seen++ }
   }
   dry = seen ? dry / seen : 1
+  // A desert (the crater, the cliffs over the Dead Sea) keeps no grass and shows its rock.
+  const arid = smooth(ARID[0], ARID[1], dry), grassy = (1 - arid) * (1 - arid)
   // The fields' own spread and the levels that give each its share of the ground.
   const sorted = (f: Float32Array) => Float32Array.from(f.filter((_, n) => inside[n])).sort()
   const rocks = sorted(rock), bushes = sorted(scrub), layouts = sorted(layout)
   const at = (s: Float32Array, q: number) => s.length ? s[Math.min(s.length - 1, Math.max(0, Math.floor(q * s.length)))] : 0
   const spread = (s: Float32Array) => Math.max(1e-3, at(s, 0.84) - at(s, 0.16))
-  const rocky = ROCKY[0] + (ROCKY[1] - ROCKY[0]) * dry, rockEdge = EDGE * spread(rocks)
+  const rocky = ROCKY[0] + (ROCKY[1] - ROCKY[0]) * dry + (DESERT_ROCK - ROCKY[1]) * arid, rockEdge = EDGE * spread(rocks)
   const soilAt = at(layouts, 0.62), grassAt = at(layouts, 0.36), layoutEdge = 0.35 * spread(layouts), bushEdge = EDGE * spread(bushes)
 
   const rho = new Float32Array(cells * 3), height = new Float32Array(cells)
@@ -149,7 +154,7 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     // Calmer toward the crest, where the air lies over it.
     const calm = calm0(k), fold = folds[n], tone = (1 + BROAD * broad[n] + calm * GRAIN * grain[n]) * (1 - BED * fold)
     const soil = calm * rough * smooth(soilAt - layoutEdge, soilAt + layoutEdge, layout[n])
-    const grass = calm * rough * smooth(grassAt + layoutEdge, grassAt - layoutEdge, layout[n])
+    const grass = grassy * calm * rough * smooth(grassAt + layoutEdge, grassAt - layoutEdge, layout[n])
     // Rock gathers in its drifts, scrub in the rests between.
     const rockAt = at(rocks, 1 - rocky * (0.3 + 1.4 * drift[n])), rim = (f: number) => rough * smooth(rockAt - rockEdge, rockAt + rockEdge, f)
     // The rock a little up the slope: its ledge's lip falls here.
@@ -177,7 +182,10 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
   const even = is > 0 ? was / is : 1
   for (let n = 0; n < rho.length; n++) rho[n] = Math.min(1, rho[n] * even)
   if (town) settle(rho, height, inside, grain, town)
-  return { rho, form: formOf(height, t) }
+  const form = formOf(height, t)
+  // The houses take the sky from the ground at their feet.
+  if (town) for (let n = 0; n < cells; n++) form[n * 3 + 2] *= 1 - town.held[n]
+  return { rho, form }
 }
 
 /**

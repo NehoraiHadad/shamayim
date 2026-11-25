@@ -1,25 +1,31 @@
 import { facadeDetail } from '../../model/buildingDetail'
+import { receiverMaterial } from '../../model/buildingMaterial'
 import type { BuildingFaces } from '../../model/buildingLight'
-import type { OutsideItem, Shine, Tones } from '../../model/types'
+import type { OutsideItem, RGB, Shine, Tones } from '../../model/types'
 import { boxFaces, capDepth, topPlane } from '../shared/town/buildingFaces'
 import type { Lamp } from '../shared/town/glyphs/kit'
 import { css, mix, type Ctx2D } from '../shared/base/hand'
 import { paintTowerWindows } from './outsideWindows'
 import type { Alley } from './town/alleys'
-import { albedoOf, alleyShade, capTone, frontForm, ownPlaster, seat } from './town/bodyForm'
+import { albedoOf, alleyShade, capTone, frontForm, ownPlaster, quarryOf, seat } from './town/bodyForm'
 
 type Tower = Extract<OutsideItem, { kind: 'tower' }>
+
+/** How far a glass tower's front is drawn to its own grey by day (of a house's). */
+const TOWER_GLASS = .6
 
 export function towerSetback(tw: Tower) { return tw.crown === 1 ? Math.min(tw.h * .14, 3.5) : 0 }
 function mastHeight(tw: Tower) { return Math.min(5, 1.5 + tw.h * .08) }
 
 export function paintTower(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lamps: Lamp[], faces: BuildingFaces, scale: number,
-  alley?: Alley) {
+  alley?: Alley, ground?: RGB) {
   const x0 = tw.x - tw.w / 2, top = tw.base - tw.h
   const setback = towerSetback(tw), shaftTop = top + setback
   const podium = tw.full ? Math.min(2.6, tw.h * .12) : 0
   const shaftBase = tw.base - podium
-  const f = ownPlaster(faces, albedoOf(tw.seed))
+  // A glass shaft keeps more of its sky than a house's windows do: its grey is drawn in less.
+  const glass = receiverMaterial(tw.receiver).glass ? TOWER_GLASS * (1 - s.night) : 0
+  const f = ownPlaster(faces, albedoOf(tw.seed), { stone: tw.industrial ? 0 : s.stone ?? 0, quarry: quarryOf(tw.seed), glass })
   const block = (x: number, y: number, w: number, h: number) => {
     const detail = facadeDetail(w, h), cap = capDepth(w, h)
     boxFaces(ctx, x, y, w, h, f, detail, .18)
@@ -35,7 +41,7 @@ export function paintTower(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lamps: Lam
   }
   if (podium) block(x0 - 1.1, shaftBase, tw.w + 2.2, podium)
   if (setback > 0) block(tw.x - tw.w * .31, top, tw.w * .62, setback + .2)
-  seat(ctx, x0 - (podium ? 1.1 : 0), tw.base, tw.w + (podium ? 2.2 : 0), tw.h, f, t, facadeDetail(tw.w, tw.h))
+  seat(ctx, x0 - (podium ? 1.1 : 0), tw.base, tw.w + (podium ? 2.2 : 0), tw.h, f, t, facadeDetail(tw.w, tw.h), ground)
   let tipY = top
   if (tw.crown === 2) {
     tipY -= mastHeight(tw)

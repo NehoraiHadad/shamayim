@@ -6,6 +6,10 @@ import { paintPlaneLight } from '../../shared/land/planeLight'
 import type { OwnGround, PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { raisedOutline } from '../../shared/land/townGround'
 import { groundFormOf, type GroundForm } from './groundForm'
+import { paintGroundDetail } from './detail'
+import { TEXELS } from './texels'
+
+export { TEXELS }
 
 /* The land as the eye sees it: the ground's own patches and small form, raked by the sun or the moon where its beam falls. */
 
@@ -15,13 +19,19 @@ const RAKE = 1.5, HIGH = 0.35, GRAZED = 0.16, LEAST = 0.4, MOST = 1.8
 const CHROMA = 0.12
 /** How far the sun's reach on a hillside is drawn apart from the plane's mean, so its slopes read lit and shaded. */
 const APART = 1.8
-/** A texel (px) of each plane: finer near, where its marks are seen. */
-export const TEXELS: Record<LayerOf<'plane'>['plane'], number> = { back: 3, far: 2, near: 1.5 }
 
 export function paintRealPlane(ctx: Ctx2D, given: LayerOf<'plane'>, env: PaintEnv): void {
   // The near plane prints the place's own ground over its crest where the model raises it there.
   const raised = raisedOutline(given.outline, given.town?.land), desc = raised === given.outline ? given : { ...given, outline: raised }
-  paintPlaneLight(ctx, desc, env, (t) => lit(t, groundFormOf(t, desc), desc.lamp), TEXELS[desc.plane])
+  // Its detail finer than the texels at the screen's own px (every plane, by its distance), in place of the paper's grain.
+  paintPlaneLight(ctx, desc, env, (t) => lit(t, groundFormOf(t, desc), desc.lamp), TEXELS[desc.plane],
+    (target) => paintGroundDetail(target, desc, env, Math.min(1, env.hand.grain) * sunlit(desc.light.litField)))
+}
+
+/** How much of the ground's detail the light shows: its stones' lit tops and shadows are the sun's; under the sky alone (dusk, overcast) less. */
+const DETAIL_SKY = 0.45
+function sunlit({ eSun, eSky }: PlaneTexelCtx['litField']): number {
+  return DETAIL_SKY + (1 - DETAIL_SKY) * eSun[1] / Math.max(1e-4, eSun[1] + eSky[1])
 }
 
 /** The mean sun on the plane's lit ground, from the light's own grid. */

@@ -7,9 +7,10 @@ import { paintPass } from '../shared/base/paintPass'
 const MIN_STOREY_PX = .85
 const BOX_WINDOW_WIDTH = .55
 const BOX_WINDOW_INSET_TOP = .7
-/** The bay pitch (px); the share of bays and of storeys left without openings; a dark opening's depth by day. */
+/** The bay pitch (px); the share of bays and of storeys left without openings; a dark opening's depth by day and by night
+ *  (by day a window is a dark hole in a lit wall: the room behind it takes little of the sky). */
 const ROW_PITCH = .95, ROW_H = .4, ROWS = .12
-const BAY = 1.25, BLIND_BAY = .16, BLIND_STOREY = .07, RECESS = .24
+const BAY = 1.25, BLIND_BAY = .16, BLIND_STOREY = .07, RECESS = [.6, .14] as const
 
 export type Box = Extract<OutsideItem, { kind: 'box' }>
 export type Tower = Extract<OutsideItem, { kind: 'tower' }>
@@ -36,6 +37,9 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'de
     const bays: number[] = []
     for (let wx = inner0; wx + .5 <= inner1; wx += BAY) bays.push(wx)
     const blind = bays.map(() => r() < BLIND_BAY)
+    // One colour for a body's dark openings and one for its glints, each made once (a fill rect a window is the fast path).
+    const dark = css(recess, RECESS[0] + (RECESS[1] - RECESS[0]) * s.night), shine = glint > 0 ? css(specular, .9 * glint * s.faces.front) : dark
+    let style = ''
     for (let k = 0; k < b.storeys; k++) {
       const wy = b.top + BOX_WINDOW_INSET_TOP + k * storey
       if (wy + .5 > b.foot - .4) break
@@ -46,13 +50,14 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'de
         const on = threshold < s.windows
         if (on) {
           emitWindow(ctx, wx, wy, BOX_WINDOW_WIDTH, wh, warm)
+          style = ''
           if (k === 0) litTop.push(wx)
         } else {
-          ctx.fillStyle = css(recess, RECESS - .1 * s.night)
+          if (style !== dark) ctx.fillStyle = style = dark
           ctx.fillRect(wx, wy, BOX_WINDOW_WIDTH, wh)
         }
         if (!on && catches && glint > 0) {
-          ctx.fillStyle = css(specular, .9 * glint * s.faces.front)
+          if (style !== shine) ctx.fillStyle = style = shine
           ctx.fillRect(wx, wy, BOX_WINDOW_WIDTH, wh)
         }
         if (on && halo) lamps.push({ x: wx + .27, y: wy + .3, r: 1.3, c: t.win, a: .25 * s.night, fade })
@@ -60,6 +65,7 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'de
       for (const [x, k] of [[x0 + face * .3, s.faces.left], [x0 + b.w - face * .7, s.faces.right]] as const) {
         if (r() < .5 && glint > 0) {
           ctx.fillStyle = css(specular, glint * k)
+          style = ''
           ctx.fillRect(x, wy, Math.max(.3, face * .4), wh)
         }
       }

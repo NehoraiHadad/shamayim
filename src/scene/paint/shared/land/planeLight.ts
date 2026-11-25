@@ -36,8 +36,12 @@ function paintTerraces(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
   }
 }
 
-/** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`); a hand's own ground has its gullies in it, and may ask for a finer `texel`. */
-export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, ground?: (t: PlaneTexelCtx) => OwnGround, texel?: number): void {
+/**
+ * Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`); a hand's own ground has its
+ * gullies in it, and may ask for a finer `texel`, and lay its own finish (`finish`, on each target) in place of the paper grain.
+ */
+export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, ground?: (t: PlaneTexelCtx) => OwnGround, texel?: number,
+  finish?: (target: Ctx2D) => void): void {
   const { light } = desc
   const { litField } = light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
@@ -55,7 +59,8 @@ export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     paintVegRows(brush, litVeg, toneAt)
     const grain = desc.grain.amount * env.hand.grain
     // White paper specks have a stronger relative effect in the shadows of the display.
-    paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
+    if (finish) for (const target of targets) finish(target)
+    else paintPaperGrain(ctx, desc.bounds, desc.grain.seed, grain * Math.min(1, litField.yHorizon / 0.38), env)
   } else for (const target of targets) {
     target.fillStyle = css(desc.fill)
     target.fillRect(desc.bounds.x, desc.bounds.y, desc.bounds.w, desc.bounds.h)
