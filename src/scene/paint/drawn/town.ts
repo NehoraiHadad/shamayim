@@ -4,7 +4,8 @@ import type { Lamp } from '../shared/town/glyphs/kit'
 import { mix, type Ctx2D, type PaintEnv } from '../shared/base/hand'
 import { grain, rockOf, tree } from '../shared/town/marks'
 import { stripPhase } from '../shared/town/stripPhase'
-import { paintOutsideLand, paintOutsideSea } from '../shared/town/outsideGround'
+import { paintOutsideSea } from '../shared/town/outsideGround'
+import { townFronts } from './land/fronts'
 import { skyFormIn } from './outsideOwn'
 import { paintBlock } from './townBlock'
 import { castBlock } from './townCast'
@@ -13,7 +14,7 @@ import { penFor, type KeyTier, type Pen } from './townKey'
 import { paintTownGlyph } from './townGlyph'
 import { townLight, type TownLight } from './townLight'
 import { townEdges } from './townSilhouette'
-import { daylit, inkedLand, inkedSea, inkedTones } from './townTones'
+import { daylit, inkedSea, inkedTones } from './townTones'
 import { paintDrawnTower } from './townTower'
 
 /*
@@ -59,7 +60,7 @@ export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Pai
     if (!p) pens.set(tier, p = penFor(tier, env.scale))
     return p
   }
-  if (desc.land) paintOutsideLand(ctx, inkedLand(desc.land), s)
+  // The place's own ground is the near plane's: printed there in its inks, under its yards and lanes (`land/settlement`).
   if (desc.sea) paintOutsideSea(ctx, inkedSea(desc.sea), s, stripPhase(desc, env))
   // Every body's seat first, under all of them: its shade on the ground, one flat block along the ground line, so none
   // stands pasted on.
@@ -82,6 +83,7 @@ export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Pai
     else if (item.kind === 'tree') tree(ctx, grown(item.tree), leafy(far(item.tier, item.tree.base)), s, leaf, rockOf(desc, env, item.tree.seed))
     else lamps.push(...paintTownGlyph(ctx, { ...item.glyph, tones: inkedTones(item.glyph.tones, lit) }, s))
   }
+  for (const { tree: t, tier } of townFronts(desc.items)) tree(ctx, t, leafy(far(tier, t.base)), s, leaf, rockOf(desc, env, t.seed))
   grain(ctx, env, 13, GRAIN * (1 - 0.4 * s.night))
   drawLamps(ctx, lamps, 1 / env.scale)
 }

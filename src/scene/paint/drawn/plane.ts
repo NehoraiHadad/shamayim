@@ -9,7 +9,9 @@ import { inkAt, printGround, type GroundInk } from './land/groundInk'
 import { printFields, printRows } from './land/fields'
 import { groundDabs, groundLines } from './land/groundMarks'
 import { groundOf } from './land/pots'
+import { printTown } from './land/settlement'
 import { shadingOf, type Shading } from './land/shadeBlock'
+import { raisedOutline } from '../shared/land/townGround'
 
 /*
  * The land as a colour woodblock print: a block for each of a few pots of the model's material (its land cover), knife-edged
@@ -22,7 +24,9 @@ const baseOf = ({ levels }: Shading): GroundInk => {
   const base = levels[0]!
   return { key: 0, ink: [base.inks[0][0], base.inks[1]?.[0]], level: 0, air: base.air, light: 1, shown: 1 }
 }
-export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
+export function paintDrawnPlane(ctx: Ctx2D, given: LayerOf<'plane'>, env: PaintEnv): void {
+  // The near plane prints the place's own ground over its crest where the model raises it there.
+  const raised = raisedOutline(given.outline, given.town?.land), desc = raised === given.outline ? given : { ...given, outline: raised }
   const { bounds } = desc, { litField } = desc.light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
   for (const target of targets) target.save()
@@ -30,7 +34,9 @@ export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     const t = preparePlaneTexels(desc.outline, bounds, desc.surfaceTone, litField, desc.grain.seed, 0)
     const ground = groundOf(t, desc), shading = shadingOf(t, ground, desc.plane, targets.length > 1), at = inkAt(t, ground, shading)
     const brush = receiverBrush(ctx, env.shade)
-    printGround(targets, t, ground, shading, printGrain(env, desc.plane))
+    const grain = printGrain(env, desc.plane)
+    printGround(targets, t, ground, shading, grain)
+    if (desc.town) printTown(targets, brush, t, ground, shading, at, desc.town, grain)
     printFields(brush, desc, t, ground, at)
     groundLines(brush, desc, at)
     printRows(brush, desc, at)

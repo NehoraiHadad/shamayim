@@ -11,6 +11,7 @@ import { planeVegetationOf } from './landVegetation'
 import { planeGeomOf } from './planeGeometry'
 import { planeLight } from './planeLight'
 import { planeCrest } from './planeCrest'
+import { planeTownOf } from './planeTown'
 import { cropEvidenceKey } from './vegCropEvidence'
 import { EMPTY_VEGETATION } from './vegDescriptor'
 import type { Box, LayerOf, Pt, SceneBox } from './types'
@@ -55,8 +56,9 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
   const ground = name === 'back' ? { gullies: [], terraces: [] } : groundForm(world, box, name, clear)
   const surface = planeSurfaceOf(world, name, plane, box.landHeight)
   const vegetation = name === 'back' ? EMPTY_VEGETATION : planeVegetationOf(world, box, name, plane, surface.mean, clear)
+  const town = name === 'near' ? planeTownOf(world, box, clear) : null
   const key = layerKey('plane', name, FORM, world.keys.terrain, geom.geomKey, world.keys.place, world.keys.land, landBoxKey(box),
-    name === 'back' ? '' : groundClearKey(clear), name === 'back' ? '' : cropEvidenceKey(world))
+    name === 'back' ? '' : groundClearKey(clear), name === 'back' ? '' : cropEvidenceKey(world), ...(town ? [town.key] : []))
   const light = planeLight(world, box, name, plane)
   const canopyId = vegetation.trees.length || vegetation.tufts.length ? `canopy.${name}` : undefined
   return {
@@ -66,6 +68,7 @@ export function planeLayer(world: WorldState, box: SceneBox, name: PlaneName, pl
     outline, fill: surface.mean, surfaceTone: surface.palette, ...ground, vegetation, canopyId,
     grain: { amount: name === 'near' ? 1 : 0, seed: hashId(`${world.place.id}:${name}:grain`) },
     light: { ...light, key: layerKey(light.key, key) },
+    ...(town ? { town } : {}),
   }
 }
 

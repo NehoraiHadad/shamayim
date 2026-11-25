@@ -3,6 +3,7 @@ import { fractal } from '../../shared/base/core'
 import { materialAt } from '../../shared/land/planeMaterial'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { foldsOf } from './folds'
+import { settledOf, type Settled } from './settled'
 
 /*
  * The ground's own surface, seen at a slant: the model's palette where it lies, laid as the hills of the land are: pale
@@ -43,6 +44,12 @@ const OPEN = 0.02
 /** How far a hill's side, read from the crest above it, turns the ground, over this reach (px) of the crest. */
 const HILL = 0.6, HILL_PX = 16
 
+/** A town's ground: the scrub and rock it clears, the form it treads flat; its dust (tint of the ground's own value), how far it goes. */
+const CLEARED = { scrub: 0.6, rock: 0.35, form: 0.3 } as const, DUST = [1.22, 1.1, 0.86] as const, DUSTED = 0.55
+/** A yard's and a lane's tint and how far each goes; a garden's tint; a small tree's albedo (linear) and the grain it keeps. */
+const YARD_TINT = [1.36, 1.22, 0.98] as const, YARDED = 0.8, LANE_TINT = [1.7, 1.55, 1.28] as const, LANED = 1
+const GARDEN_TINT = [0.7, 0.92, 0.6] as const, GARDENED = 0.75, LEAF = [0.045, 0.06, 0.028] as const, LEAF_GRAIN = 0.35
+
 /** How much of its marks a ground keeps at a depth (its size of the foot's). */
 const calm0 = (k: number) => 0.4 + 0.6 * Math.min(1, k)
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
@@ -77,6 +84,7 @@ function weights(c: number, texel: number, into: Float32Array): void {
 function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
   const { wPx: cols, hPx: rows, bounds, crestY, footY, seed, texel } = t, cells = cols * rows
   const plain: PlaneTexelCtx = { ...t, grainAmount: 0 }, base: [number, number, number] = [0, 0, 0]
+  const town = settledOf(t, desc)
   const folds = foldsOf(t, desc), line = eased(crestY, Math.round(EASED / texel)), [c0, c1] = DEPTH[desc.plane], rough = desc.plane === 'back' ? 0.6 : 1
   const baseOf = new Float32Array(cells * 3), size = new Float32Array(cells), inside = new Uint8Array(cells)
   const layout = new Float32Array(cells), rock = new Float32Array(cells), scrub = new Float32Array(cells), grain = new Float32Array(cells)
@@ -146,9 +154,11 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const rockAt = at(rocks, 1 - rocky * (0.3 + 1.4 * drift[n])), rim = (f: number) => rough * smooth(rockAt - rockEdge, rockAt + rockEdge, f)
     // The rock a little up the slope: its ledge's lip falls here.
     const up = Math.round(BELOW * size[n] * ROCK / texel), above = n >= up * cols ? rock[n - up * cols] : rock[n]
-    const stone = rim(rock[n]), ledge = UNDER * calm * rim(above) * (1 - stone)
+    // A town clears its ground of scrub and loose rock, and treads it flat.
+    const lived = town ? town.lived[n] : 0
+    const stone = rim(rock[n]) * (1 - CLEARED.rock * lived), ledge = UNDER * calm * rim(above) * (1 - stone)
     const bushAt = at(bushes, 1 - (SCRUBBY[0] + (SCRUBBY[1] - SCRUBBY[0]) * g) * (1.4 - 0.8 * drift[n]))
-    const bush = rough * (1 - stone) * smooth(bushAt - bushEdge, bushAt + bushEdge, scrub[n])
+    const bush = rough * (1 - stone) * (1 - CLEARED.scrub * lived) * smooth(bushAt - bushEdge, bushAt + bushEdge, scrub[n])
     let r = b0, gg = b1, bb = b2
     // Soil and grass tint the ground; limestone breaks through it; scrub sits on what is left.
     r *= 1 + (SOIL[0] - 1) * soil + (GRASS[0] - 1) * grass
@@ -160,13 +170,37 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     r *= shrub(0); gg *= shrub(1); bb *= shrub(2)
     const shut = tone * (1 - ledge)
     rho[o] = clamp01(r * shut); rho[o + 1] = clamp01(gg * shut); rho[o + 2] = clamp01(bb * shut)
-    height[n] = rough * k * (SWELL * layout[n] + LIFT * stone + BUSH * bush + 0.5 * grain[n]) - DEEP * fold
+    height[n] = rough * k * (SWELL * layout[n] + LIFT * stone + BUSH * bush + 0.5 * grain[n]) * (1 - CLEARED.form * lived) - DEEP * fold
     was += 0.2126 * b0 + 0.7152 * b1 + 0.0722 * b2
     is += 0.2126 * rho[o] + 0.7152 * rho[o + 1] + 0.0722 * rho[o + 2]
   }
   const even = is > 0 ? was / is : 1
   for (let n = 0; n < rho.length; n++) rho[n] = Math.min(1, rho[n] * even)
+  if (town) settle(rho, height, inside, grain, town)
   return { rho, form: formOf(height, t) }
+}
+
+/**
+ * The town's ground over the land's: the lived-on ground dustier and warmer at its own value, trodden yards and lanes paler,
+ * gardens greener, small trees as dark crowns standing off the ground (the light rakes them as it does the land). Each is a
+ * tint of the texel's own value, so the ground's grain runs on through it; the lanes flatten the ground they cross.
+ */
+function settle(rho: Float32Array, height: Float32Array, inside: Uint8Array, grain: Float32Array, town: Settled): void {
+  const tint = (o: number, to: readonly number[], by: number) => {
+    if (by <= 0) return
+    const y = 0.2126 * rho[o] + 0.7152 * rho[o + 1] + 0.0722 * rho[o + 2]
+    for (let c = 0; c < 3; c++) rho[o + c] = clamp01(rho[o + c] + (y * to[c] - rho[o + c]) * by)
+  }
+  for (let n = 0; n < inside.length; n++) {
+    if (!inside[n]) continue
+    const o = n * 3, lane = town.lane[n], tree = town.tree[n]
+    tint(o, DUST, DUSTED * town.lived[n])
+    tint(o, YARD_TINT, YARDED * town.yard[n])
+    for (let c = 0; c < 3; c++) rho[o + c] *= 1 + (GARDEN_TINT[c] - 1) * GARDENED * town.garden[n]
+    tint(o, LANE_TINT, LANED * lane)
+    if (tree) for (let c = 0; c < 3; c++) rho[o + c] += (LEAF[c] * (1 + LEAF_GRAIN * grain[n]) - rho[o + c]) * tree
+    height[n] = height[n] * (1 - lane) + town.lift[n]
+  }
 }
 
 /** The form's slopes and open sky about their own means: the ground's whole tilt is in the light's field. */

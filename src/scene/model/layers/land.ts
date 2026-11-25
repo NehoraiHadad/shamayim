@@ -108,8 +108,17 @@ export interface OutsideLandDesc {
   rim: RGB
 }
 
+/**
+ * The place standing on the near plane, for its painters alone (paint quality, never placement): its own bodies as
+ * `x` (centre), `w`, `foot`, `top` (px, four numbers each, back to front), its trees as `x`, `base`, `w`, `h`, and the top
+ * of its own ground over the ridge line (`OutsideLandDesc.top`); `key` names all of it.
+ */
+export interface PlaneTown { bodies: number[]; trees: number[]; land: Pt[] | null; key: string }
+
 export type LandLayers =
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
-      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow; lamp?: Lamp }
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow; lamp?: Lamp
+      /** The near plane's town (`planeTown`). */
+      town?: PlaneTown }
   | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string }; cloudShadow?: ReceiverShadow;
       tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }
