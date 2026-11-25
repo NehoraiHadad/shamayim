@@ -7,9 +7,12 @@
 export interface Grid { cols: number; rows: number; at: Float32Array }
 export interface Frame { x: number; y: number; w: number; h: number }
 
-/** Adds the outline of `grid > level` to the path; `least` drops loops with fewer points. */
-export function traceOver(path: CanvasPath, grid: Grid, level: number, f: Frame, least = 6): void {
-  for (const loop of loopsOver(grid, level)) if (loop.length >= least * 2) round(path, loop, grid, f)
+/**
+ * Adds the outline of `grid > level` to the path; `least` drops loops with fewer points; `passes` is how often each point
+ * is eased toward its neighbours (the clouds' soft three; a knife-cut block takes one, so its edge keeps its facets).
+ */
+export function traceOver(path: CanvasPath, grid: Grid, level: number, f: Frame, least = 6, passes = EASE): void {
+  for (const loop of loopsOver(grid, level)) if (loop.length >= least * 2) round(path, loop, grid, f, passes)
 }
 
 /** The outline's sides of a cell by its corners' code (top-left 8, top-right 4, foot-right 2, foot-left 1), inside on the right. */
@@ -19,6 +22,7 @@ const SIDES: readonly (readonly number[])[] = [
   [TOP, LEFT], [TOP, FOOT], [TOP, RIGHT, FOOT, LEFT], [TOP, RIGHT], [RIGHT, LEFT], [RIGHT, FOOT], [FOOT, LEFT], [],
 ]
 
+/** How often a loop's points are eased by default. */
 const EASE = 3
 
 /** Every loop, as grid coordinates; one cell of "below" round the grid closes a shape that meets the frame. */
@@ -53,9 +57,9 @@ function loopsOver({ cols, rows, at }: Grid, level: number): number[][] {
 }
 
 /** A loop's points each eased toward its neighbours: the grid's own steps are not the hand's. */
-function eased(loop: readonly number[]): readonly number[] {
+function eased(loop: readonly number[], passes: number): readonly number[] {
   let at = loop
-  for (let pass = 0; pass < EASE; pass++) {
+  for (let pass = 0; pass < passes; pass++) {
     const was = at, n = was.length
     at = was.map((v, i) => 0.5 * v + 0.25 * (was[(i + n - 2) % n] + was[(i + 2) % n]))
   }
@@ -63,8 +67,8 @@ function eased(loop: readonly number[]): readonly number[] {
 }
 
 /** A loop as a rounded path: through the middles of its edges, its points as the curves' handles. */
-function round(path: CanvasPath, raw: readonly number[], { cols, rows }: Grid, f: Frame) {
-  const loop = eased(raw), n = loop.length / 2, sx = f.w / Math.max(1, cols - 1), sy = f.h / Math.max(1, rows - 1)
+function round(path: CanvasPath, raw: readonly number[], { cols, rows }: Grid, f: Frame, passes: number) {
+  const loop = eased(raw, passes), n = loop.length / 2, sx = f.w / Math.max(1, cols - 1), sy = f.h / Math.max(1, rows - 1)
   const X = (i: number) => f.x + Math.min(cols - 1, Math.max(0, loop[(i % n) * 2])) * sx
   const Y = (i: number) => f.y + Math.min(rows - 1, Math.max(0, loop[(i % n) * 2 + 1])) * sy
   path.moveTo((X(n - 1) + X(0)) / 2, (Y(n - 1) + Y(0)) / 2)
