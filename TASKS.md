@@ -26,6 +26,22 @@ Owner, 23 Nov 2026: people try the two scene styles (`real`, `drawn`), say which
 - [ ] Merge to main: on the owner's word, worker first (`cd worker && npm ci && npx wrangler deploy`); steps in `vote/RELEASE.md`
       of the manager's shared notes folder. Bump `VOTE_ROUND` if either style changes after voting began
 
+## Ground and houses paint quality (branch `ccr-fe243dc2-nygegx`)
+
+Owner, 25 Nov 2026: refine how the ground and the houses are painted (paint quality, not what is detected where), both
+styles. The vote is live but has hardly any votes: go ahead, and bump `VOTE_ROUND` when this lands.
+Baseline seen at 375 px DPR 2 (6 places × 10:30 / 16:20 / 20:00):
+- Real ground: soft blurry blotches the same near and far; grey mist patches on near ground on clear days; slopes do not
+  read (sun side vs shade); one olive/khaki hue, oversized bush balls
+- Real houses: salt-and-pepper speckle on facades; at dusk a city merges into one grey wall; no contact shadow
+- Drawn ground: flat empty fill; translucent elliptical stains; heavy contour on the near ridge only; far ridges see-through
+- Drawn houses: walls shaded like cylinders (jars, cans, a row of drums at Haifa's shore); noisy windows; not seated
+- Outside scope, later: drawn jelly-blob small clouds and scale-like arcs in cumulus; real dusk cloud gaps as blurry holes
+
+- [~] Diagnosis per style (code cause of each defect, fix, files)
+- [ ] Tracks (worktrees): real ground, real houses, drawn ground, drawn houses; before/after stills of the same moments
+- [ ] Independent critique of the stills, a fix round, pixel references, `VOTE_ROUND` bump, merge
+
 ## Worship ownership (audit follow-up)
 
 Owner decision, 2026-11-22, verbatim: **"מסגדים לא, ציונים כן"** (supersedes the earlier Decision B for famous
