@@ -17,7 +17,7 @@ export const BODY: Layer = { size: 0.94, up: 0.14, least: -1 }
 export const TOPS: Layer = { size: 0.52, up: 0.42, least: -0.25 }
 
 /** Clumps by the crown's size (px), at most; a clump's size of its crown's, how far its corners break the edge. */
-const MANY = 1.5, MOST = 9, CLUMP = 0.44, BREAK = 0.24
+const MANY = 2.4, MOST = 15, CLUMP = 0.33, BREAK = 0.32
 /** From which size (px) a crown is large; a clump's corners in a small crown and in a large one. */
 export const LARGE = 2.2
 const CORNERS = [6, 9] as const
@@ -27,7 +27,7 @@ export function foliage(brush: ReceiverBrush, { x, y, rx, ry }: CrownAt, seed: n
   const random = rng(seed), many = Math.min(MOST, 3 + Math.round(rx * MANY)), turn = random() * 6.28, own = Math.round(random() * 1e6)
   // One clump in the middle, the rest round it, the lower ones drawn in to the crown's flat foot.
   const clumps = Array.from({ length: many }, (_, n) => {
-    const a = turn + n * 2.39996, out = n ? 0.5 + 0.16 * random() : 0.1, dy = Math.sin(a) * out
+    const a = turn + n * 2.39996, out = n ? 0.34 + 0.36 * Math.sqrt(n / many) + 0.12 * random() : 0.1, dy = Math.sin(a) * out
     return { x: x + Math.cos(a) * out * rx, y: y + (dy > 0 ? dy * 0.72 : dy) * ry, high: -dy, k: CLUMP * (0.82 + 0.36 * random()) }
   })
   const corners = CORNERS[rx < LARGE ? 0 : 1]
