@@ -51,12 +51,13 @@ it('keeps Jerusalem’s building geometry fixed as lateral light sweeps through 
   for (const side of [-.0001, .0001]) {
     const { casts } = at(side)
     expect(casts.length).toBeGreaterThan(0)
-    let towers = 0
+    let towers = 0, boxes = 0
     for (const { span, alpha, path } of casts) {
       const [, , base] = path.find(([op]) => op === 'moveTo')!
       const [edge, tip, tail] = path.filter(([op]) => op === 'lineTo')
       const dir = -Math.sign(side), reach = (tip[1] - edge[1]) * dir
-      const tower = Math.abs(edge[2] - base + .3) < 1e-7
+      const tower = Math.abs(edge[2] - base + .3) < 1e-7, box = Math.abs(edge[2] - base + .15) < 1e-7
+      if (box) boxes++
       if (tower) {
         towers++
         expect(tip[2] - base).toBeCloseTo(.5, 10)
@@ -66,9 +67,11 @@ it('keeps Jerusalem’s building geometry fixed as lateral light sweeps through 
       expect(reach).toBeGreaterThan(0)
       expect(Math.abs(reach)).toBeLessThan(.02)
       expect(span * dir).toBeCloseTo(reach + (tower ? .5 : 0), 10)
-      expect(alpha).toBeCloseTo(.25 * reach * (tower ? .8 : 1), 3)
+      expect(alpha).toBeCloseTo(.25 * reach * (tower ? .8 : box ? .6 : 1), 3)
     }
     expect(towers).toBe(layer.items.filter(({ kind }) => kind === 'tower').length)
+    // Every box casts too: lighter than a tower's.
+    expect(boxes).toBe(layer.items.filter(({ kind }) => kind === 'box').length)
   }
 })
 

@@ -27,6 +27,19 @@ export function tileRoof(ctx: Ctx2D, x: number, y: number, w: number, tile: read
   }
 }
 
+/** The clay's own tooth: `tooth` (the layer's grain) laid over the roof's outline alone. Tiles are a textured material;
+ *  the plaster under them keeps a clean face. */
+export function tileTooth(ctx: Ctx2D, x: number, y: number, w: number, tooth: () => void) {
+  const rh = Math.min(2.2, .45 * w + .3)
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(x - .35, y); ctx.lineTo(x + w * .35, y - rh); ctx.lineTo(x + w * .65, y - rh); ctx.lineTo(x + w + .35, y)
+  ctx.closePath()
+  ctx.clip()
+  tooth()
+  ctx.restore()
+}
+
 export function solarHeater(ctx: Ctx2D, x: number, top: number, shades: ReturnType<typeof accessoryTones>) {
   ctx.fillStyle = css(shades.heater)
   ctx.fillRect(x, top - .9, 1.1, .5)
