@@ -43,16 +43,20 @@ bdi {
   display: flex;
   flex-direction: column;
   color: var(--ink);
+  isolation: isolate;
   transition: color var(--d4) var(--ease-in-out);
 }
 
 .app > main {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  display: grid;
+  grid-template: 'weather' auto 'details' 1fr / minmax(0, 1fr);
 }
 
 .sky-area {
+  grid-area: weather;
+  container: forecast / inline-size;
   /* Above the valley scene, so the sun's halo glows behind the strip's text, not over it. */
   position: relative;
   z-index: 1;
@@ -61,8 +65,8 @@ bdi {
 }
 
 .lower {
+  grid-area: details;
   padding-inline: var(--page-pad);
-  flex: 1;
   display: flex;
   flex-direction: column;
 }
@@ -73,6 +77,16 @@ bdi {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.forecast-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+  padding-block-end: var(--space-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
 }
 
 .visually-hidden {

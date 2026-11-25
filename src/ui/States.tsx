@@ -4,7 +4,7 @@ import styles from './States.module.css'
 
 export function LoadingState() {
   return (
-    <div className={styles.state} role="status" aria-live="polite">
+    <div className={styles.loading} role="status" aria-live="polite">
       <div className={`${styles.skeleton} ${styles.temp}`} />
       <div className={`${styles.skeleton} ${styles.line}`} />
       <div className={`${styles.skeleton} ${styles.line} ${styles.short}`} />

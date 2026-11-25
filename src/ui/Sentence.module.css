@@ -1,4 +1,6 @@
-.sentence {
+.summary {
+  display: grid;
+  gap: var(--space-1);
   margin: var(--space-5) auto 0;
   max-width: 30ch;
   text-align: center; /* centred under the hero; text-wrap: balance keeps the lines even */
@@ -6,11 +8,10 @@
   font-weight: 500;
   font-size: var(--text-xl);
   line-height: 1.32;
-  text-wrap: balance;
-  /* The hour strip's halo: white words stay legible over the bright cloud tops. */
-  text-shadow: 0 0 10px var(--sky-mid), 0 0 3px var(--sky-mid), 0 1px 18px rgba(0, 0, 0, 0.2);
 }
 
-.rest {
-  opacity: 0.88;
+.sentence {
+  margin: 0;
+  text-wrap: balance;
+  text-shadow: var(--sky-text-shadow);
 }

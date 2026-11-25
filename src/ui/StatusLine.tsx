@@ -53,16 +53,18 @@ function useLiveStatus(problem: UpdateProblem, fetchedAt: number | null, update:
 }
 
 /** A tapped refresh spins for at least 600 ms so it is seen, then shows a check for 1.2 s on success. */
-function usePhase(busy: boolean, failed: boolean, onRefresh: () => void): [Phase, () => void] {
+function usePhase(busy: boolean, failed: boolean, fetchedAt: number | null, onRefresh: () => void): [Phase, () => void] {
   const [tail, setTail] = useState<'idle' | 'spinning' | 'done'>('idle')
   const since = useRef(0)
+  const previousFetch = useRef<number | null>(null)
 
   useEffect(() => {
     if (busy || tail !== 'spinning') return
     const wait = Math.max(0, MIN_SPIN_MS - (Date.now() - since.current))
-    const timer = setTimeout(() => setTail(failed ? 'idle' : 'done'), wait)
+    const updated = !failed && fetchedAt !== null && fetchedAt > (previousFetch.current ?? 0) && Date.now() - fetchedAt < 60_000
+    const timer = setTimeout(() => setTail(updated ? 'done' : 'idle'), wait)
     return () => clearTimeout(timer)
-  }, [busy, tail, failed])
+  }, [busy, tail, failed, fetchedAt])
 
   useEffect(() => {
     if (tail !== 'done') return
@@ -72,6 +74,7 @@ function usePhase(busy: boolean, failed: boolean, onRefresh: () => void): [Phase
 
   const start = () => {
     since.current = Date.now()
+    previousFetch.current = fetchedAt
     setTail('spinning')
     onRefresh()
   }
@@ -83,7 +86,7 @@ export function StatusLine({ status, freshness, fetchedAt, failure, onRefresh }:
   const online = useOnline()
   const problem = deriveProblem(online, failure)
   const warn = problem !== null || freshness === 'stale'
-  const [phase, start] = usePhase(status === 'refreshing' || status === 'loading', Boolean(failure), onRefresh)
+  const [phase, start] = usePhase(status === 'refreshing' || status === 'loading', Boolean(failure), fetchedAt, onRefresh)
   const fresh = fetchedAt ? freshnessText(fetchedAt, problem) : { text: '', spoken: '' }
   const busy = phase === 'busy'
   /** What the refresh itself is doing, for screen readers; the spinner and the check say it visually. */
@@ -91,7 +94,7 @@ export function StatusLine({ status, freshness, fetchedAt, failure, onRefresh }:
   const live = useLiveStatus(problem, fetchedAt, update)
   /** Visible words only when the data's age matters (old or offline); otherwise the pill is a round icon button. */
   const text = phase === 'idle' ? fresh.text : ''
-  const spoken = busy ? 'מעדכן את התחזית' : `${phase === 'done' ? 'עודכן עכשיו' : fresh.spoken}. רענון`
+  const spoken = busy ? 'מעדכן את התחזית' : [phase === 'done' ? update : fresh.spoken, 'רענון תחזית'].filter(Boolean).join('. ')
 
   return (
     <>
@@ -101,6 +104,7 @@ export function StatusLine({ status, freshness, fetchedAt, failure, onRefresh }:
         onClick={busy ? undefined : start}
         aria-disabled={busy}
         aria-label={spoken}
+        data-update-label={Boolean(text) || undefined}
       >
         <span className={styles.pill}>
           <svg className={`${styles.icon} ${busy ? styles.spin : ''}`} width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">

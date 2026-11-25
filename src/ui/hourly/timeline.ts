@@ -1,5 +1,6 @@
 import { THRESHOLDS as T } from '../../config/thresholds'
 import { conditionOf, type ConditionKind } from '../../domain/conditions'
+import { addMinutes } from '../../domain/minutes'
 import { datePart, hourOf } from '../../domain/time'
 import type { DayPoint, Forecast, LocalTime } from '../../domain/types'
 
@@ -75,7 +76,7 @@ export function buildTimeline(
 
 /** Window that starts at the current hour and spans the next 24 hours. */
 export function next24h(f: Forecast, now: LocalTime): TimelineSlot[] {
-  const idx = f.hours.findIndex((h) => h.time >= `${now.slice(0, 13)}:00`)
-  const end = f.hours[Math.min(f.hours.length - 1, Math.max(0, idx) + 25)]?.time ?? now
-  return buildTimeline(f, now, end, now)
+  const start = `${now.slice(0, 13)}:00`
+  // Include the point exactly 24 hours ahead, even when it is the last available hour.
+  return buildTimeline(f, now, addMinutes(start, 25 * 60), now)
 }

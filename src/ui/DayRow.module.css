@@ -6,7 +6,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 5.5rem 2.5rem 1fr;
+  grid-template-columns: 5.5rem 2.5rem minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
@@ -30,6 +30,9 @@
 .row:focus-visible {
   outline-offset: -2px;
 }
+
+.chevron { color: var(--sheet-muted); }
+.row[aria-expanded='true'] .chevron { transform: rotate(180deg); }
 
 .today .day { font-weight: 600; }
 
@@ -121,12 +124,11 @@
 
 .open + .item { border-color: transparent; }
 
-/* Large text (about 150% and up on a phone): the three columns (≈13.4rem, with gaps) no longer fit, so the range bar takes its own line
-   under the name, instead of pushing the row past the screen edge. In rem, so it follows the text size. */
-@container week (max-width: 13.5rem) {
+/* When the numbers and disclosure marker need more room, the range gets its own line. */
+@container week (max-width: 16rem) {
   .row {
-    grid-template-columns: 1fr auto;
-    grid-template-areas: 'name cond' 'range range';
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'name cond expand' 'range range range';
     row-gap: 0;
     padding-bottom: var(--space-2);
   }
@@ -134,6 +136,7 @@
   .name { grid-area: name; }
   .cond { grid-area: cond; }
   .range { grid-area: range; }
+  .chevron { grid-area: expand; }
 }
 
 @media (prefers-reduced-motion: reduce) {

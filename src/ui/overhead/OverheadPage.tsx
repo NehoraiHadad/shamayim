@@ -81,6 +81,7 @@ function OverheadContent({ place, rain, title, heading, onClose }: {
   const state = radarState({ online, radarFailed: Boolean(weather?.radarFailed), latestRadar,
     hasOutlook: Boolean(rain.outlook), slow, now, timezone: place.timezone })
   const verdict = rainVerdict(state, rain.outlook, rain.clockIn, rain.forecastRainAt)
+  const verdictTime = state.kind === 'ok' && latestRadar != null ? clockAt(latestRadar, place.timezone) : null
   const status = overheadStatus({ online, cloudFailed: Boolean(weather?.cloudFailed), mapFailed, ready })
   const swipe = useSwipeClose(onClose)
   const time = shown === null ? null
@@ -89,15 +90,20 @@ function OverheadContent({ place, rain, title, heading, onClose }: {
   return (
     <div className={styles.panel}>
       <header className={styles.heading} {...swipe}>
-        <p className={styles.eyebrow}>{RAIN_MAP}</p>
+        <p id={title} className={styles.eyebrow}>{RAIN_MAP}</p>
         <IconButton label="סגירה" onClick={onClose}><CloseIcon /></IconButton>
       </header>
       <div className={styles.verdict} aria-live="polite" aria-atomic="true">
-        <h2 id={title} ref={heading} tabIndex={-1} className={state.kind === 'loading' ? styles.waiting : undefined}>
+        <h2 ref={heading} tabIndex={-1} className={state.kind === 'loading' ? styles.waiting : undefined}>
           {verdict.headline}
         </h2>
         {verdict.detail && <p className={styles.detail}>{verdict.detail}</p>}
-        {verdict.basis && <p className={styles.basis}>{verdict.basis}</p>}
+        {(verdict.basis || verdictTime) && (
+          <p className={styles.basis}>
+            {verdict.basis}{verdict.basis && verdictTime && ' · '}
+            {verdictTime && <>מכ״ם אחרון ב־<bdi>{verdictTime}</bdi></>}
+          </p>
+        )}
         <p className="visually-hidden">{mapSentence(place.nameHe, state.kind === 'ok' ? rain.outlook : null)}</p>
       </div>
       <OverheadMap place={place} frame={frame} now={now} outlook={state.kind === 'ok' ? rain.outlook : null} onTimeline={setTimeline}

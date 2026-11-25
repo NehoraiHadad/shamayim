@@ -1,16 +1,18 @@
 /* Text sits on top/mid only; the light horizon colour is reserved for the valley scene (SPEC §5).
    Stops are in rem, tied to the content above (scene top ≈ 21.5rem at 375px with a one-line sentence, +2rem per
    extra line), not to the viewport: mid holds through the strip and the scene caption even with a three-line
-   sentence, and the horizon colour rises behind the ridges. Sky text also keeps a mid-sky halo as a backstop.
+   sentence, and the horizon colour rises behind the ridges. A soft shadow keeps labels distinct over bright clouds.
    Numbers: docs/design/qa/contrast-report.ts. */
 /* Scrolls with the page (not fixed), so the horizon, haze and clouds stay put behind the hill when it scrolls. */
 .sky {
   position: absolute;
+  grid-area: weather;
   top: 0;
-  left: 0;
-  right: 0;
-  /* The hero is content-sized (scene ends near 500px), so short landscape screens still need sky behind the hill. */
-  height: max(100lvh, 640px);
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  /* The weather row is the containing block, so larger text always has sky down to the scene. */
+  height: max(100lvh, 640px, calc(100% + 128px));
   z-index: -1;
   overflow: hidden;
   background: linear-gradient(

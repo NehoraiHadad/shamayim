@@ -1,22 +1,33 @@
-import type { ReactNode } from 'react'
 import type { WearTip } from '../text/wear'
+import { ChevronIcon } from './icons'
 import styles from './WearCard.module.css'
 
-/**
- * One-line clothing advice for the rest of today, or tomorrow, under today's clothes pegged on a line. The line is drawn
- * on canvas by the scene's chunk, from the scene's own world (`scene/react/WearCanvas.tsx`, portalled into the box held
- * here): the box keeps its size before the drawing arrives, so nothing moves. Decorative; the sentence carries the words.
- */
-export function WearCard({ tip, action }: { tip: WearTip | null; action?: ReactNode }) {
-  if (!tip) return action ?? null
+/** Timing and gear stay visible. A uniform recommendation can be read by opening the details. */
+export function WearCard({ tip, restOfDay }: { tip: WearTip | null; restOfDay: string | null }) {
+  if (!tip && !restOfDay) return null
   return (
-    <section className={styles.card} aria-labelledby="wear-title">
-      <div className={styles.line} data-wear-line aria-hidden="true" />
-      <div className={styles.head}>
-        <h2 id="wear-title" className={styles.title}>מה ללבוש {tip.when}</h2>
-        {action}
-      </div>
-      <p className={styles.text}>{tip.text}</p>
-    </section>
+    <div className={styles.card}>
+      {restOfDay && (
+        <section className={styles.restOfDay} aria-labelledby="wear-today-title">
+          <h2 id="wear-today-title" className={styles.title}>להמשך היום</h2>
+          <p className={styles.text}>{restOfDay}</p>
+        </section>
+      )}
+      {tip && (
+        <section className={styles.outfit} aria-labelledby="wear-title">
+          <h2 id="wear-title" className={styles.title}>מה ללבוש {tip.when}</h2>
+          {tip.hasTimingOrGear && <p className={styles.text}>{tip.text}</p>}
+          <div className={styles.line} data-wear-line>
+            {!tip.hasTimingOrGear && <p className={`${styles.text} ${styles.fallback}`}>{tip.text}</p>}
+          </div>
+          {!tip.hasTimingOrGear && (
+            <details className={styles.details}>
+              <summary className={styles.summary}>פירוט לבוש <ChevronIcon className={styles.chevron} /></summary>
+              <p className={styles.text}>{tip.text}</p>
+            </details>
+          )}
+        </section>
+      )}
+    </div>
   )
 }

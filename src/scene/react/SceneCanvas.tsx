@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import type { Forecast, LocalTime } from '../../domain/types'
-import { isolateNumbers } from '../../ui/isolateNumbers'
 import { perfHud } from '../../ui/devParams'
 import { SceneScrubber } from './SceneScrubber'
 import { useWidth } from './useWidth'
@@ -74,12 +73,6 @@ export function SceneCanvas({ world, life, forecast, now, selected, temperature,
         <SceneScrubber at={selected} now={now} first={first} last={last} readout={readout} onScrub={onScrub} onRelease={onRelease}
           onNow={onNow} />
       </figure>
-      {readout && (
-        <span className={styles.readout}>
-          <span aria-hidden="true">{isolateNumbers(readout)}</span>
-          <button type="button" onClick={onNow}>עכשיו</button>
-        </span>
-      )}
       {perfHud() && <PerfHud />}
       {host && createPortal(<SkyCanvas layers={sky} size={{ width: host.width, height: host.height, dpr, style }} onReady={onSky} />,
         host.element)}

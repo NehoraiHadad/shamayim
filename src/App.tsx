@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { airInput, sunElevation } from './atmo/airInput'
 import { dustShare } from './world/airParts'
 import { mapAir } from './world/mapAir'
@@ -13,12 +13,12 @@ import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
-import { rollForward } from './domain/now'
+import { rollForward, sameLocalHour } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
 import { entryHeadline, rainIsNear } from './domain/rainVerdict'
 import { composeSummary } from './text/compose'
 import { sceneFacts } from './text/sceneFacts'
-import { wearTip } from './text/wear'
+import { restOfDayWearTip, wearTip } from './text/wear'
 import { pickTheme } from './theme/pickTheme'
 import { sheetVars, useSheetPaper } from './theme/sheetLight'
 import { skyLight, skyLightVars } from './theme/skyLight'
@@ -35,6 +35,7 @@ import { OverheadPage } from './ui/overhead/OverheadPage'
 import { clockIn, firstRainHour } from './ui/overhead/timing'
 import { useOverheadDialog } from './ui/overhead/useOverheadDialog'
 import { SceneFallback } from './scene/react/SceneFallback'
+import { SceneTimeReadout } from './ui/SceneTimeReadout'
 import { Sentence } from './ui/Sentence'
 import { Sheet } from './ui/Sheet'
 import { Sky } from './ui/Sky'
@@ -79,31 +80,37 @@ export default function App() {
   // The satellite's cloud around the place corrects "now" (fading over ~2.5 h); later hours stay the model's.
   // Each day also learns when the sun is really seen to rise and set over the land around (horizon panorama).
   const timeline = useMemo(() => raw ? withVisibleSun(rollForward(raw, now), terrain, place) : null, [raw, now, terrain, place])
-  const forecast = useMemo(() => timeline ? withObservedCloud(timeline, observedCloud, now, arrivalMs) : null,
-    [timeline, observedCloud, now, arrivalMs])
+  const hasCurrent = timeline !== null && sameLocalHour(timeline.current.time, now)
+  const forecast = useMemo(() => timeline && hasCurrent ? withObservedCloud(timeline, observedCloud, now, arrivalMs) : timeline,
+    [timeline, hasCurrent, observedCloud, now, arrivalMs])
   const today = forecast?.days.find((d) => d.date === now.slice(0, 10))
   const forced = forcedTheme()
   const themeId = forced ?? (forecast ? pickTheme(forecast, today, now) : 'night')
   const sentences = useMemo(() => (forecast ? composeSummary(forecast, now) : []), [forecast, now])
   const hourly = useMemo(() => (forecast ? next24h(forecast, now) : []), [forecast, now])
   const wear = useMemo(() => (forecast ? wearTip(forecast, now) : null), [forecast, now])
+  const restOfDayWear = useMemo(() => (forecast ? restOfDayWearTip(forecast, now) : null), [forecast, now])
   const sceneTime = useSceneTime(now)
+  const nowButton = useRef<HTMLButtonElement>(null)
+  const focusNowButton = useCallback(() => nowButton.current?.focus(), [])
   const selected = sceneTime.at
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time.slice(0, 13) === selected?.slice(0, 13))
+  const sceneHasForecast = hasCurrent || Boolean(selectedSlot)
+  const readout = selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null
   const weather = useMemo(() => {
-    if (!timeline) return null
+    if (!timeline || !sceneHasForecast) return null
     const forced = forcedWeather()
     const options = { arrivalMs, observedCloud }
     return airInput(timeline, now, place, selected, forced, options)
-  }, [timeline, now, place, selected, arrivalMs, observedCloud])
+  }, [timeline, sceneHasForecast, now, place, selected, arrivalMs, observedCloud])
   const { seenClouds, cloudsSeen } = useSceneSightings(weather, observedCloud, now, arrivalMs)
   const shown = useMemo(() => weather ? { ...weather, cloudsSeen } : null, [weather, cloudsSeen])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])
   // The scene's world state (`src/world/`): one state, built from the data, drives the sky and the land.
-  const worldInput = useMemo(() => (timeline ? { place, forecast: timeline, now, selected, arrivalMs, observedCloud, terrain,
+  const worldInput = useMemo(() => (timeline && sceneHasForecast ? { place, forecast: timeline, now, selected, arrivalMs, observedCloud, terrain,
     landmarks: marks, seatCandidates: landmarks.seatCandidates, cropAreas: landmarks.cropAreas, city, seenClouds, forced: forcedWeather(),
     land } : null),
-    [place, timeline, now, selected, arrivalMs, observedCloud, terrain, marks, landmarks.seatCandidates, landmarks.cropAreas, city, seenClouds,
+    [place, timeline, sceneHasForecast, now, selected, arrivalMs, observedCloud, terrain, marks, landmarks.seatCandidates, landmarks.cropAreas, city, seenClouds,
       land])
   const light = useMemo(() => shown ? skyLight({ altitude: shown.sunElevation, rising: shown.localHour < 12,
     cloudCover: shown.cloudCover, wet: Math.min(1, shown.rainMmH / 0.8), pm10: shown.opticalPm10,
@@ -123,8 +130,8 @@ export default function App() {
   // The radar's verdict on the rain nearby; the model only fills in when the radar sees nothing close.
   const rain = useMemo(() => ({ outlook, forecastRainAt: modelRain?.time.slice(11, 16) ?? null,
     clockIn: (m: number) => clockIn(now, m) }), [outlook, modelRain, now])
-  const rainHeadline = entryHeadline(outlook, rain.clockIn, rain.forecastRainAt)
   const rainy = Boolean(modelRain) || rainIsNear(outlook)
+  const rainHeadline = rainy ? entryHeadline(outlook, rain.clockIn, rain.forecastRainAt) : null
   useThemeChrome(forced ? SKY_THEMES[themeId].top : light.top)
 
   const [waters, setWaters] = useState<{ placeId: string; names: string[] } | null>(null)
@@ -144,20 +151,19 @@ export default function App() {
 
   return (
     <div className={classes} data-scrubbing={sceneTime.scrubbing || undefined} style={{ ...themeVars(themeId), ...(forced ? {} : { ...skyLightVars(light), ...sheetVars(paper) }) }}>
-      {/* The scene draws the sky itself (clouds, stars, the bodies) into the sky's host; the CSS gradient is its first paint. */}
-      {/* The birds, the aircraft and the meteors are the sky canvas's own (C10). */}
-      <Sky />
       <main>
+        {/* The scene paints into this host after the CSS gradient's first paint. */}
+        <Sky />
         <div className="sky-area" data-air-band>
           <TopBar place={place} recent={recent} onSelectPlace={selectPlace} status={statusLine} />
           {!forecast && status === 'error' && <ErrorState failure={error} onRetry={refresh} />}
           {!forecast && status !== 'error' && <LoadingState />}
           {forecast && (
             <>
-              <Hero current={forecast.current} />
+              <Hero current={forecast.current} now={now} />
               <Sentence sentences={sentences} />
               <HourlyStrip slots={hourly} label="24 השעות הקרובות" selected={selected} onSelect={sceneTime.pick}
-                onScrub={sceneTime.scrub} onRelease={sceneTime.release} scrubbing={sceneTime.scrubbing} />
+                onScrub={sceneTime.scrub} onRelease={sceneTime.release} scrubbing={sceneTime.scrubbing} nowButton={nowButton} />
             </>
           )}
         </div>
@@ -167,7 +173,7 @@ export default function App() {
               <Suspense fallback={<SceneFallback />}>
                 <CanvasScene input={worldInput} forecast={worldInput.forecast} now={now} selected={selected}
                   temperature={selectedSlot?.type === 'hour' ? selectedSlot.temp : forecast.current.temperature}
-                  readout={selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null}
+                  readout={readout}
                   first={hourly.find((slot) => slot.type === 'hour')?.time ?? now}
                   last={[...hourly].reverse().find((slot) => slot.type === 'hour')?.time ?? now}
                   onScrub={sceneTime.scrub} onRelease={sceneTime.release} onNow={sceneTime.toNow} wear={wearLine} onWaters={onWaters}
@@ -175,12 +181,15 @@ export default function App() {
               </Suspense>
             )}
             <div className="paper" data-intro="sheet">
-              <Sheet>
-                <OverheadEntry rainy={rainy} headline={rainHeadline} position="top" onOpen={overhead.show} />
-                <WearCard tip={wear} action={<StyleVoteToggle state={styleVote} />} />
+              <Sheet overlapsScene={Boolean(worldInput)}>
+                {readout && <SceneTimeReadout readout={readout} onNow={sceneTime.toNow} returnFocus={focusNowButton} />}
+                <div className="forecast-tools">
+                  <OverheadEntry headline={rainHeadline} onOpen={overhead.show} />
+                  <StyleVoteToggle state={styleVote} />
+                </div>
+                <WearCard tip={wear} restOfDay={restOfDayWear} />
                 <SpecialLine text={special} />
                 <WeekList forecast={forecast} now={now} />
-                <OverheadEntry rainy={rainy} headline={rainHeadline} position="bottom" onOpen={overhead.show} />
               </Sheet>
               <Attribution facts={facts} withAir={Boolean(forecast.air)} withOsm={place.usesOsm} withLandmarks={landmarks.usesOsm} withFootprints={footprints} />
             </div>
@@ -188,7 +197,7 @@ export default function App() {
         )}
       </main>
       {styleVote.open && (
-        <StyleVotePanel state={styleVote} placeName={place.nameHe} at={selected ?? now} picked={selected !== null} />
+        <StyleVotePanel state={styleVote} placeName={place.nameHe} at={selected ?? now} />
       )}
       <OverheadPage open={overhead.open} place={place} rain={rain} onClose={overhead.close} />
     </div>

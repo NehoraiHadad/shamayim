@@ -15,12 +15,10 @@ interface Props {
   placeName: string
   /** The time the scene shows. */
   at: LocalTime
-  /** An hour is picked: its readout keeps its place below the panel. */
-  picked: boolean
 }
 
 /** A small card docked at the bottom, not modal: the valley above stays in view and usable while the styles are compared. */
-export function StyleVotePanel({ state, placeName, at, picked }: Props) {
+export function StyleVotePanel({ state, placeName, at }: Props) {
   const { style, vote, seenBoth, pending, choose, castVote, close } = state
   const panel = useRef<HTMLElement>(null)
   useStylePanel(panel, close)
@@ -31,7 +29,7 @@ export function StyleVotePanel({ state, placeName, at, picked }: Props) {
     panel.current?.querySelector<HTMLInputElement>('input:checked')?.focus({ preventScroll: true })
   }
   return (
-    <section ref={panel} id={PANEL_ID} className={styles.panel} data-picked={picked || undefined} aria-labelledby="style-vote-title">
+    <section ref={panel} id={PANEL_ID} className={styles.panel} aria-labelledby="style-vote-title">
       <div className={styles.heading}>
         <h2 id="style-vote-title">{TITLE}</h2>
         <IconButton label={CLOSE} onClick={close}><CloseIcon /></IconButton>

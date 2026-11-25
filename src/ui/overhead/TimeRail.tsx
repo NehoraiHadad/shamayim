@@ -26,11 +26,12 @@ export function TimeRail({ at, count, time, start, playing, toggle, choose }: {
   choose: (at: number) => void
 }) {
   const last = count - 1
+  const mode = at === last ? 'התמונה האחרונה' : 'תמונת עבר'
   const rail = { '--step': `${100 / Math.max(1, last)}%`, '--played': `${(at / Math.max(1, last)) * 100}%` } as CSSProperties
   return (
     <div className={styles.time}>
       <output className={styles.readout} aria-live="off">
-        {time ? <><span className={styles.clock}>{time.clock}</span><span className={styles.ago}> · {time.ago}</span></> : '—'}
+        {time ? <>{mode} <bdi className={styles.clock}>{time.clock}</bdi><span className={styles.ago}> · {time.ago}</span></> : '—'}
       </output>
       {last > 0 && (
         <div className={styles.controls}>
@@ -40,7 +41,7 @@ export function TimeRail({ at, count, time, start, playing, toggle, choose }: {
           </IconButton>
           <div className={styles.rail} style={rail}>
             <input type="range" min={0} max={last} value={at} dir="rtl" aria-label="זמן התמונה"
-              aria-valuetext={time ? `${time.clock}, ${time.spoken}` : undefined}
+              aria-valuetext={time ? `${mode}, ${time.clock}, ${time.spoken}` : undefined}
               onPointerDown={() => choose(at)}
               onChange={(event) => choose(event.currentTarget.valueAsNumber)}
               onKeyDown={(event) => {
@@ -48,7 +49,10 @@ export function TimeRail({ at, count, time, start, playing, toggle, choose }: {
                 event.preventDefault()
                 choose(Math.max(0, Math.min(last, at + (event.key === 'ArrowLeft' ? 1 : -1))))
               }} />
-            <div className={styles.ends} aria-hidden="true"><span>{start}</span><span>עכשיו</span></div>
+            <div className={styles.ends}>
+              <span aria-hidden="true">{start}</span>
+              <button type="button" onClick={() => choose(last)}>לתמונה האחרונה</button>
+            </div>
           </div>
         </div>
       )}

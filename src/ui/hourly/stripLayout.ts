@@ -1,21 +1,19 @@
 import { conditionLabel } from '../../domain/conditions'
-import { clockOf, datePart, hourOf, minutesOfDay, weekdayHe } from '../../domain/time'
+import { clockOf, datePart, hourOf, weekdayHe } from '../../domain/time'
 import type { LocalTime } from '../../domain/types'
-import { formatProb } from '../../text/format'
 import { tempText } from '../../text/isolate'
+import { precipitationChance, precipitationLabel } from '../../text/precipitation'
 import { fillGaps, scaleY, type Pt } from './curve'
 import type { HourSlot, TimelineSlot } from './timeline'
 import { addMinutes, minutesBetweenLocal } from '../../domain/minutes'
 
-export const SLOT_W = 54
+export const SLOT_W = 54 // Logical SVG units. CSS expands the strip when text needs more room.
 /**
  * The curve band: PAD above the highest point (room for its temperature label) and PAD below the lowest (room for the
  * sunrise/sunset label row), leaving 14 px of relief. Enough to show the day's shape; the numbers carry the values.
  */
 export const BAND_H = 50
 export const PAD = 18
-/** Top of the curve band, with and without the rain-probability row. */
-export const BAND_TOP = { withProb: 60, withoutProb: 46 }
 
 export interface SunMarker {
   x: number
@@ -62,7 +60,9 @@ export function layoutStrip(slots: TimelineSlot[]): StripLayout {
     if (s.type !== 'sun') continue
     const i = hours.findLastIndex((h) => h.time <= s.time)
     if (i < 0) continue
-    const into = (minutesOfDay(s.time) - minutesOfDay(hours[i].time)) / 60
+    const next = hours[i + 1]
+    if (!next) continue
+    const into = minutesBetweenLocal(hours[i].time, s.time) / minutesBetweenLocal(hours[i].time, next.time)
     suns.push({ x: centerX(width, i) - into * SLOT_W, rise: s.rise, time: s.time })
   }
   const breaks = hours.flatMap((h, i) =>
@@ -76,7 +76,7 @@ export function layoutStrip(slots: TimelineSlot[]): StripLayout {
 /** "15:00, מעונן, 26°, רוח 14 קמ״ש" (the time first; `at` names a minute inside the hour, for a moved time). */
 export function describeHour(h: HourSlot, at?: LocalTime): string {
   const parts = [at ? clockOf(at) : h.isNow ? 'עכשיו' : clockOf(h.time), conditionLabel(h.kind, h.isDay), tempText(h.temp)]
-  if (h.prob !== null) parts.push(`סיכוי לגשם ${formatProb(h.prob)}`)
+  if (h.prob !== null) parts.push(precipitationChance(precipitationLabel(h.kind), h.prob))
   parts.push(`רוח ${Math.round(h.wind)} קמ״ש`)
   return parts.join(', ')
 }

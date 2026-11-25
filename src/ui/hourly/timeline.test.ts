@@ -39,6 +39,17 @@ describe('next24h', () => {
     expect(at(`${TODAY}T22:00`)).toMatchObject({ isDay: false })
     expect(at(`${TODAY}T12:00`)).toMatchObject({ isDay: true })
   })
+
+  it('excludes later days outside the 24-hour window when the saved hours have a gap', () => {
+    const gap = { ...f, hours: f.hours.filter(h => h.time >= '2026-07-17T00:00') }
+    expect(next24h(gap, `${TODAY}T09:20`)).toEqual([])
+  })
+
+  it('includes the last saved forecast hour when it is still in the window', () => {
+    const hour = f.hours[40]
+    const shortened = { ...f, hours: [hour] }
+    expect(next24h(shortened, `${TODAY}T09:20`)).toMatchObject([{ time: hour.time }])
+  })
 })
 
 describe('buildTimeline', () => {

@@ -4,6 +4,7 @@ import type { DayPoint, Forecast, LocalTime } from '../../domain/types'
 import { airLabel, formatProb, uvLabel } from '../../text/format'
 import { clockRange } from '../../text/isolate'
 import { mm } from '../../text/phrases'
+import { dailyPrecipitationLabel, type PrecipitationLabel } from '../../text/precipitation'
 import { HourlyStrip } from '../hourly/HourlyStrip'
 import { buildTimeline } from '../hourly/timeline'
 import styles from './DayDetail.module.css'
@@ -13,6 +14,7 @@ interface Props {
   forecast: Forecast
   now: LocalTime
   nextDate: string | undefined
+  precipitation?: PrecipitationLabel
 }
 
 const CONFIDENCE_TEXT = {
@@ -22,14 +24,17 @@ const CONFIDENCE_TEXT = {
 } as const
 
 /** Expanded day: that day's hours plus the numbers behind the row. */
-export function DayDetail({ day, forecast, now, nextDate }: Props) {
+export function DayDetail({ day, forecast, now, nextDate, precipitation = dailyPrecipitationLabel(day, forecast.hours) }: Props) {
   const from = `${day.date}T00:00`
   const to = nextDate ? `${nextDate}T00:00` : `${day.date}T23:59`
   const slots = buildTimeline(forecast, from, to, now, 2)
-  const prob = day.precipProbMax ?? 0
+  const prob = day.precipProbMax
+  const amount = precipitation === 'גשם' && day.precipSum >= T.rain.quoteMm ? `, כ־${mm(day.precipSum)}` : ''
+  const chance = prob == null ? 'אין נתון על הסיכוי'
+    : prob >= T.showRainProb || precipitation !== 'משקעים' || day.precipSum >= T.rain.quoteMm ? formatProb(prob) : 'לא צפויים'
   const confidence = day.confidence ?? (day.lowConfidence ? 'low' : 'high')
   const facts = [
-    { label: 'גשם', value: prob >= T.showRainProb ? `${formatProb(prob)}${day.precipSum >= T.rain.quoteMm ? `, כ־${mm(day.precipSum)}` : ''}` : 'לא צפוי' },
+    { label: precipitation, value: `${chance}${amount}` },
     { label: 'רוח', value: `משבים עד ${Math.round(day.windGustsMax)} קמ״ש` },
     { label: 'אור יום', value: clockRange(clockOf(day.sunrise), clockOf(day.sunset)) },
   ]

@@ -2,7 +2,7 @@ import { clockOf } from '../../domain/time'
 import { ltr } from '../../text/isolate'
 import marks from './markers.module.css'
 import type { SunMarker } from './stripLayout'
-import type { AwaySide } from './useNextSunTag'
+import type { AwaySide } from './useHourlyScroll'
 
 function TagArrow({ side }: { side: AwaySide }) {
   return (
@@ -13,14 +13,14 @@ function TagArrow({ side }: { side: AwaySide }) {
 }
 
 /** Edge chip pointing to the next sunrise/sunset when its marker is scrolled out of view. */
-export function NextSunTag({ sun, away, onClick }: { sun: SunMarker; away: AwaySide; onClick: () => void }) {
+export function NextSunTag({ sun, away, onClick }: { sun: SunMarker; away: AwaySide; onClick: (fromKeyboard: boolean) => void }) {
   const label = sun.rise ? 'זריחה' : 'שקיעה'
   const clock = clockOf(sun.time)
   return (
     <button
       type="button"
       className={`${marks.chip} ${marks.sunTag} ${marks[away]}`}
-      onClick={onClick}
+      onClick={(event) => onClick(event.detail === 0)}
       aria-label={`${label} ב־${ltr(clock)}. הצגה ברצועה`}
     >
       {away === 'right' && <TagArrow side="right" />}

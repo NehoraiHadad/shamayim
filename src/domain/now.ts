@@ -11,13 +11,18 @@ export function nowIn(timezone: string, at = new Date()): LocalTime {
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`
 }
 
+/** Whether the events fall in the same local hour, on the same date. */
+export function sameLocalHour(a: LocalTime, b: LocalTime): boolean {
+  return a.slice(0, 13) === b.slice(0, 13)
+}
+
 /**
  * When the displayed hour changes, derive the current card from that hour's row.
  * Keep the complete reading at its original time for the world timeline.
  */
 export function rollForward(forecast: Forecast, now: LocalTime): Forecast {
   const hourKey = `${now.slice(0, 13)}:00`
-  if (forecast.current.time.slice(0, 13) === now.slice(0, 13)) return forecast
+  if (sameLocalHour(forecast.current.time, now)) return forecast
   const row = forecast.hours.find((h) => h.time === hourKey)
   if (!row) return forecast
   const today = forecast.days.find((d) => d.date === now.slice(0, 10))

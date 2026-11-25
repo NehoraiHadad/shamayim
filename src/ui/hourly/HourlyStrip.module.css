@@ -1,11 +1,23 @@
 .strip {
   --curve: var(--accent);
-  position: relative;
+  --slot-width: max(54px, 3.375rem);
+  --icon-space: 2px;
+  --prob-height: 0px;
+  --band-top: calc(var(--text-sm) * 1.4 + 26px + var(--icon-space) + var(--prob-height) + .5rem);
+  --band-h: max(50px, 3.125rem);
+  --marker-top: calc(var(--band-top) + var(--band-h));
+  --marker-row: max(24px, 1.5rem);
   margin-block-start: var(--space-4);
   margin-inline: calc(-1 * var(--gutter)); /* Bleed through the sky content gutter. */
 }
 
-.sky { color: var(--ink); }
+.strip[data-prob] { --prob-height: calc(var(--text-caption) * 1.35); }
+.sky {
+  color: var(--ink);
+  text-shadow: var(--sky-text-shadow);
+}
+
+.sky .slot { text-shadow: inherit; }
 
 .sheet {
   --curve: var(--sheet-curve);
@@ -13,6 +25,67 @@
   margin-block-start: var(--space-1);
   margin-inline: calc(-1 * var(--space-2)); /* Inset strip within the paper, with 8 px of extra scroll room. */
 }
+
+.heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 var(--gutter) var(--space-1);
+  font-size: var(--text-caption);
+}
+
+.heading h2 {
+  margin: 0;
+  font: 600 var(--text-sm) / 1.4 var(--font-sans);
+}
+
+.scrollButtons { display: none; }
+
+@media (any-pointer: fine) {
+  .heading {
+    min-block-size: 32px;
+    align-items: center;
+  }
+
+  .scrollHint { display: none; }
+
+  .scrollButtons {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .scrollButtons button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    min-inline-size: 32px;
+    min-block-size: 32px;
+    padding: 0 var(--space-2);
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    border-radius: 999px;
+    color: inherit;
+    background: color-mix(in srgb, var(--sky-top) 65%, transparent);
+    font: inherit;
+    font-weight: 600;
+    text-shadow: inherit;
+    cursor: pointer;
+  }
+
+  .scrollButtons button[aria-disabled='true'] {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .scrollButtons button:not([aria-disabled='true']):hover { background: var(--sky-top); }
+  .earlier svg { transform: rotate(-90deg); }
+  .later svg { transform: rotate(90deg); }
+}
+
+.graph { position: relative; }
 
 .scroller {
   overflow-x: auto;
@@ -25,18 +98,19 @@
 }
 
 .scroller::-webkit-scrollbar { display: none; }
-
-/* Room under the band for the sunrise/sunset chips, which hang 6 px below it (markers.module.css). */
-.sky .scroller { padding-block-end: 6px; }
+.scroller:focus-visible { outline-offset: -2px; }
 
 .track {
   position: relative;
+  width: calc(var(--hour-count) * var(--slot-width));
+  height: calc(var(--marker-top) + var(--marker-row));
 }
 
 .curve {
   position: absolute;
   top: var(--band-top);
   left: 0;
+  height: var(--band-h);
   overflow: visible;
   pointer-events: none;
 }
@@ -46,12 +120,15 @@
   stroke: var(--curve);
   stroke-width: 2;
   stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .dot {
   fill: var(--curve);
   transition: r var(--d1) var(--ease-out);
 }
+
+.sky :is(.line, .icon) { filter: var(--sky-svg-shadow); }
 
 .slots {
   position: absolute;
@@ -64,6 +141,7 @@
 
 .slots > li {
   flex: none;
+  width: var(--slot-width);
   scroll-snap-align: start;
 }
 
@@ -73,7 +151,7 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
-  height: 100%;
+  height: var(--marker-top);
   padding: 2px 0 0;
   border: 0;
   border-radius: var(--radius-slot);
@@ -84,11 +162,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* The picked hour's well stops above the sunrise/sunset label row, so it never covers "שקיעה 16:36". */
 .slot::before {
   content: '';
   position: absolute;
-  inset: 0 0 16px;
+  inset: 0;
   z-index: -1;
   border-radius: var(--radius-slot);
   transition: background-color var(--d1) linear;
@@ -101,7 +178,8 @@ button.slot:focus-visible {
 }
 
 .selected::before {
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  background: color-mix(in srgb, #070b1e 23%, transparent);
+  box-shadow: inset 0 0 0 1px var(--curve);
 }
 
 @media (forced-colors: active) {
@@ -110,9 +188,8 @@ button.slot:focus-visible {
 
 /* Full-strength ink for contrast; "now" and the picked hour stand out by weight. */
 .hour {
-  min-height: 18px;
   font-size: var(--text-sm);
-  line-height: 18px;
+  line-height: 1.4;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -125,12 +202,13 @@ button.slot:focus-visible {
 
 .iconWrap {
   display: flex;
-  margin-top: 2px;
+  margin-top: var(--icon-space);
   transition: opacity var(--d1) linear;
 }
 
 /* Same weather as the hour before: still there for anyone who looks, but the change is what reads at a glance. */
-.repeat { opacity: 0.32; }
+.repeat { opacity: 0.78; }
+.sheet .repeat { opacity: 0.68; }
 
 .selected .repeat { opacity: 1; }
 
@@ -142,10 +220,12 @@ button.slot:focus-visible {
   stroke-linejoin: round;
 }
 
+.sky .icon { overflow: visible; }
+
 .prob {
-  min-height: 14px;
+  min-height: var(--prob-height);
   font-size: var(--text-caption);
-  line-height: 14px;
+  line-height: 1.35;
   font-weight: 600;
   color: var(--sky-rain);
   font-variant-numeric: tabular-nums;
@@ -159,10 +239,7 @@ button.slot:focus-visible {
   text-align: center;
   font-size: var(--text-md);
   font-weight: 600;
+  line-height: 1.3;
+  transform: translateY(calc(-100% - 2px));
   font-variant-numeric: tabular-nums;
-}
-
-/* A soft halo in the mid-sky colour keeps sky text legible should it drift toward the pale horizon. */
-.sky :is(.hour, .prob, .temp) {
-  text-shadow: 0 0 6px var(--sky-mid), 0 0 2px var(--sky-mid);
 }

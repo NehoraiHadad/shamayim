@@ -53,10 +53,15 @@
 }
 
 .well {
+  justify-self: start;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--picker-line);
   border-radius: var(--radius-well);
-  background: var(--picker-wash);
+  background: transparent;
   font-weight: 600;
 }
+
+.well:hover { background: var(--picker-wash); }
 
 .well[aria-disabled='true'] {
   cursor: progress;
@@ -66,7 +71,7 @@
   width: 100%;
   min-height: 44px;
   padding: 0 var(--space-4);
-  border: 1px solid var(--picker-line);
+  border: 1px solid var(--ink);
   border-radius: var(--radius-well);
   color: inherit;
   background: var(--sky-top);
@@ -110,6 +115,8 @@
 .row small {
   font-size: var(--text-sm);
 }
+
+.row > :is(span, small) { min-width: 0; overflow-wrap: anywhere; }
 
 .row:hover {
   background: var(--picker-wash);

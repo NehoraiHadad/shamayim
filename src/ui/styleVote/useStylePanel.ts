@@ -1,14 +1,13 @@
 import { useEffect, type RefObject } from 'react'
 
-/** Air between the valley and the panel, and the panel's height off the bottom while an hour is picked (`[data-picked]`). */
 const GAP = 8
-const LIFTED = 62
 
-/** Scrolls just enough that the whole valley stands above the panel, also when an hour lifts it, with as much sky as fits. */
+/** Scroll just enough to show the valley above the comparison panel. */
 function revealScene(panel: HTMLElement) {
   const figure = document.querySelector('figure[data-canvas]')
   if (!figure) return
-  const limit = window.innerHeight - panel.offsetHeight - LIFTED - GAP
+  const inset = parseFloat(getComputedStyle(panel).bottom)
+  const limit = window.innerHeight - panel.offsetHeight - inset - GAP
   const top = Math.max(0, window.scrollY + figure.getBoundingClientRect().bottom - limit)
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   window.scrollTo({ top, behavior: reduced ? 'auto' : 'smooth' })

@@ -10,7 +10,7 @@ import type { StyleVoteState } from './useStyleVote'
 
 const none = () => undefined
 const panel = (state: Pick<StyleVoteState, 'style' | 'vote' | 'seenBoth'> & { pending?: boolean }) => renderToStaticMarkup(createElement(StyleVotePanel, {
-  state: { pending: false, ...state, choose: none, castVote: none, close: none }, placeName: 'חיפה', at: '2026-11-17T14:00', picked: false }))
+  state: { pending: false, ...state, choose: none, castVote: none, close: none }, placeName: 'חיפה', at: '2026-11-17T14:00' }))
 
 describe('style panel', () => {
   it('asks to see the other style before a vote', () => {

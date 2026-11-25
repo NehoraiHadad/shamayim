@@ -38,6 +38,8 @@
   --d6: 1600ms;
 
   /* Text colours that sit beside the theme tokens (checked by src/theme/contrast.test.ts). */
+  --sky-text-shadow: 0 1px 2px rgb(18 30 49 / 88%), 0 1px 6px rgb(18 30 49 / 60%);
+  --sky-svg-shadow: drop-shadow(0 1px 1px rgb(18 30 49 / 78%));
   --sky-rain: #E8F9FF; /* rain % on every theme's --sky-mid */
   --sheet-rain: #17607A; /* rain % on the light papers */
   --sheet-curve: #C98A1E; /* temperature line on paper (a mark, not text) */
@@ -48,6 +50,13 @@
   --mid: #C08A1E;
   --bad: #C0502E;
   --scrim: rgb(5 9 20 / 50%);
+}
+
+@media (forced-colors: active) {
+  :root {
+    --sky-text-shadow: none;
+    --sky-svg-shadow: none;
+  }
 }
 
 .dark-sheet {

@@ -4,6 +4,8 @@ import { conditionLabel } from '../domain/conditions'
 import type { DayPoint } from '../domain/types'
 import { formatProb, formatTemp, shortDate } from '../text/format'
 import { tempText } from '../text/isolate'
+import { precipitationChance, type PrecipitationLabel } from '../text/precipitation'
+import { ChevronIcon } from './icons'
 import styles from './DayRow.module.css'
 import { RangeBar } from './RangeBar'
 import type { DaySky } from './week/middaySky'
@@ -13,6 +15,7 @@ interface Props {
   day: DayPoint
   /** The day's midday sky, for its window. */
   sky: DaySky
+  precipitation: PrecipitationLabel
   name: string
   index: number
   scaleMin: number
@@ -25,7 +28,7 @@ interface Props {
   detail: ReactNode
 }
 
-export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, nowTemp, open, onToggle, detail }: Props) {
+export function DayRow({ day, sky, precipitation, name, index, scaleMin, scaleMax, isToday, nowTemp, open, onToggle, detail }: Props) {
   const [hasOpened, setHasOpened] = useState(open)
   const itemRef = useRef<HTMLLIElement>(null)
   useEffect(() => {
@@ -52,7 +55,7 @@ export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, now
     sky.hazy ? 'אובך' : '',
     `מקסימום ${tempText(day.tempMax)}`,
     `מינימום ${tempText(day.tempMin)}`,
-    showProb ? `סיכוי לגשם ${formatProb(prob)}` : '',
+    showProb ? precipitationChance(precipitation, prob) : '',
     tag,
   ].filter(Boolean).join(', ')
   const detailId = `day-${day.date}`
@@ -75,7 +78,7 @@ export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, now
           <span className={styles.day}>{name}</span>
           <span className={styles.date}>
             <bdi>{shortDate(day.date)}</bdi>
-            {showProb && <span className={styles.prob}> · {kind === 'snow' ? 'שלג' : 'גשם'}{' '}{formatProb(prob)}</span>}
+            {showProb && <span className={styles.prob}> · {precipitation} <bdi>{formatProb(prob)}</bdi></span>}
             {tag && <> · {tag}</>}
           </span>
         </span>
@@ -88,6 +91,7 @@ export function DayRow({ day, sky, name, index, scaleMin, scaleMax, isToday, now
             now={nowTemp} spreadMin={day.spread.tempMin} spreadMax={day.spread.tempMax} />
           <span className={styles.max}>{formatTemp(day.tempMax)}</span>
         </span>
+        <ChevronIcon className={styles.chevron} />
       </button>
       <div id={detailId} className={`${styles.panel} ${open ? styles.panelOpen : ''}`} inert={!open ? true : undefined}>
         <div className={styles.panelInner}><div className={styles.panelContent}>{hasOpened && detail}</div></div>

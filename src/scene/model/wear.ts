@@ -161,8 +161,10 @@ export function wearLayers(world: WorldState, garments: readonly string[], paper
   const P = rgbOf(paper.sheet), I = rgbOf(paper.ink), M = rgbOf(paper.muted), A = rgbOf(paper.accent)
   const dim = (c: RGB) => dimmed(c, light.dark)
   const n = items.length
-  const first = W / 2 + ((n - 1) * STEP) / 2
-  const xOf = (i: number) => first - i * STEP
+  // Leave room for the outer garments when several layers and extras all fit on the same line.
+  const step = n > 1 ? Math.min(STEP, (W - 55) / (n - 1)) : STEP
+  const first = W / 2 + ((n - 1) * step) / 2
+  const xOf = (i: number) => first - i * step
   // Wet cloth and lying snow weigh more: the pegs drag the line further down, and the line itself sags more.
   const heavier = 1 + 0.6 * wet + 0.3 * snow
   const loads: Load[] = items.flatMap(([, item], i) => {
@@ -210,7 +212,7 @@ export function wearLayers(world: WorldState, garments: readonly string[], paper
     const j = toward > 0 ? i - 1 : i + 1
     const strength = 0.4 * light.shine * smoothstep(0.6, 0.97, along) * Math.min(1, Math.abs(light.across) * 1.5)
     if (!toward || j < 0 || j >= n || strength < 0.01) return undefined
-    const dy = ((STEP * Math.max(0, world.light.dir.up)) / Math.max(0.05, Math.abs(world.light.dir.across)) + rope.y(xOf(j)) - rope.y(xOf(i))) / SCALE
+    const dy = ((step * Math.max(0, world.light.dir.up)) / Math.max(0.05, Math.abs(world.light.dir.across)) + rope.y(xOf(j)) - rope.y(xOf(i))) / SCALE
     if (dy > 70) return undefined
     return { garment: items[j][0], dx: 0, dy: Math.round(dy * 4) / 4, alpha: Math.round(strength * 40) / 40 }
   }

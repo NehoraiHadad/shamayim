@@ -14,48 +14,6 @@
   pointer-events: none;
 }
 
-/*
- * Not in the drawing at all: a pill pinned to the bottom of the screen while a time is shown, so neither the sky band
- * (where the sun and moon move) nor the valley's centre is covered. Its own dark ground keeps it legible on paper.
- */
-.readout {
-  position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + 16px);
-  max-width: calc(100vw - 32px);
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-block: 3px;
-  padding-inline: 12px 3px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ridge-near) 86%, transparent);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  color: var(--ink);
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  animation: readout-in var(--d1) linear;
-  z-index: 30;
-}
-
-.readout button {
-  position: relative;
-  min-height: 26px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
-  border-radius: 999px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  pointer-events: auto;
-}
-
-/* A slim pill, with a full 44 px touch target around it. */
-.readout button::after { content: ''; position: absolute; inset: -9px -4px; }
-
 .scrubber {
   position: absolute;
   inset: 0;
@@ -70,5 +28,3 @@
   outline-offset: -4px;
   box-shadow: inset 0 0 0 4px var(--ridge-near);
 }
-
-@keyframes readout-in { from { opacity: 0; } }

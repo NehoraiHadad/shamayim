@@ -98,6 +98,7 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
     )
   }
   const visible = pickerVisible(live)
+  const query = search.query.trim()
 
   return (
     <dialog
@@ -116,9 +117,6 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
             <h2 id="place-title">בחירת מקום</h2>
             <IconButton label="סגירה" onClick={onClose}><CloseIcon /></IconButton>
           </div>
-          <button type="button" className={styles.well} onClick={locate} aria-disabled={locating}>
-            {locating ? LOCATING : 'המיקום שלי'}
-          </button>
           <label>
             <span className="visually-hidden">חיפוש מקום</span>
             <input
@@ -131,12 +129,15 @@ export function PlacePicker({ open, recent, onClose, onSelect }: Props) {
               autoComplete="off"
             />
           </label>
+          <button type="button" className={styles.well} onClick={locate} aria-disabled={locating}>
+            {locating ? LOCATING : 'המיקום שלי'}
+          </button>
           <div>
-            <p className={styles.note}>{visible}</p>
+            <p className={styles.note}>{visible || (query.length === 1 ? 'הקלידו לפחות שני תווים לחיפוש' : '')}</p>
             <span className="visually-hidden" role="status">{live.spoken}</span>
             <PlacePickerList
-              title={search.results.length ? 'תוצאות' : 'מקומות אחרונים'}
-              places={search.results.length ? search.results : recent}
+              title={query ? 'תוצאות חיפוש' : 'מקומות אחרונים'}
+              places={query ? search.results : recent}
               onSelect={choose}
             />
           </div>

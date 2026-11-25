@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import type { Surface } from '../compose/surface'
 import { PAD, wearLayers, wearSurface, type WearPaper } from '../model/wear'
 import type { WorldState } from '../../world/types'
@@ -29,7 +29,11 @@ export function WearCanvas({ world, garments, paper, width, onReady, surfaceRef 
   const names = garments.join(',')
   const layers = useMemo(() => wearLayers(world, names.split(','), paper, { width, dpr }), [world, names, paper, width, dpr])
   const size = wearSurface(width)
-  const { ref, surface } = useSurface('wear', layers, { width: size.width, height: size.height, dpr }, onReady)
+  const markPainted = useCallback((canvas: HTMLCanvasElement) => {
+    canvas.dataset.wearPainted = ''
+    onReady?.()
+  }, [onReady])
+  const { ref, surface } = useSurface('wear', layers, { width: size.width, height: size.height, dpr }, markPainted)
   useEffect(() => { if (surfaceRef) surfaceRef.current = surface.current })
   return <canvas ref={ref} aria-hidden="true" data-wear-canvas
     style={{ position: 'absolute', left: -PAD.x, top: -PAD.top, width: size.width, height: size.height, display: 'block', pointerEvents: 'none' }} />

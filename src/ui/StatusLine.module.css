@@ -3,7 +3,10 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;
   min-height: 44px;
+  max-width: 50%;
   padding: 0;
   border: 0;
   background: none;
@@ -22,7 +25,8 @@
   align-items: center;
   gap: 6px;
   min-height: 32px;
-  padding: 0 12px;
+  max-width: 100%;
+  padding: 3px 12px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--sky-top) 55%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent);
@@ -55,15 +59,26 @@
 }
 
 .icon {
+  flex: none;
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
+  filter: var(--sky-svg-shadow);
 }
 
 .text {
   animation: text-in var(--d1) linear;
+  overflow-wrap: anywhere;
+  text-shadow: var(--sky-text-shadow);
+}
+
+@container forecast (max-width: 14rem) {
+  .status[data-update-label] {
+    max-width: 100%;
+    margin-inline-start: auto;
+  }
 }
 
 .spin {

@@ -1,36 +1,40 @@
-/* Typography alone: a small muted label over a serif sentence in the app's own voice (as the hero line),
-   closed by a hairline below instead of a stripe at the side. Flush with the day names. */
 .card {
-  margin-bottom: var(--space-4);
+  margin-block: var(--space-2) var(--space-4);
   padding-bottom: var(--space-4);
   border-bottom: 1px solid color-mix(in srgb, var(--sheet-ink) 8%, transparent);
 }
 
-/* The clothesline's box, exactly as the SVG's was (335 × 86 at the most, its top on the page's top edge, the sheet's top
-   padding pulled back): the canvas is laid over it and out past it (the pegs, the swing, the long hems), so the box holds
-   the layout before the drawing arrives and nothing moves when it does. */
+.restOfDay {
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 2px solid var(--sheet-accent);
+  background: color-mix(in srgb, var(--sheet-ink) 5%, transparent);
+}
+
+.restOfDay + .outfit { margin-block-start: var(--space-3); }
+
+/* Reserve space for the decorative canvas, whose pegs and hems can extend outside the box. */
 .line {
   position: relative;
-  display: block;
+  display: grid;
+  place-items: center;
   width: 100%;
   max-width: 335px;
   aspect-ratio: 335 / 86;
-  margin: calc(-1 * var(--space-4)) auto var(--space-2);
+  margin: var(--space-2) auto;
+  pointer-events: none;
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: 6px;
-}
+.fallback { text-align: center; }
+
+/* The text covers the reserved illustration box while drawing is unavailable. */
+.line:has([data-wear-painted]) .fallback,
+.card:not(:has([data-wear-painted])) .details { visibility: hidden; }
 
 .title {
-  margin: 0;
-  font-size: var(--text-caption);
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
   line-height: 1.4;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--sheet-muted);
 }
 
@@ -42,3 +46,19 @@
   line-height: 1.35;
   text-wrap: balance;
 }
+
+.summary {
+  display: inline-flex;
+  min-block-size: 44px;
+  align-items: center;
+  gap: var(--space-1);
+  list-style: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+  cursor: pointer;
+}
+
+.summary::-webkit-details-marker { display: none; }
+.details[open] .chevron { transform: rotate(180deg); }

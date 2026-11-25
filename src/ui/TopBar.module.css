@@ -35,6 +35,32 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: var(--sky-text-shadow);
+}
+
+@container forecast (max-width: 14rem) {
+  .bar:has([data-update-label]) {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+
+  .bar:has([data-update-label]) .location { flex-basis: 100%; }
+
+  .bar:has([data-update-label]) .place {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-2);
+    row-gap: 0;
+    padding-block: var(--space-1);
+  }
+
+  .bar:has([data-update-label]) .name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .bar:has([data-update-label]) .region { grid-column: 1; }
+  .bar:has([data-update-label]) .chevron { grid-area: 1 / 2 / span 2; }
 }
 
 .name {
@@ -52,11 +78,10 @@
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  opacity: 0.7;
+  filter: var(--sky-svg-shadow);
 }
 
 .region {
   flex-shrink: 100;
   font-size: var(--text-sm);
-  opacity: 0.88;
 }

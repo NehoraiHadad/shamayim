@@ -1,10 +1,13 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StatusLine } from './StatusLine'
 import { deriveProblem, LIVE_INITIAL, liveReducer } from './statusLive'
 
 const FETCHED_AT = Date.UTC(2026, 10, 17, 10, 58)
+
+beforeEach(() => vi.spyOn(Date, 'now').mockReturnValue(Date.UTC(2026, 10, 17, 20)))
+afterEach(() => vi.restoreAllMocks())
 
 describe('deriveProblem', () => {
   it('treats browser offline as offline even with no fetch failure', () => {

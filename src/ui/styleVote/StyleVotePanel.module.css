@@ -2,7 +2,7 @@
 .panel {
   --focus: var(--sheet-ink);
   position: fixed;
-  z-index: 40; /* Over the hour's readout (30). */
+  z-index: 40;
   inset-inline: 0;
   bottom: calc(env(safe-area-inset-bottom) + 10px);
   width: min(100% - 20px, 420px);
@@ -14,26 +14,21 @@
   color: var(--sheet-ink);
   box-shadow: 0 6px 28px rgb(0 0 0 / 34%);
   animation: rise var(--d2) var(--ease-out);
+  max-block-size: var(--style-panel-height);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 /* The card floats over the page's last lines: room to scroll them clear of it, and keyboard focus never behind it. */
 :root:has(.panel) {
-  --panel-room: calc(env(safe-area-inset-bottom) + 240px);
+  --style-panel-height: min(45dvh, max(220px, 15rem));
+  --panel-room: calc(env(safe-area-inset-bottom) + var(--style-panel-height) + 12px);
   scroll-padding-bottom: var(--panel-room);
-}
-
-:root:has(.panel[data-picked]) {
-  --panel-room: calc(env(safe-area-inset-bottom) + 292px);
 }
 
 /* Inside the page's last part, so the sheet's colour goes on behind the panel. */
 :root:has(.panel) :global(.paper) > :last-child {
   padding-bottom: var(--panel-room);
-}
-
-/* The hour's readout, with its way back to now, stays below the panel. */
-.panel[data-picked] {
-  bottom: calc(env(safe-area-inset-bottom) + 62px);
 }
 
 .heading {

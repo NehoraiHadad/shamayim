@@ -19,6 +19,12 @@ describe('rain within three hours', () => {
     ], now)).toBe(false)
     expect(rainWithinThreeHours([], now)).toBe(false)
   })
+
+  it('does not turn melted snow in the forecast into a rain alert', () => {
+    const precipitation = { time: now, precipitation: 0.8, precipProb: 60 }
+    expect(rainWithinThreeHours([{ ...precipitation, weatherCode: 73 }], now)).toBe(false)
+    expect(rainWithinThreeHours([{ ...precipitation, weatherCode: 63 }], now)).toBe(true)
+  })
 })
 
 describe('frame age', () => {

@@ -39,6 +39,10 @@ describe('freshnessText', () => {
       spoken: 'התחזית לא עודכנה. היא נכונה לשעה \u206612:58\u2069',
     })
   })
+
+  it('shows the date when the cached forecast was fetched on a different day', () => {
+    expect(freshnessText(ago(24 * 60 + 2), 'offline', NOW).text).toBe('אין חיבור · \u206612:58\u2069 ב־\u206616.11\u2069')
+  })
 })
 
 describe('problemAnnouncement', () => {
@@ -49,8 +53,8 @@ describe('problemAnnouncement', () => {
   })
 
   it('announces offline and service transitions with an isolated clock', () => {
-    expect(problemAnnouncement(null, 'offline', ago(2))).toBe('אין חיבור. מוצגת התחזית מ־\u206612:58\u2069.')
-    expect(problemAnnouncement(null, 'service', ago(2))).toBe('התחזית לא עודכנה. מוצגת התחזית מ־\u206612:58\u2069.')
+    expect(problemAnnouncement(null, 'offline', ago(2), NOW)).toBe('אין חיבור. מוצגת התחזית מ־\u206612:58\u2069.')
+    expect(problemAnnouncement(null, 'service', ago(2), NOW)).toBe('התחזית לא עודכנה. מוצגת התחזית מ־\u206612:58\u2069.')
     expect(problemAnnouncement(null, 'offline', null)).toBe('אין חיבור.')
   })
 

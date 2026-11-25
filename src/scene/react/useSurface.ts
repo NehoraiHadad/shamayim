@@ -53,7 +53,7 @@ export interface SurfaceSize { width: number; height: number; dpr: number; style
  * worker, asking and laying the arrivals), `firstShown.<name>` the time until every layer shows, `arrive.<name>` and
  * `latency.<name>` each batch's laying and wait.
  */
-export function useSurface(name: string, layers: readonly LayerDesc[], size: SurfaceSize, onReady?: () => void,
+export function useSurface(name: string, layers: readonly LayerDesc[], size: SurfaceSize, onReady?: (canvas: HTMLCanvasElement) => void,
   onLaid?: (phase: number, still: boolean, canvas: HTMLCanvasElement) => void) {
   const ref = useRef<HTMLCanvasElement>(null)
   const surfaceRef = useRef<Surface | null>(null)
@@ -83,7 +83,7 @@ export function useSurface(name: string, layers: readonly LayerDesc[], size: Sur
     const phase = harnessStill() ? 0 : scenePhase()
     const done = () => {
       SCENE_STATS.memory[name] = surface.bytes()
-      ready.current?.()
+      ready.current?.(canvas)
     }
     let cancel = () => {}
     const cold = layers.some((layer) => !surface.peek(layer.id) && !surface.fresh(layer))

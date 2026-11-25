@@ -2,7 +2,7 @@
   position: relative;
   /* A page laid over the bottom of the landscape, not a piece of it: the paper is lighter than any near ground could be,
      so it reads honestly as its own surface, with soft top corners and a faint shadow onto the valley below it. */
-  margin-block-start: -14px; /* Paper overlaps the bottom of the valley. */
+  margin-block-start: var(--space-4);
   margin-inline: var(--bleed);
   padding-block: var(--space-4) var(--space-2);
   padding-inline: var(--gutter);
@@ -13,5 +13,8 @@
   transition: background-color var(--d6), color var(--d6);
 }
 
+.sheet[data-overlaps-scene] {
+  margin-block-start: -14px;
+}
 
 

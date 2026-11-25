@@ -5,12 +5,10 @@ import styles from './Sentence.module.css'
 export function Sentence({ sentences }: { sentences: string[] }) {
   if (!sentences.length) return null
   return (
-    <p className={styles.sentence} data-intro="sentence">
+    <div className={styles.summary} data-intro="sentence">
       {sentences.map((s, i) => (
-        <span key={i} className={i === 0 ? styles.lead : styles.rest}>
-          {isolateNumbers(s)}{' '}
-        </span>
+        <p className={styles.sentence} key={i}>{isolateNumbers(s)}</p>
       ))}
-    </p>
+    </div>
   )
 }
