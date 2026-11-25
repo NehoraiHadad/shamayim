@@ -1,5 +1,6 @@
 import type { RGB } from '../../model/types'
 import { css, outline, type Ctx2D } from '../shared/base/hand'
+import { LINE, type Tier } from './kit/lines'
 
 /*
  * The town's key line: the keyblock's sumi, one ridge of wood round each body. Its weight is set by the body's distance
@@ -9,9 +10,9 @@ import { css, outline, type Ctx2D } from '../shared/base/hand'
  * pixel of a lighter ink.
  */
 
-/** The line's weight at each distance (CSS px). */
-export const KEY = { near: 0.8, far: 0.55, back: 0.4 } as const
-export type KeyTier = keyof typeof KEY
+/** The line's weight at each distance (CSS px): the land's own table, so town and ground are one carving. */
+export const KEY = LINE
+export type KeyTier = Tier
 
 /** The knife a body is cut with: the device's pixels per scene px and its line's weight there. */
 export interface Pen { scale: number; line: number }
