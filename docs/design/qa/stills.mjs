@@ -3,8 +3,8 @@
 // e.g.   node docs/design/qa/stills.mjs docs/design/qa/round/before 5180 2026-11-18T12:00
 import { execFileSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { makeProfile, QUIET, removeProfile } from '../../../scripts/chromeProfile.mjs'
 
 const CHROME = process.env.CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const [prefix = 'docs/design/qa/still', port = '5179', at = '2026-11-18T12:00', wx = '', only = ''] = process.argv.slice(2)
@@ -28,8 +28,13 @@ for (const [key, place] of Object.entries(PLACES)) {
   const url = `http://localhost:${port}/docs/design/qa/place.html?w=375&h=700&p=${encodeURIComponent(JSON.stringify(place))}`
     + `&to=${encodeURIComponent(`/?${query}`)}`
   const out = resolve(`${prefix}-${key}.png`)
-  execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=375,700', '--force-device-scale-factor=2', '--force-prefers-reduced-motion',
-    '--virtual-time-budget=9000', `--user-data-dir=${join(tmpdir(), 'shamayim-qa-chrome', key)}`, `--screenshot=${out}`, url],
-  { stdio: 'ignore' })
+  const profile = makeProfile()
+  try {
+    execFileSync(CHROME, ['--headless=new', '--hide-scrollbars', '--window-size=375,700', '--force-device-scale-factor=2', '--force-prefers-reduced-motion',
+      ...QUIET, '--virtual-time-budget=9000', `--user-data-dir=${profile}`, `--screenshot=${out}`, url],
+    { stdio: 'ignore' })
+  } finally {
+    removeProfile(profile)
+  }
   console.log(out)
 }

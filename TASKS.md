@@ -490,6 +490,7 @@ Parallel lanes (stay out): data/text (`src/data`, `compose.ts`), sheet (`WearCar
       link at the end. MapLibre is a lazy chunk (273 kB gz) loaded only on open
 - [x] Headless phone stills: `node scripts/shot.mjs <url> <out.png> [waitMs] [clickText]` (the preview pane throttles
       rAF while hidden). Stills: `docs/design/qa/overhead-v1.png` (before fixes), `overhead-v4.png` (after)
+- [x] QA scripts remove their Chrome profile (`scripts/chromeProfile.mjs`); a later run removes the profile of a killed one
 - [ ] Not verified: a real rainy radar frame (dry today; recolour tested only on synthetic pixels); dark sheet at night;
       a phone; whether the no-echo legend "אין גשם במכ״ם" shows once radar loads
 - [x] Rain in plain words (owner: "not 'rain on radar' — tell people what will happen"): `src/domain/rainNowcast.ts`
