@@ -53,7 +53,7 @@ const LONG = [4, 16] as const, WIDE = [0.75, 1.1] as const, DARK = -0.11
 const CUTS = 4, BESIDE = 1.7, REACH = 12
 
 /** Land-cover marks per 1000 px² at their densest (where they stand closest, at the foot); their size at the foot (px); how much darker. */
-const COVER = { near: 34, far: 0, back: 0 } as const, MARK = 1.25, MARK_DARK = -0.1
+const COVER = { near: 52, far: 0, back: 0 } as const, MARK = 1.3, MARK_DARK = -0.13
 /** A pot's greenness (Oklab -a) that makes it all scrub, and the share of marks on bare ground; marks off the snow. */
 const GREEN = 0.035, BARE = 0.3, SNOW = 0.86
 
@@ -72,7 +72,7 @@ export function groundDabs(brush: ReceiverBrush, desc: LayerOf<'plane'>, t: Plan
     const i = columnAt(t, x), deep = depthAt(t, i, y)
     if (deep === null || y < t.crestY[i] + 2) continue
     const at = inkAt(x, y)
-    if (at.level !== SHADE || close > 0.35 + 0.65 * deep) continue
+    if (at.level !== SHADE || close > (0.35 + 0.65 * deep) * at.shown) continue
     const len = (LONG[0] + (LONG[1] - LONG[0]) * long * long) * (0.4 + 0.6 * deep)
     let ink = inks.get(at.key)
     if (!ink) inks.set(at.key, ink = { at, dabs: [] })

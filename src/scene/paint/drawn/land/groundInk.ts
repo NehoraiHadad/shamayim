@@ -7,8 +7,8 @@ import { pigment, valued } from '../kit/palette'
 import { cellAt, type Ground } from './pots'
 import { SHADE, type Shading } from './shadeBlock'
 
-/** The ink a place of the ground was laid in, on each target; its block; the clear air in front of it; its light against the plane's mean. */
-export interface GroundInk { key: number; ink: ReceiverInk; level: number; air: number; light: number }
+/** The ink a place of the ground was laid in, on each target; its block; the clear air in front of it; its light against the plane's mean; how plainly its block shows in the sun. */
+export interface GroundInk { key: number; ink: ReceiverInk; level: number; air: number; light: number; shown: number }
 
 /** The shade block's own edge on its shade side: its width (px) and how much darker than the block. */
 const EDGE = { wide: 0.9, dark: -0.05 } as const
@@ -29,8 +29,8 @@ export function printGround(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots 
         if (p) ctx.fill(shapes)
         else ctx.fillRect(x, y, w, h)
       })
-      if (v === SHADE && level.path) {
-        ctx.strokeStyle = css(valued(level.inks[k][0], EDGE.dark), 0.8)
+      if (v === SHADE && level.path && level.shown[k] > 0.05) {
+        ctx.strokeStyle = css(valued(level.inks[k][0], EDGE.dark), 0.8 * level.shown[k])
         ctx.lineWidth = EDGE.wide
         ctx.lineJoin = 'round'
         ctx.stroke(level.path)
@@ -47,12 +47,12 @@ export function inkAt(t: PlaneTexelCtx, { label, pots }: Ground, { levels, level
   return (x, y) => {
     const n = cellAt(t, x, y), p = label[n], v = levels[levelAt[n]] ? levelAt[n] : 0
     const level = levels[v]!, [lit, shade] = level.inks.map((byPot) => byPot[p])
-    return { key: v * pots.length + p, ink: [lit, shade], level: v, air: level.air, light: light[n] }
+    return { key: v * pots.length + p, ink: [lit, shade], level: v, air: level.air, light: light[n], shown: level.shown[0] }
   }
 }
 
 /** The value (Oklab) under which a step is made smaller with the block's own, and the least share of it: no near-black on a dusk block. */
-const DIM = 0.6, DIMMEST = 0.4
+const DIM = 0.7, DIMMEST = 0.35
 
 /** An ink a step of value away from the block's (Oklab lightness), its hue held; `turn` leans it a little warm or cool. */
 export function stepped({ ink: [lit, shade] }: GroundInk, by: number, turn = 0): ReceiverInk {

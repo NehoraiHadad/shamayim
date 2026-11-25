@@ -20,7 +20,7 @@ import { shadingOf, type Shading } from './land/shadeBlock'
 /** The base block's ink in the most held pot: what the crest's key line and wipes are stepped from. */
 const baseOf = ({ levels }: Shading): GroundInk => {
   const base = levels[0]!
-  return { key: 0, ink: [base.inks[0][0], base.inks[1]?.[0]], level: 0, air: base.air, light: 1 }
+  return { key: 0, ink: [base.inks[0][0], base.inks[1]?.[0]], level: 0, air: base.air, light: 1, shown: 1 }
 }
 export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
   const { bounds, vegetation: veg } = desc, { litField } = desc.light

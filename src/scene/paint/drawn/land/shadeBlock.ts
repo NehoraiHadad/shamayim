@@ -30,19 +30,24 @@ const CUTS: Readonly<Record<Tier, { shade: number; lit: number }>> = {
 /** The least step of value (Oklab, a share of the base's) a lit and a shade block take in full sun; their chroma against the base's. */
 const STEP = { lit: 0.06, shade: -0.09 } as const, CHROMA = { lit: 1.02, shade: 0.92 } as const
 /** The least area a block keeps (cells, and share of the plane), the reach its outline is eased over (cells), the least points of a shape. */
-const AREA = 40, AREA_SHARE = 0.025, SOFT = 1.6, LEAST_SHAPE = 6
+/** The step of value (Oklab) at which a block shows in full. */
+const SHOWN = 0.04
+const AREA = 40, AREA_SHARE = 0.025, SOFT = 2.4, LEAST_SHAPE = 6
 /** A hillside flattens toward its foot and takes more of the sky: the cut is read with this much of the light's spread added at the foot, so a shade block narrows downhill as a slope's shade does. */
 const FLATTEN = 1.4
 
 interface Light extends FieldSample { n: number }
-/** A block: its outline (none for the base), its inks by target and pot, the clear air in front of it. */
-interface Level { path: Path2D | null; inks: RGB[][]; air: number }
+/** A block: its outline (none for the base), its inks by target and pot, the clear air in front of it, how plainly it shows by target (0 … 1). */
+interface Level { path: Path2D | null; inks: RGB[][]; air: number; shown: number[] }
 export interface Shading { levels: (Level | null)[]; levelAt: Uint8Array; light: Float32Array }
 
 const lum = (rgb: RGB) => 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
 
 export function shadingOf(t: PlaneTexelCtx, ground: Ground, tier: Tier, paired: boolean): Shading {
-  const { litField: f } = t, { light, fields } = lightOn(t, ground), levelAt = levelsOf(t, ground, light, tier)
+  const { litField: f } = t, { light, fields } = lightOn(t, ground), cells = levelsOf(t, ground, light, tier)
+  // Each block's outline is its cells eased; a place is in the block its outline holds, so marks and inks follow the cut edge.
+  const soft = [BASE, LIT, SHADE].map((v) => (v === BASE || !cells.includes(v) ? null : softened(t, cells, v))), levelAt = new Uint8Array(cells.length)
+  soft.forEach((at, v) => at?.forEach((k, n) => { if (k > 0.5) levelAt[n] = v }))
   const lights = [BASE, LIT, SHADE].map((): Light => ({ ...fieldSample(), n: 0 }))
   for (let n = 0; n < light.length; n++) {
     if (!ground.on[n]) continue
@@ -58,7 +63,9 @@ export function shadingOf(t: PlaneTexelCtx, ground: Ground, tier: Tier, paired: 
   // One air for the whole plane: its blocks are cut in one wood, and the air is in the base ink.
   const air = Math.round(cut[BASE]!.haze * 20) / 20
   const beams = paired ? [f.eSun, shadowBeam(f)] : [f.eSun], inks = beams.map((beam) => inksOf(t, ground, cut, beam, air))
-  return { levelAt, light, levels: cut.map((l, v) => l && { path: v ? outlined(t, levelAt, v) : null, inks: inks.map((by) => by[v]), air: 1 - air }) }
+  // A block whose ink is (nearly) the base's shows no edge and takes no hatches: no outline of a shade that is not there.
+  const shown = (v: number) => inks.map((by) => Math.min(1, Math.abs(labOf(by[v][0]).l - labOf(by[BASE][0]).l) / SHOWN))
+  return { levelAt, light, levels: cut.map((l, v) => l && { path: soft[v] ? outlined(t, soft[v]!) : null, inks: inks.map((by) => by[v]), air: 1 - air, shown: shown(v) }) }
 }
 
 /** The light of every cell against the plane's mean, where it truly lies, and the four fields it comes from. */
@@ -127,9 +134,14 @@ function islands(cols: number, rows: number, levelAt: Uint8Array, least: number)
   }
 }
 
-function outlined(t: PlaneTexelCtx, levelAt: Uint8Array, v: number): Path2D {
-  const path = new Path2D(), at = Float32Array.from(levelAt, (l) => (l === v ? 1 : 0))
+function softened(t: PlaneTexelCtx, levelAt: Uint8Array, v: number): Float32Array {
+  const at = Float32Array.from(levelAt, (l) => (l === v ? 1 : 0))
   ease(at, t.wPx, t.hPx, Array<number>(t.hPx).fill(SOFT), Array<number>(t.hPx).fill(SOFT * 0.7))
+  return at
+}
+
+function outlined(t: PlaneTexelCtx, at: Float32Array): Path2D {
+  const path = new Path2D()
   traceOver(path, { cols: t.wPx, rows: t.hPx, at }, 0.5, frameOf(t), LEAST_SHAPE)
   return path
 }
