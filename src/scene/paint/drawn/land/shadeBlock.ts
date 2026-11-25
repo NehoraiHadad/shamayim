@@ -36,10 +36,12 @@ const SHADED: Readonly<Record<Tier, boolean>> = { near: true, far: false, back: 
  */
 const RELIEF = { least: 0.06, full: 0.14 } as const, MOST = 0.42, TURN = 0.2
 /**
- * A run of shade is a hillside's when it reaches within this depth of the ridge (share of the plane's depth); how much brighter than the cut (a share of the spread) a slope hung from the ridge may grow and stay in it; the
- * least half-width of a run across the slope (cells).
+ * A run of shade is a hillside's when it reaches within this depth of the ridge (share of the plane's depth). Down the
+ * hillside the cut is drawn in by this much of the spread at the foot: the land flattens toward the foot and takes more of
+ * the sky, so the shaded side narrows along its own iso-light line to a point or a fold, and the flat ground at the foot
+ * stays lit. The least half-width of a run across the slope (cells).
  */
-const RIDGE = 0.15, HOLD = 0.35, NARROW = 1
+const RIDGE = 0.15, TAPER = 1, NARROW = 1
 /** The least step of value (Oklab, a share of the base's) a lit and a shade block take in full sun; their chroma against the base's. */
 const STEP = { lit: 0.06, shade: -0.09 } as const, CHROMA = { lit: 1.02, shade: 0.92 } as const
 /** The step of value (Oklab) at which a block shows in full. */
@@ -107,8 +109,8 @@ function lightOn(t: PlaneTexelCtx, { pots, label, on }: Ground) {
 /**
  * Each cell's block. The shade is where the light falls past the slope's turn from the sun, as much of it as the relief
  * makes, and only as a hillside's side is: a run that hangs from the ridge, never a pool in mid-slope or a tongue up from
- * the foot; it runs on down while the slope stays turned away (the light under `HOLD`), to the foot or to the next fold that
- * turns back to the sun. Slivers narrower than the least width are cut away, islands
+ * the foot; its sides are the light's own iso-line at a cut drawn in downhill (`TAPER`), so they run along the spur or the
+ * fold and close toward the foot, never down a plumb line the flat ground does not have. Slivers narrower than the least width are cut away, islands
  * under the least area go to the block round them. Above the crest each column takes the block under it, so a shade side
  * that meets the skyline runs up into the key line and leaves no lit strip under it.
  */
@@ -117,28 +119,17 @@ function levelsOf(t: PlaneTexelCtx, { on }: Ground, light: Float32Array, tier: T
   const q = (k: number) => held[Math.min(held.length - 1, Math.floor(k * held.length))] ?? 1
   const spread = q(0.8) - q(0.2), relief = smoothstep(RELIEF.least, RELIEF.full, spread)
   if (!SHADED[tier] || !held.length || relief <= 0) return levelAt
-  // The turn below the mean, and never more of the plane than the relief allows.
-  const low = Math.min(1 - TURN * spread, q(MOST * relief)), hold = low + HOLD * spread
+  // The turn below the mean, and never more of the plane than the relief allows; drawn in toward the foot.
+  const low = Math.min(1 - TURN * spread, q(MOST * relief))
   const { wPx: cols, hPx: rows, bounds, crestY, footY } = t
   const depth = (n: number) => {
     const i = n % cols, y = bounds.y + (Math.floor(n / cols) + 0.5) * TEXEL
-    return (y - crestY[i]) / Math.max(1, footY[i] - crestY[i])
+    return Math.min(1, Math.max(0, (y - crestY[i]) / Math.max(1, footY[i] - crestY[i])))
   }
-  const dark = opened(cols, Uint8Array.from(light, (v, n) => (on[n] && v < low ? 1 : 0)), NARROW)
+  const dark = opened(cols, Uint8Array.from(light, (v, n) => (on[n] && v < low - TAPER * spread * depth(n) ? 1 : 0)), NARROW)
   for (const run of runs(cols, rows, dark)) {
-    const from = run.reduce((most, n) => Math.min(most, depth(n)), Infinity)
-    if (from > RIDGE) continue
+    if (run.reduce((most, n) => Math.min(most, depth(n)), Infinity) > RIDGE) continue
     for (const n of run) levelAt[n] = SHADE
-    // On down the hillside (and across it, never back up) while the slope stays turned from the sun.
-    const stack = [...run]
-    while (stack.length) {
-      const n = stack.pop()!, i = n % cols
-      for (const m of [n + cols, i ? n - 1 : -1, i < cols - 1 ? n + 1 : -1]) {
-        if (m < 0 || m >= light.length || !on[m] || levelAt[m] || light[m] >= hold) continue
-        levelAt[m] = SHADE
-        stack.push(m)
-      }
-    }
   }
   for (let i = 0; i < cols; i++) {
     const top = Math.max(0, Math.min(rows - 1, Math.floor((crestY[i] - bounds.y) / TEXEL) + 1))
