@@ -48,7 +48,7 @@ it('gives the tallest drawn blocks every stone: its stone is no draw of the roof
     const fills: string[] = []
     const held = { fillStyle: '', fillRect(_: number, __: number, w: number, h: number) { if (w === 12 && h === 20) fills.push(this.fillStyle) } }
     const ctx = new Proxy(held, { get: (target, key) => key in target ? target[key as keyof typeof held] : () => undefined }) as unknown as Ctx2D
-    paintBlock(ctx, item(body(100, 12, 20, 0, seed)) as never, tones, townLight(shine, form), form, [], 0)
+    paintBlock(ctx, item(body(100, 12, 20, 0, seed)) as never, tones, townLight(shine, form), [], 0)
     return fills[0]
   })
   expect(fronts.every(Boolean)).toBe(true)

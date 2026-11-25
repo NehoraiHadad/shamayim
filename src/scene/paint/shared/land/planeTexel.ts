@@ -14,12 +14,12 @@ const smooth = (lo: number, hi: number, t: number) => {
   return x * x * (3 - 2 * x)
 }
 
-function sampleEdgeY(pts: readonly Pt[], bounds: Box, cols: number): Float32Array {
+function sampleEdgeY(pts: readonly Pt[], bounds: Box, cols: number, texel: number): Float32Array {
   const ys = new Float32Array(cols).fill(-1e6)
   if (pts.length < 2) return ys
   let seg = 0
   for (let i = 0; i < cols; i++) {
-    const x = bounds.x + (i + 0.5) * TEXEL
+    const x = bounds.x + (i + 0.5) * texel
     while (seg < pts.length - 2 && pts[seg + 1][0] < x) seg++
     const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1]
     ys[i] = ay + (by - ay) * clamp((x - ax) / Math.max(1e-6, bx - ax), 0, 1)
@@ -31,18 +31,28 @@ export interface PlaneTexelCtx {
   wPx: number; hPx: number; bounds: Box; surface: PlanePalette; litField: PlaneLitField
   paletteLin: [number, number, number][]; crestY: Float32Array; footY: Float32Array
   snowY: Float32Array | null; snowCover: number; seed: number; grainAmount: number
+  /** A texel's size (css px): the shared `TEXEL` unless a hand asks for a finer raster. */
+  texel: number
+}
+
+/** The crest and foot at each column of a raster whose texels are `texel` px (the model samples at `TEXEL`). */
+function bandOf(outline: readonly Pt[], bounds: Box, cols: number, texel: number) {
+  if (texel === TEXEL) return outlineBandY(outline, bounds, cols)
+  const k = TEXEL / texel
+  return outlineBandY(outline.map(([x, y]): Pt => [bounds.x + (x - bounds.x) * k, y]), { ...bounds, w: bounds.w * k }, cols)
 }
 
 export function preparePlaneTexels(
   outline: readonly Pt[], bounds: Box, surface: PlanePalette, litField: PlaneLitField, seed: number, grainAmount: number,
+  texel = TEXEL,
 ): PlaneTexelCtx {
-  const wPx = Math.max(1, Math.ceil(bounds.w / TEXEL)), hPx = Math.max(1, Math.ceil(bounds.h / TEXEL))
-  const { crestY, footY } = outlineBandY(outline, bounds, wPx)
+  const wPx = Math.max(1, Math.ceil(bounds.w / texel)), hPx = Math.max(1, Math.ceil(bounds.h / texel))
+  const { crestY, footY } = bandOf(outline, bounds, wPx, texel)
   const paletteLin = surface.palette.map((albedo) => albedoLinear(albedo, ALBEDO_CHROMA_BOOST))
-  const snowY = litField.snow ? sampleEdgeY(litField.snow.edge, bounds, wPx) : null
+  const snowY = litField.snow ? sampleEdgeY(litField.snow.edge, bounds, wPx, texel) : null
   return {
     wPx, hPx, bounds, surface, litField, paletteLin, crestY, footY,
-    snowY, snowCover: litField.snow?.cover ?? 0, seed, grainAmount,
+    snowY, snowCover: litField.snow?.cover ?? 0, seed, grainAmount, texel,
   }
 }
 
@@ -90,10 +100,10 @@ export interface OwnGround {
 /** Paints the exact single-pass lit terrain surface + small finishing paper grain (after lighting & haze). */
 export function paintLitSurface(
   ctx: Ctx2D, outline: readonly Pt[], bounds: Box, surface: PlanePalette, litField: PlaneLitField,
-  form: string, grainAmount: number, seed: number, env: PaintEnv, ownOf?: (t: PlaneTexelCtx) => OwnGround,
+  form: string, grainAmount: number, seed: number, env: PaintEnv, ownOf?: (t: PlaneTexelCtx) => OwnGround, texel = TEXEL,
 ): void {
   if (!surface.palette.length || !surface.cells.length) return
-  const t = preparePlaneTexels(outline, bounds, surface, litField, seed, grainAmount)
+  const t = preparePlaneTexels(outline, bounds, surface, litField, seed, grainAmount, texel)
   const own = ownOf?.(t), material = own ? undefined : planeMaterial(t, form)
   const scratch = env.canvas(t.wPx, t.hPx)
   const image = scratch.ctx.createImageData(t.wPx, t.hPx), data = image.data
@@ -101,9 +111,9 @@ export function paintLitSurface(
   const diffuse = shadowBeam(litField)
   const sample = texelSample(), rho: [number, number, number] = [0, 0, 0], rgb: typeof rho = [0, 0, 0]
   for (let j = 0; j < t.hPx; j++) {
-    const y = bounds.y + (j + 0.5) * TEXEL
+    const y = bounds.y + (j + 0.5) * texel
     for (let i = 0; i < t.wPx; i++) {
-      const x = bounds.x + (i + 0.5) * TEXEL, n = j * t.wPx + i, m = n * 3, o = n * 4
+      const x = bounds.x + (i + 0.5) * texel, n = j * t.wPx + i, m = n * 3, o = n * 4
       if (material) { rho[0] = material[m]; rho[1] = material[m + 1]; rho[2] = material[m + 2] } else own!.rho(n, rho)
       samplePlaneTexel(t, i, x, y, rho, sample)
       const turned = own?.turn(n, i, sample) ?? 1
@@ -119,7 +129,7 @@ export function paintLitSurface(
     scratch.ctx.putImageData(pixels, 0, 0)
     target.imageSmoothingEnabled = true
     target.imageSmoothingQuality = 'low'
-    target.drawImage(scratch.canvas as CanvasImageSource, bounds.x, bounds.y, t.wPx * TEXEL, t.hPx * TEXEL)
+    target.drawImage(scratch.canvas as CanvasImageSource, bounds.x, bounds.y, t.wPx * texel, t.hPx * texel)
   }
   stamp(ctx, image)
   if (env.shade && shade) stamp(env.shade, shade)
@@ -134,17 +144,17 @@ function encodeTexel(data: Uint8ClampedArray, o: number, rgb: RGB) {
 function paintCrestSamples(ctx: Ctx2D, t: PlaneTexelCtx, shade?: Ctx2D, own?: OwnGround) {
   if (t.litField.eSun[1] < 0.015) return
   for (let i = 0; i < t.wPx; i++) {
-    const left = t.bounds.x + i * TEXEL, x = left + TEXEL / 2, y = t.crestY[i], rho: [number, number, number] = [0, 0, 0]
-    const n = clamp(Math.floor((y + 0.65 - t.bounds.y) / TEXEL), 0, t.hPx - 1) * t.wPx + i
+    const left = t.bounds.x + i * t.texel, x = left + t.texel / 2, y = t.crestY[i], rho: [number, number, number] = [0, 0, 0]
+    const n = clamp(Math.floor((y + 0.65 - t.bounds.y) / t.texel), 0, t.hPx - 1) * t.wPx + i
     own?.rho(n, rho)
     const rim = samplePlaneTexel(t, i, x, y + 0.65, own && rho), face = samplePlaneTexel(t, i, x, y + 9, own && rho)
     if (rim.sVis - face.sVis < 0.025) continue
     const turned = own?.turn(n, i, rim) ?? 1
     ctx.fillStyle = css(shadeTexelSrgb(t, rim, turned))
-    ctx.fillRect(left, y - 0.75, TEXEL, 2.2)
+    ctx.fillRect(left, y - 0.75, t.texel, 2.2)
     if (shade) {
       shade.fillStyle = css(shadeTexelSrgb(t, rim, Math.min(1, turned), shadowBeam(t.litField)))
-      shade.fillRect(left, y - 0.75, TEXEL, 2.2)
+      shade.fillRect(left, y - 0.75, t.texel, 2.2)
     }
   }
 }
