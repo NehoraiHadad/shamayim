@@ -1,57 +1,66 @@
 import type { Tones } from '../../model/types'
 import { css, mix, outline, type Ctx2D } from '../shared/base/hand'
 import type { Block } from './townBlocks'
-import { keyedShape } from './townKey'
+import { block, joint, keyedRun, snap, type Pen } from './townKey'
 import type { Planes, TownLight } from './townLight'
 
-/* The drawn town's roofs (v1b's): a hipped tile roof of two clear planes, or a flat one seen as a light plane. Pure. */
+/*
+ * The drawn town's roofs, as colour blocks: a hipped tile roof seen from the front (its front plane over the front wall,
+ * the hip's end over the side the body shows, lit as that side is, a small eave either side, the ridge over the middle),
+ * or a flat roof seen as its thin lit slab. Pure.
+ */
 
-/** A tile roof's height against its width, at most (px); its eave past the wall; its ridge against the width. */
-const HIP = 0.42, HIP_MAX = 2.8, EAVE = 0.4, RIDGE = 0.34
-/** A flat roof's plane: against the width and the height, at most (px). */
-const FLAT = 0.18, FLAT_SHARE = 0.2, FLAT_MAX = 1.3
-/** The parapet's shade on the wall under it (px) and its strength. */
-const PARAPET = 0.5, PARAPET_DARK = 0.35
+/** A tile roof's height against its width, at most (px); its eave past the wall (px); its ridge against the width. */
+const HIP = 0.4, HIP_MAX = 2.6, EAVE = 0.25, RIDGE = 0.3
+/** A flat roof's slab: against the width and the height, least and most (px). */
+const FLAT = 0.14, FLAT_SHARE = 0.16, FLAT_LEAST = 0.5, FLAT_MOST = 1
 
-export function tileRoof(ctx: Ctx2D, b: Block, t: Tones, l: TownLight) {
-  const x0 = b.x - b.w / 2 - EAVE, x1 = b.x + b.w / 2 + EAVE
-  const top = b.top - Math.min(HIP_MAX, HIP * b.w + 0.2), eave = b.top + 0.2
-  const ridge = (b.w * RIDGE) / 2
-  const plane = (k: number) => css(mix(mix(t.roof, t.shade, 0.35 * (1 - k)), t.roofLit, Math.min(1, 0.35 * l.top + 0.8 * k)))
-  // The two halves meet at the hip: each its own plane of the light.
-  ctx.fillStyle = plane(l.left)
-  outline(ctx, [[x0, eave], [b.x - ridge, top], [b.x + ridge * 0.2, top], [b.x + ridge * 0.2, eave]])
-  ctx.fill()
-  ctx.fillStyle = plane(l.right)
-  outline(ctx, [[x1, eave], [b.x + ridge, top], [b.x + ridge * 0.2, top], [b.x + ridge * 0.2, eave]])
-  ctx.fill()
-  ctx.fillStyle = css(mix(t.roofLit, t.rim, 0.4), 0.35 + 0.5 * l.rim)
-  ctx.fillRect(b.x - ridge, top - 0.1, 2 * ridge, 0.35)
-  ctx.fillStyle = css(t.deep, 0.3)
-  ctx.fillRect(x0 + EAVE, eave, b.w, 0.5)
-  keyedShape(ctx, [[x0, eave], [b.x - ridge, top], [b.x + ridge, top], [x1, eave]], b.w, t)
+export function tileRoof(ctx: Ctx2D, x0: number, top: number, w: number, face: { x0: number; x1: number }, t: Tones, l: TownLight,
+  p: Planes, pen: Pen) {
+  const s = pen.scale, x1 = x0 + w, mid = x0 + w / 2
+  const peak = snap(top - Math.min(HIP_MAX, HIP * w + 0.3), s), ridge = (w * RIDGE) / 2
+  const e0 = x0 - EAVE, e1 = x1 + EAVE, r0 = mid - ridge, r1 = mid + ridge
+  const lit = (k: number) => mix(mix(t.roof, t.shade, 0.4 * (1 - k)), t.roofLit, Math.min(1, 0.2 + 0.8 * k))
+  // The roof's front plane faces the sky and the light as the front does; the hip's end takes the side's light.
+  const front = lit(Math.min(1, 0.3 * l.top + 0.7 * l.front + 0.2)), hip = mix(lit(0), lit(1), sideShare(p))
+  block(ctx, [[e0, top], [e1, top], [r1, peak], [r0, peak]], front)
+  // The hip's end: a triangle from the ridge's end down to the eave over the side.
+  const corner = p.right ? face.x1 : face.x0
+  if (p.right) block(ctx, [[r1, peak], [e1, top], [corner, top]], hip)
+  else block(ctx, [[r0, peak], [e0, top], [corner, top]], hip)
+  joint(ctx, e0, top, e1 - e0, false, mix(p.joint, t.deep, 0.2), pen)
+  keyedRun(ctx, [[x0, top], [e0, top], [r0, peak], [r1, peak], [e1, top], [x1, top]], mix(p.ink, t.roof, 0.15), pen)
+  ctx.strokeStyle = css(mix(p.joint, t.roof, 0.2))
+  ctx.lineWidth = 1 / s
+  ctx.beginPath()
+  ctx.moveTo(p.right ? r1 : r0, peak)
+  ctx.lineTo(corner, top)
+  ctx.stroke()
 }
 
-export function flatRoof(ctx: Ctx2D, b: Block, t: Tones, planes: Planes, l: TownLight) {
-  const x0 = b.x - b.w / 2, h = b.foot - b.top
-  const deep = Math.max(0.45, Math.min(FLAT_MAX, FLAT * b.w, FLAT_SHARE * h))
-  ctx.fillStyle = css(planes.roof)
-  ctx.fillRect(x0, b.top, b.w, deep)
-  ctx.fillStyle = css(mix(planes.roof, t.rim, 0.6), 0.5 + 0.4 * l.rim)
-  ctx.fillRect(x0, b.top, b.w, 0.3)
-  if (h > 2.4) {
-    ctx.fillStyle = css(t.deep, PARAPET_DARK)
-    ctx.fillRect(x0, b.top + deep, b.w, Math.min(PARAPET, 0.2 * h))
-  }
-  if (b.heater && b.w > 2.6) heater(ctx, b, t, planes)
+/** Where the side's value stands between the shade and the light: the hip is as lit as the wall under it. */
+const sideShare = (p: Planes) => {
+  const v = (c: readonly number[]) => c[0] + c[1] + c[2]
+  const lo = Math.min(v(p.side), v(p.front)), hi = Math.max(v(p.side), v(p.front))
+  return hi > lo ? (v(p.side) - lo) / (hi - lo) : 0.5
+}
+
+/** A flat roof's slab on the body, its heater if it has one. Returns the slab's depth. */
+export function flatRoof(ctx: Ctx2D, b: Block, x0: number, top: number, w: number, h: number, t: Tones, p: Planes, pen: Pen) {
+  const deep = Math.max(1 / pen.scale, snap(Math.max(FLAT_LEAST, Math.min(FLAT_MOST, FLAT * w, FLAT_SHARE * h)), pen.scale))
+  ctx.fillStyle = css(p.roof)
+  ctx.fillRect(x0, top, w, deep)
+  joint(ctx, x0, top + deep, w, false, p.joint, pen)
+  if (b.heater && w > 2.6) heater(ctx, b, top, t, p)
+  return deep
 }
 
 /** A solar heater: its drum and its panel. */
-function heater(ctx: Ctx2D, b: Block, t: Tones, planes: Planes) {
+function heater(ctx: Ctx2D, b: Block, top: number, t: Tones, p: Planes) {
   const x = b.x + b.w * (((b.seed >>> 3) % 9) / 9 - 0.5) * 0.5
-  ctx.fillStyle = css(planes.roof)
-  ctx.fillRect(x, b.top - 0.8, 1.2, 0.6)
+  ctx.fillStyle = css(p.roof)
+  ctx.fillRect(x, top - 0.8, 1.2, 0.6)
   ctx.fillStyle = css(t.panel)
-  outline(ctx, [[x - 1.2, b.top + 0.2], [x - 0.1, b.top - 0.8], [x - 0.1, b.top + 0.2]])
+  outline(ctx, [[x - 1.2, top + 0.2], [x - 0.1, top - 0.8], [x - 0.1, top + 0.2]])
   ctx.fill()
 }
