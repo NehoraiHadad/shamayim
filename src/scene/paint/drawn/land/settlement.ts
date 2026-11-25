@@ -10,6 +10,8 @@ import { traceOver } from '../kit/contour'
 import { CUT_LINE } from '../kit/lines'
 import { valued } from '../kit/palette'
 import type { InkAt } from './groundInk'
+import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
+import type { Grain } from '../kit/printGrain'
 import type { Ground } from './pots'
 import { SHADE, type Shading } from './shadeBlock'
 
@@ -44,7 +46,8 @@ function dusted(rgb: RGB, by: number, dust: number, a = 0, b = 0): RGB {
 }
 const inked = ([lit, shade]: ReceiverInk, map: (rgb: RGB) => RGB): ReceiverInk => [map(lit), shade && map(shade)]
 
-export function printTown(targets: readonly Ctx2D[], brush: ReceiverBrush, ground: Ground, shading: Shading, inkAt: InkAt, town: PlaneTown, seed: number): void {
+export function printTown(targets: readonly Ctx2D[], brush: ReceiverBrush, t: PlaneTexelCtx, ground: Ground, shading: Shading, inkAt: InkAt, town: PlaneTown, grain?: Grain): void {
+  const seed = t.seed
   const bodies = bodiesOf(town), extent = townExtent(bodies)
   if (!extent) return
   const x = Math.floor(extent.x0), y = Math.floor(extent.y0)
@@ -53,7 +56,7 @@ export function printTown(targets: readonly Ctx2D[], brush: ReceiverBrush, groun
   for (const block of BLOCKS) {
     const shape = new Path2D()
     traceOver(shape, { cols: grid.cols, rows: grid.rows, at: lived }, block.at, frame, LEAST)
-    overprint(targets, ground, shading, shape, (rgb) => dusted(rgb, block.by, block.dust))
+    overprint(targets, t, ground, shading, shape, (rgb) => dusted(rgb, block.by, block.dust), grain)
   }
   const { lanes, patches } = townMarks(town)
   for (const p of patches) {
@@ -69,7 +72,7 @@ export function printTown(targets: readonly Ctx2D[], brush: ReceiverBrush, groun
 }
 
 /** A block over the plane's: within `shape`, every light block and pot printed again in its own ink, mapped. */
-function overprint(targets: readonly Ctx2D[], { pots }: Ground, { levels }: Shading, shape: Path2D, map: (rgb: RGB) => RGB): void {
+function overprint(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots }: Ground, { levels }: Shading, shape: Path2D, map: (rgb: RGB) => RGB, grain?: Grain): void {
   targets.forEach((ctx, k) => levels.forEach((level, v) => {
     if (!level) return
     ctx.save()
@@ -79,6 +82,8 @@ function overprint(targets: readonly Ctx2D[], { pots }: Ground, { levels }: Shad
       ctx.fillStyle = css(map(level.inks[k][p]))
       if (p) ctx.fill(shapes)
       else ctx.fill(shape)
+      // The same plank's grain as the block under it, laid at the same place: the town's block is cut from it.
+      grain?.(ctx, t.bounds, p ? shapes : null, v * pots.length + p)
     })
     if (v === SHADE && level.path && level.shown[k] > 0.05) {
       ctx.strokeStyle = css(valued(map(level.inks[k][0]), EDGE.dark), 0.8 * level.shown[k])

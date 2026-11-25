@@ -1,13 +1,13 @@
 import type { LayerOf } from '../../model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from '../shared/base/hand'
-import { paintVegFields, paintVegRows, paintVegStrata } from '../shared/land/landVegetation'
 import { preparePlaneTexels } from '../shared/land/planeTexel'
-import { mapInk, receiverBrush } from '../shared/land/receiverBrush'
-import { vegetationLight } from '../shared/land/vegetationLight'
-import { calm, pigment } from './kit/palette'
+import { receiverBrush } from '../shared/land/receiverBrush'
+import { pigment } from './kit/palette'
+import { printGrain } from './kit/printGrain'
 import { groundKey } from './land/crest'
 import { inkAt, printGround, type GroundInk } from './land/groundInk'
-import { groundDabs, groundFields, groundLines } from './land/groundMarks'
+import { printFields, printRows } from './land/fields'
+import { groundDabs, groundLines } from './land/groundMarks'
 import { groundOf } from './land/pots'
 import { printTown } from './land/settlement'
 import { shadingOf, type Shading } from './land/shadeBlock'
@@ -27,22 +27,19 @@ const baseOf = ({ levels }: Shading): GroundInk => {
 export function paintDrawnPlane(ctx: Ctx2D, given: LayerOf<'plane'>, env: PaintEnv): void {
   // The near plane prints the place's own ground over its crest where the model raises it there.
   const raised = raisedOutline(given.outline, given.town?.land), desc = raised === given.outline ? given : { ...given, outline: raised }
-  const { bounds, vegetation: veg } = desc, { litField } = desc.light
+  const { bounds } = desc, { litField } = desc.light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
   for (const target of targets) target.save()
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
     const t = preparePlaneTexels(desc.outline, bounds, desc.surfaceTone, litField, desc.grain.seed, 0)
     const ground = groundOf(t, desc), shading = shadingOf(t, ground, desc.plane, targets.length > 1), at = inkAt(t, ground, shading)
-    const raw = vegetationLight(veg.tones, litField, desc.outline, bounds, targets.length > 1)
-    const toneAt: typeof raw = (i, x, y) => mapInk(raw(i, x, y), (rgb) => calm(rgb, 0.2))
     const brush = receiverBrush(ctx, env.shade)
-    printGround(targets, t, ground, shading)
-    paintVegStrata(brush, veg, toneAt)
-    if (desc.town) printTown(targets, brush, ground, shading, at, desc.town, desc.grain.seed)
-    paintVegFields(brush, veg, toneAt)
-    groundFields(brush, veg.fields, at)
+    const grain = printGrain(env, desc.plane)
+    printGround(targets, t, ground, shading, grain)
+    if (desc.town) printTown(targets, brush, t, ground, shading, at, desc.town, grain)
+    printFields(brush, desc, t, ground, at)
     groundLines(brush, desc, at)
-    paintVegRows(brush, veg, toneAt)
+    printRows(brush, desc, at)
     groundDabs(brush, desc, t, ground, at)
     groundKey(targets, brush, desc, t, baseOf(shading))
   } else for (const target of targets) {
