@@ -58,7 +58,8 @@ export function paintBlock(ctx: Ctx2D, b: Block, t: Tones, l: TownLight, lamps: 
   const side = small || !open(planes.right ? edges?.right : edges?.left) ? 0 : sideWidth(l, w)
   const front = bodyPlanes(ctx, x0, top, w, h, side, planes, pen)
   const deep = roofed ? 0 : flatRoof(ctx, b, x0, top, w, h, t, planes, pen)
-  if (!small) townWindows(ctx, { top: top + deep, foot, storeys: b.storeys }, t, l, front, planes.front, r, lamps, windows, pen)
+  // A small body cuts no notch by day (too few pixels), but by night one lamp of it may burn.
+  townWindows(ctx, { top: top + deep, foot, storeys: b.storeys }, t, l, front, planes.front, r, lamps, windows, pen)
   if (small) {
     // Two flat blocks: the key only where the mass meets the sky over it.
     if (edges && !roofed) keyedEdges(ctx, x0, top, w, h, { left: [], right: [], foot: [], top: edges.top.filter((run) => run.key) }, ink, planes.joint, pen)
