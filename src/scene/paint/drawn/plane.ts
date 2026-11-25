@@ -9,6 +9,7 @@ import { inkAt, printGround, type GroundInk } from './land/groundInk'
 import { printFields, printRows } from './land/fields'
 import { groundDabs, groundLines } from './land/groundMarks'
 import { groundOf } from './land/pots'
+import { printSeats } from './land/seats'
 import { printTown } from './land/settlement'
 import { shadingOf, type Shading } from './land/shadeBlock'
 import { raisedOutline } from '../shared/land/townGround'
@@ -37,6 +38,8 @@ export function paintDrawnPlane(ctx: Ctx2D, given: LayerOf<'plane'>, env: PaintE
     const grain = printGrain(env, desc.plane)
     printGround(targets, t, ground, shading, grain)
     if (desc.town) printTown(targets, brush, t, ground, shading, at, desc.town, grain)
+    // The town's seats and casts, cut in the ground's own wood where the hand's light met the town with it (`light/meet`).
+    if (desc.town && desc.own) printSeats(brush, desc, at)
     printFields(brush, desc, t, ground, at)
     groundLines(brush, desc, at)
     printRows(brush, desc, at)

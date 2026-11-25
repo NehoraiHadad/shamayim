@@ -25,12 +25,12 @@ export const penFor = (tier: KeyTier, scale: number): Pen => ({ scale, line: Mat
 export const snap = (v: number, scale: number) => Math.round(v * scale) / scale
 
 /** Round a standing box, inside it: its sides and its foot, and its top unless a roof takes it. */
-export function keyedBox(ctx: Ctx2D, x: number, top: number, w: number, h: number, ink: RGB, pen: Pen, head = true) {
+export function keyedBox(ctx: Ctx2D, x: number, top: number, w: number, h: number, ink: RGB, pen: Pen, head = true, foot = true) {
   const k = Math.min(pen.line, w / 3, h / 3)
   ctx.fillStyle = css(ink)
   ctx.fillRect(x, top, k, h)
   ctx.fillRect(x + w - k, top, k, h)
-  ctx.fillRect(x, top + h - k, w, k)
+  if (foot) ctx.fillRect(x, top + h - k, w, k)
   if (head) ctx.fillRect(x, top, w, k)
 }
 

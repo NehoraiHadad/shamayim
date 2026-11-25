@@ -3,7 +3,7 @@ import type { CanopyTones } from '../canopyTones'
 import type { Lamp } from './lamp'
 import type { PlantWind } from '../landWind'
 import type { ReceiverShadow } from '../planeCloudShadow'
-import type { Box, LayerBase, LightPart } from './base'
+import type { Box, LayerBase, LightPart, Plain } from './base'
 
 /**
  * Land, plane and outside-ground scene-model descriptors (Stage C2 + Living Land Stage 3).
@@ -119,6 +119,8 @@ export type LandLayers =
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
       gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow; lamp?: Lamp
       /** The near plane's town (`planeTown`). */
-      town?: PlaneTown }
+      town?: PlaneTown
+      /** What a style's own light adds for its painter alone (`StyleLight.meet`). */
+      own?: Plain }
   | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string }; cloudShadow?: ReceiverShadow;
       tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }

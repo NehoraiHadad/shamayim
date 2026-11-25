@@ -115,4 +115,20 @@ describe('drawn town', () => {
     expect(Math.max(lightness(dull.front), lightness(dull.side))).toBeLessThan(lightness(plaster))
     expect(Math.max(lightness(sun.front), lightness(sun.side))).toBeGreaterThan(lightness(plaster))
   })
+  it('prints a front turned from the sun at its shade, and anchors a dull town to its ground', () => {
+    const form = { strength: 1, side: -0.8, tiers: [] } as unknown as SkyForm
+    const shine = (direct: number, front: number) => ({ night: 0, direct, glint: 0,
+      faces: { front, left: 0.45, right: 0, top: 0.75, rim: 0.1, across: -0.3 } }) as unknown as Shine
+    const grey = (v: number): [number, number, number] => [v, v, v]
+    const t = { lit: grey(0.9), stoneLit: grey(0.9), shade: grey(0.3), deep: grey(0.1), rim: grey(0.8) } as unknown as Tones
+    const plaster = grey(0.6)
+    const backlit = planesOf(t, townLight(shine(0.9, 0), form), plaster, 0.5)
+    const sunlit = planesOf(t, townLight(shine(0.9, 0.6), form), plaster, 0.5)
+    expect(lightness(backlit.front)).toBeLessThan(lightness(plaster))
+    expect(lightness(sunlit.front)).toBeGreaterThan(lightness(plaster))
+    const ground = grey(0.25), g = lightness(ground)
+    const dull = planesOf(t, townLight(shine(0, 0), form), plaster, 0.5, 'far', { ground, k: 1 })
+    expect(Math.abs(lightness(dull.front) - (g + 0.02))).toBeLessThan(0.005)
+    expect(Math.abs(lightness(dull.side) - (g - 0.06))).toBeLessThan(0.005)
+  })
 })

@@ -2,7 +2,7 @@ import type { OutsideItem, Shine, Tones } from '../../model/types'
 import { rng } from '../shared/base/core'
 import { aviationLamp, type Lamp } from '../shared/town/glyphs/kit'
 import { css, mix, type Ctx2D } from '../shared/base/hand'
-import { bodyPlanes } from './townBlock'
+import { bodyPlanes, type Print } from './townBlock'
 import { joint, keyedBox, snap, type Pen } from './townKey'
 import { planesOf, plasterOf, sideWidth, type Planes, type TownLight } from './townLight'
 import { townWindows } from './townWindows'
@@ -24,13 +24,13 @@ const GLASS = 0.55, GLASS_LIT = 0.4, WIPE = 0.45, WIPE_DEEP = 0.3
 const FLOOR = 2.6
 
 export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'tower' }>, t: Tones, l: TownLight,
-  s: Shine, lamps: Lamp[], pen: Pen) {
+  s: Shine, lamps: Lamp[], pen: Pen, print: Print = { tier: 'far', seated: false }) {
   const r = rng(tw.seed * 7 + 1), stone = r(), day = 1 - s.night, k = pen.scale
   const x0 = snap(tw.x - tw.w / 2, k), w = Math.max(1 / k, snap(tw.x + tw.w / 2, k) - x0), base = snap(tw.base, k)
   const top = snap(tw.base - tw.h, k)
   const setback = tw.crown === 1 ? snap(Math.min(tw.h * SETBACK, SETBACK_MAX), k) : 0, shaft = top + setback
   const plaster = tw.full ? mix(plasterOf(t, 0.4 * stone), t.glass, GLASS * day) : plasterOf(t, 0.3 + 0.5 * stone)
-  const own = planesOf(t, l, plaster, stone)
+  const own = planesOf(t, l, plaster, stone, print.tier, print.anchor)
   // A glass shaft's block is one flat tint of its glass, the sky's light in it by day.
   const planes = tw.full ? { ...own, front: mix(own.front, t.glassLit, GLASS_LIT * day), side: mix(own.side, t.glass, 0.3 * day) } : own
   const front = bodyPlanes(ctx, x0, shaft, w, base - shaft, sideWidth(l, w), planes, pen)
@@ -39,7 +39,8 @@ export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'to
     s.windows * 0.8, pen)
   if (!cut) floors(ctx, x0, shaft, w, base, tw.storeys, planes, pen)
   roofEdge(x0, shaft, w)
-  keyedBox(ctx, x0, shaft, w, base - shaft, planes.ink, pen)
+  // Where the plane cuts the tower's seat, its foot is the plane's ground line (and the podium stands over it).
+  keyedBox(ctx, x0, shaft, w, base - shaft, planes.ink, pen, true, !print.seated || tw.full)
   if (setback) {
     const cw = snap(w * SETBACK_W, k), cx = snap(tw.x - cw / 2, k)
     bodyPlanes(ctx, cx, top, cw, setback, sideWidth(l, cw), planes, pen)
@@ -54,10 +55,10 @@ export function paintDrawnTower(ctx: Ctx2D, tw: Extract<OutsideItem, { kind: 'to
   }
   if (tw.full) {
     const ph = snap(Math.min(PODIUM_MAX, tw.h * PODIUM_SHARE), k), pw = snap(w + 2 * PODIUM, k), px = snap(tw.x - pw / 2, k)
-    const podium = planesOf(t, l, plasterOf(t, stone), stone)
+    const podium = planesOf(t, l, plasterOf(t, stone), stone, print.tier, print.anchor)
     bodyPlanes(ctx, px, base - ph, pw, ph, sideWidth(l, pw), podium, pen)
     roofEdge(px, base - ph, pw)
-    keyedBox(ctx, px, base - ph, pw, ph, podium.ink, pen)
+    keyedBox(ctx, px, base - ph, pw, ph, podium.ink, pen, true, !print.seated)
   }
   if (tw.full || tw.storeys >= 30) lamps.push(aviationLamp(tw.x, tip - 0.4, s))
 

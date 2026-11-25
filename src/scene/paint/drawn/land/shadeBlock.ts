@@ -37,11 +37,14 @@ const SHADED: Readonly<Record<Tier, boolean>> = { near: true, far: false, back: 
 const RELIEF = { least: 0.06, full: 0.14 } as const, MOST = 0.42, TURN = 0.2
 /**
  * A run of shade is a hillside's when it reaches within this depth of the ridge (share of the plane's depth). Down the
- * hillside the cut is drawn in by this much of the spread at the foot: the land flattens toward the foot and takes more of
- * the sky, so the shaded side narrows along its own iso-light line to a point or a fold, and the flat ground at the foot
- * stays lit. The least half-width of a run across the slope (cells).
+ * hillside the cut is drawn in by this much of the spread at the foot (a little: the land flattens toward the foot and takes
+ * more of the sky), but never closed to a point: the run ends in a bokashi wipe toward the foot (`WIPE`). The least
+ * half-width of a run across the slope (cells); the longest a run may be against its mean width (a longer one is a ruled
+ * strip or a tongue, not a hillside's side).
  */
-const RIDGE = 0.15, TAPER = 1, NARROW = 1
+const RIDGE = 0.15, TAPER = 0.3, NARROW = 1, LONG = 4
+/** The wipe at a run's foot: where it starts down the run (share of its depth), and how far past its foot it reaches (px). */
+const WIPE = { from: 0.55, past: 1 } as const
 /** The least step of value (Oklab, a share of the base's) a lit and a shade block take in full sun; their chroma against the base's. */
 const STEP = { lit: 0.06, shade: -0.09 } as const, CHROMA = { lit: 1.02, shade: 0.92 } as const
 /** The step of value (Oklab) at which a block shows in full. */
@@ -52,13 +55,15 @@ const AREA = 40, AREA_SHARE = 0.025, SOFT = 1, LEAST_SHAPE = 6
 interface Light extends FieldSample { n: number }
 /** A block: its outline (none for the base), its inks by target and pot, the clear air in front of it, how plainly it shows by target (0 … 1). */
 interface Level { path: Path2D | null; inks: RGB[][]; air: number; shown: number[] }
-/** Each block, the light of every cell, and how far in from the shade block's edge each cell lies (cells; below 0 outside). */
-export interface Shading { levels: (Level | null)[]; levelAt: Uint8Array; light: Float32Array; inside: Float32Array }
+/** A shade run's foot, wiped toward the base block: across (px), and down from where the wipe starts to where it ends (px). */
+export interface Wipe { x0: number; x1: number; y0: number; y1: number }
+/** Each block, the light of every cell, how far in from the shade block's edge each cell lies (cells; below 0 outside), the shade runs' wipes. */
+export interface Shading { levels: (Level | null)[]; levelAt: Uint8Array; light: Float32Array; inside: Float32Array; wipes: Wipe[] }
 
 const lum = (rgb: RGB) => 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
 
 export function shadingOf(t: PlaneTexelCtx, ground: Ground, tier: Tier, paired: boolean): Shading {
-  const { litField: f } = t, { light, fields } = lightOn(t, ground), cells = levelsOf(t, ground, light, tier)
+  const { litField: f } = t, { light, fields } = lightOn(t, ground), { levelAt: cells, wipes } = levelsOf(t, ground, light, tier)
   // Each block's outline is its cells eased; a place is in the block its outline holds, so marks and inks follow the cut edge.
   const soft = [BASE, LIT, SHADE].map((v) => (v === BASE || !cells.includes(v) ? null : softened(t, cells, v))), levelAt = new Uint8Array(cells.length)
   soft.forEach((at, v) => at?.forEach((k, n) => { if (k > 0.5) levelAt[n] = v }))
@@ -80,7 +85,7 @@ export function shadingOf(t: PlaneTexelCtx, ground: Ground, tier: Tier, paired: 
   const beams = paired ? [f.eSun, shadowBeam(f)] : [f.eSun], inks = beams.map((beam) => inksOf(t, ground, cut, beam, air))
   // A block whose ink is (nearly) the base's shows no edge and takes no hatches: no outline of a shade that is not there.
   const shown = (v: number) => inks.map((by) => Math.min(1, Math.abs(labOf(by[v][0]).l - labOf(by[BASE][0]).l) / SHOWN))
-  return { levelAt, light, inside, levels: cut.map((l, v) => l && { path: soft[v] ? outlined(t, soft[v]!) : null, inks: inks.map((by) => by[v]), air: 1 - air, shown: shown(v) }) }
+  return { levelAt, light, inside, wipes, levels: cut.map((l, v) => l && { path: soft[v] ? outlined(t, soft[v]!) : null, inks: inks.map((by) => by[v]), air: 1 - air, shown: shown(v) }) }
 }
 
 /** The light of every cell against the plane's mean, where it truly lies, and the four fields it comes from. */
@@ -114,11 +119,11 @@ function lightOn(t: PlaneTexelCtx, { pots, label, on }: Ground) {
  * under the least area go to the block round them. Above the crest each column takes the block under it, so a shade side
  * that meets the skyline runs up into the key line and leaves no lit strip under it.
  */
-function levelsOf(t: PlaneTexelCtx, { on }: Ground, light: Float32Array, tier: Tier): Uint8Array {
-  const levelAt = new Uint8Array(light.length), held = light.filter((_, n) => on[n]).sort()
+function levelsOf(t: PlaneTexelCtx, { on }: Ground, light: Float32Array, tier: Tier): { levelAt: Uint8Array; wipes: Wipe[] } {
+  const levelAt = new Uint8Array(light.length), held = light.filter((_, n) => on[n]).sort(), wipes: Wipe[] = []
   const q = (k: number) => held[Math.min(held.length - 1, Math.floor(k * held.length))] ?? 1
   const spread = q(0.8) - q(0.2), relief = smoothstep(RELIEF.least, RELIEF.full, spread)
-  if (!SHADED[tier] || !held.length || relief <= 0) return levelAt
+  if (!SHADED[tier] || !held.length || relief <= 0) return { levelAt, wipes }
   // The turn below the mean, and never more of the plane than the relief allows; drawn in toward the foot.
   const low = Math.min(1 - TURN * spread, q(MOST * relief))
   const { wPx: cols, hPx: rows, bounds, crestY, footY } = t
@@ -129,7 +134,17 @@ function levelsOf(t: PlaneTexelCtx, { on }: Ground, light: Float32Array, tier: T
   const dark = opened(cols, Uint8Array.from(light, (v, n) => (on[n] && v < low - TAPER * spread * depth(n) ? 1 : 0)), NARROW)
   for (const run of runs(cols, rows, dark)) {
     if (run.reduce((most, n) => Math.min(most, depth(n)), Infinity) > RIDGE) continue
+    let i0 = cols, i1 = 0, j0 = rows, j1 = 0
+    for (const n of run) {
+      const i = n % cols, j = (n - i) / cols
+      i0 = Math.min(i0, i); i1 = Math.max(i1, i); j0 = Math.min(j0, j); j1 = Math.max(j1, j)
+    }
+    // A run far longer down the slope than it is wide is a strip or a tongue: the print leaves the hillside lit there.
+    const long = j1 - j0 + 1, wide = run.length / long
+    if (long > LONG * wide) continue
     for (const n of run) levelAt[n] = SHADE
+    const top = bounds.y + j0 * TEXEL, foot = bounds.y + (j1 + 1) * TEXEL
+    wipes.push({ x0: bounds.x + i0 * TEXEL, x1: bounds.x + (i1 + 1) * TEXEL, y0: top + WIPE.from * (foot - top), y1: foot + WIPE.past })
   }
   for (let i = 0; i < cols; i++) {
     const top = Math.max(0, Math.min(rows - 1, Math.floor((crestY[i] - bounds.y) / TEXEL) + 1))
@@ -137,7 +152,7 @@ function levelsOf(t: PlaneTexelCtx, { on }: Ground, light: Float32Array, tier: T
   }
   const least = Math.max(AREA, AREA_SHARE * held.length)
   for (let pass = 0; pass < 2; pass++) islands(cols, rows, levelAt, least)
-  return levelAt
+  return { levelAt, wipes }
 }
 
 /** A mask with every run narrower than `reach` cells either side (across the slope) cut away: eroded, then grown back. */

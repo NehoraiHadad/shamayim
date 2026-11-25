@@ -4,12 +4,12 @@ import type { PlaneTown, RGB } from '../../../model/types'
 import { css, type Ctx2D } from '../../shared/base/hand'
 import { fractal } from '../../shared/base/core'
 import type { ReceiverBrush, ReceiverInk } from '../../shared/land/receiverBrush'
-import { bodiesOf, livedOn, townExtent, townMarks, type Patch } from '../../shared/land/townGround'
+import { bodiesOf, livedOn, townExtent, townMarks, type GroundCap, type Patch } from '../../shared/land/townGround'
 import { carve, type P } from '../kit/carve'
 import { traceOver } from '../kit/contour'
 import { CUT_LINE } from '../kit/lines'
 import { valued } from '../kit/palette'
-import type { InkAt } from './groundInk'
+import { wiped, type InkAt } from './groundInk'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
 import type { Grain } from '../kit/printGrain'
 import type { Ground } from './pots'
@@ -24,8 +24,14 @@ import { SHADE, type Shading } from './shadeBlock'
 
 /** The lived-on blocks: where each is cut (share of the lived-on), its step of value and how far toward dust its hue goes. */
 const BLOCKS = [{ at: 0.3, by: 0.022, dust: 0.35 }, { at: 0.7, by: 0.035, dust: 0.4 }] as const
-/** Dust: the hue a trodden ground turns to (Oklab a, b, a unit), its chroma its own; the values over which the hue turns in full (none in the dusk, where the ground's ink is dark). */
-const DUST = { a: 0.29, b: 0.96 } as const, TURNS = [0.3, 0.62] as const
+/** The inner lived-on block's step and dust: the ground most of a town stands on. */
+export const LIVED_ON = BLOCKS[1]
+/** Dust: the hue a trodden ground turns to (Oklab a, b, a unit), its chroma its own; the values over which the hue turns in
+ *  full, and the share of the turn it keeps under them (a dusk ground's ink is dark, but a village's dust still shows). */
+const DUST = { a: 0.29, b: 0.96 } as const, TURNS = [0.3, 0.62] as const, DUSK_TURN = 0.4
+/** A house's own ground at most (px past its walls, px deep), stopped at the next row's foot down the slope: a yard round
+ *  a house, not a pad the size of its width run down the hill. */
+const GROUND_CAP: GroundCap = { rx: 5, ry: 4, rows: true }
 /** The grid the blocks are cut on (px a cell), and the least points a shape keeps. */
 const CELL = 1.5, LEAST = 4
 /** A yard's step of value and dust; a garden's step of value and its green (Oklab a, b). */
@@ -38,9 +44,9 @@ const DIM = 0.7, DIMMEST = 0.35
 const EDGE = { wide: 0.9, dark: -0.05 } as const
 
 /** An ink a step of value away, its hue turned `dust` of the way to a trodden ground's at its own chroma (or moved by `a`, `b`), less as the light goes. */
-function dusted(rgb: RGB, by: number, dust: number, a = 0, b = 0): RGB {
+export function dusted(rgb: RGB, by: number, dust: number, a = 0, b = 0): RGB {
   const lab = labOf(rgb), k = Math.min(1, Math.max(DIMMEST, lab.l / DIM)), chroma = Math.hypot(lab.a, lab.b)
-  const turn = dust * smoothstep(TURNS[0], TURNS[1], lab.l), lit = smoothstep(TURNS[0], TURNS[1], lab.l)
+  const lit = smoothstep(TURNS[0], TURNS[1], lab.l), turn = dust * (DUSK_TURN + (1 - DUSK_TURN) * lit)
   return rgbOfLab({ l: Math.min(1, Math.max(0, lab.l + by * k)),
     a: lab.a + (DUST.a * chroma - lab.a) * turn + a * lit, b: lab.b + (DUST.b * chroma - lab.b) * turn + b * lit })
 }
@@ -48,11 +54,11 @@ const inked = ([lit, shade]: ReceiverInk, map: (rgb: RGB) => RGB): ReceiverInk =
 
 export function printTown(targets: readonly Ctx2D[], brush: ReceiverBrush, t: PlaneTexelCtx, ground: Ground, shading: Shading, inkAt: InkAt, town: PlaneTown, grain?: Grain): void {
   const seed = t.seed
-  const bodies = bodiesOf(town), extent = townExtent(bodies)
+  const bodies = bodiesOf(town), extent = townExtent(bodies, GROUND_CAP)
   if (!extent) return
   const x = Math.floor(extent.x0), y = Math.floor(extent.y0)
   const grid = { x, y, cols: Math.ceil((extent.x1 - x) / CELL) + 1, rows: Math.ceil((extent.y1 - y) / CELL) + 1, cell: CELL }
-  const lived = livedOn(bodies, grid, seed), frame = { x, y, w: (grid.cols - 1) * CELL, h: (grid.rows - 1) * CELL }
+  const lived = livedOn(bodies, grid, seed, GROUND_CAP), frame = { x, y, w: (grid.cols - 1) * CELL, h: (grid.rows - 1) * CELL }
   for (const block of BLOCKS) {
     const shape = new Path2D()
     traceOver(shape, { cols: grid.cols, rows: grid.rows, at: lived }, block.at, frame, LEAST)
@@ -72,7 +78,7 @@ export function printTown(targets: readonly Ctx2D[], brush: ReceiverBrush, t: Pl
 }
 
 /** A block over the plane's: within `shape`, every light block and pot printed again in its own ink, mapped. */
-function overprint(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots }: Ground, { levels }: Shading, shape: Path2D, map: (rgb: RGB) => RGB, grain?: Grain): void {
+function overprint(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots }: Ground, { levels, wipes }: Shading, shape: Path2D, map: (rgb: RGB) => RGB, grain?: Grain): void {
   targets.forEach((ctx, k) => levels.forEach((level, v) => {
     if (!level) return
     ctx.save()
@@ -91,6 +97,7 @@ function overprint(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots }: Ground
       ctx.lineJoin = 'round'
       ctx.stroke(level.path)
     }
+    if (v === SHADE && level.path) wiped(ctx, t, pots, levels[0]!.inks[k].map(map), wipes)
     ctx.restore()
   }))
 }

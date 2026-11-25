@@ -77,7 +77,7 @@ function unknownModel(world: WorldState, box: SceneBox, clock: LandClock, life: 
 function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: StyleLight): SceneModel {
   const clear: Box[] = sceneClearance(world.place3.dot, box.width)
   const towns = farCitiesLayer(world, box, clear, light)
-  const outside = outsideOf(world, box, clear, light)
+  let outside = outsideOf(world, box, clear, light)
   const home = outsideHome(world, box, clear)
   const foreground = outsideMass(world, box, clear).map(mass => ({ ...mass, alwaysInFront: true as const }))
   const marks = marksLayers(world, box, towns, home, clear, [...foreground, ...farMasses(towns)], light)
@@ -87,6 +87,9 @@ function knownModel(world: WorldState, box: SceneBox, life: LifeClock, light: St
   const planes = planeLayers(world, box, clear)
     .map((plane) => shadowedPlane(plane, shadows.find((shadow) => shadow.plane === plane.plane), minuteStart(life), !life.still))
   const wind = plantWindOf(world.wind)
+  // A hand that prints the place and its ground as one block meets them here (the real hand does not).
+  const nearAt = planes.findIndex((plane) => plane.plane === 'near')
+  if (light.meet && outside && nearAt >= 0) ({ outside, near: planes[nearAt] } = light.meet(outside, planes[nearAt]))
   const canopies = planes.flatMap((plane) => canopyOf(plane, wind, clear, !life.still) ?? [])
   const layers: LayerDesc[] = [...sky, ...planes, ...canopies, ...waterLayers(world, box, clear),
     ...(towns ? [towns] : []), ...marks, ...(outside ? [outside] : []),
