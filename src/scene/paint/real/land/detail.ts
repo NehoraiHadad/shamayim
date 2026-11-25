@@ -9,7 +9,7 @@ import type { Ctx2D, PaintEnv, Scratch } from '../../shared/base/hand'
  * overlay of grey: on a ground under half its range, `2·B·S`, a share of its own value), so it takes their colour and
  * their light, as strong in the evening's dark as at noon, and it is laid flat as the ground lies (wider than tall).
  *
- * Two tiles, built once per seed: a fine one (a device px and two) over the whole plane, and a coarser one (two to three
+ * Two tiles, built once a page (one seed): a fine one (a device px and two) over the whole plane, and a coarser one (two to three
  * device px: the grit and stones the eye sees nearest) that comes in toward the plane's foot. Each is drawn at one device
  * px to its px, unsmoothed, anchored to the scene (it never crawls), under the plane's outline mask. Pure: a seed's tile
  * is a function of it, and of nothing else (`TILE` and the constants here), so it is cached by the seed.
@@ -25,6 +25,9 @@ const COARSE_FROM = 0.3, COARSE_TO = 0.9, STRIPS = 10
 /** Stones per 1000 device px² in each tile: a dark px under a lit one. */
 const STONES = { fine: 6, coarse: 4 } as const
 
+/** The tiles' seed: one grit for every plane and place (it is the ground's grain, not its patches), so a page builds each once. */
+const SEED = 7121
+
 const tiles = new Map<string, Scratch>()
 
 /**
@@ -34,12 +37,14 @@ const tiles = new Map<string, Scratch>()
 function octave(v: Float32Array, r: () => number, cx: number, cy: number, amp: number) {
   const nx = TILE / cx, ny = TILE / cy, lattice = Float32Array.from({ length: nx * ny }, () => 2 * r() - 1)
   const ease = (t: number) => t * t * (3 - 2 * t)
+  // The ease across a cell, the same in every cell; a row's lattice values eased down to it, then across.
+  const across = Float32Array.from({ length: cx }, (_, x) => ease(x / cx)), row = new Float32Array(nx)
   for (let y = 0; y < TILE; y++) {
-    const gy = y / cy, j0 = Math.floor(gy), j1 = (j0 + 1) % ny, fy = ease(gy - j0)
-    for (let x = 0; x < TILE; x++) {
-      const gx = x / cx, i0 = Math.floor(gx), i1 = (i0 + 1) % nx, fx = ease(gx - i0)
-      const a = lattice[j0 * nx + i0], b = lattice[j0 * nx + i1], c = lattice[j1 * nx + i0], d = lattice[j1 * nx + i1]
-      v[y * TILE + x] += amp * (a + (b - a) * fx + (c + (d - c) * fx - a - (b - a) * fx) * fy)
+    const j0 = Math.floor(y / cy), j1 = (j0 + 1) % ny, fy = ease(y / cy - j0)
+    for (let i = 0; i < nx; i++) row[i] = lattice[j0 * nx + i] + (lattice[j1 * nx + i] - lattice[j0 * nx + i]) * fy
+    for (let i = 0, o = y * TILE; i < nx; i++) {
+      const a = row[i], b = row[(i + 1) % nx]
+      for (let x = 0; x < cx; x++, o++) v[o] += amp * (a + (b - a) * across[x])
     }
   }
 }
@@ -108,9 +113,9 @@ export function paintGroundDetail(target: Ctx2D, desc: LayerOf<'plane'>, env: Pa
     target.restore()
   }
   // The tiles are built at full strength (±1/2 about the neutral, a scale of 1 ± 1); the plane's share of it is the alpha.
-  lay(tileOf(env, desc.grain.seed, false), strength * FINE, y, y + h)
+  lay(tileOf(env, SEED, false), strength * FINE, y, y + h)
   if (desc.plane !== 'near') return
-  const coarse = tileOf(env, desc.grain.seed, true)
+  const coarse = tileOf(env, SEED, true)
   for (let k = 0; k < STRIPS; k++) {
     const v0 = COARSE_FROM + (1 - COARSE_FROM) * k / STRIPS, v1 = COARSE_FROM + (1 - COARSE_FROM) * (k + 1) / STRIPS
     const mid = (v0 + v1) / 2, ramp = Math.min(1, Math.max(0, (mid - COARSE_FROM) / (COARSE_TO - COARSE_FROM)))
