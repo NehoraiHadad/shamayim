@@ -26,6 +26,30 @@ Owner, 23 Nov 2026: people try the two scene styles (`real`, `drawn`), say which
 - [ ] Merge to main: on the owner's word, worker first (`cd worker && npm ci && npx wrangler deploy`); steps in `vote/RELEASE.md`
       of the manager's shared notes folder. Bump `VOTE_ROUND` if either style changes after voting began
 
+## Ground and houses paint quality (branch `ccr-fe243dc2-nygegx`)
+
+Owner, 25 Nov 2026: refine how the ground and the houses are painted (paint quality, not what is detected where), both
+styles. The vote is live but has hardly any votes: go ahead, and bump `VOTE_ROUND` when this lands.
+Baseline seen at 375 px DPR 2 (6 places × 10:30 / 16:20 / 20:00):
+- Real ground: soft blurry blotches the same near and far; grey mist patches on near ground on clear days; slopes do not
+  read (sun side vs shade); one olive/khaki hue, oversized bush balls
+- Real houses: salt-and-pepper speckle on facades; at dusk a city merges into one grey wall; no contact shadow
+- Drawn ground: flat empty fill; translucent elliptical stains; heavy contour on the near ridge only; far ridges see-through
+- Drawn houses: walls shaded like cylinders (jars, cans, a row of drums at Haifa's shore); noisy windows; not seated
+- Outside scope, later: drawn jelly-blob small clouds and scale-like arcs in cumulus; real dusk cloud gaps as blurry holes
+
+- [x] Diagnosis per style (code cause of each defect, fix, files)
+- [x] Tracks (worktrees): real ground, real houses, drawn ground, drawn houses; before/after stills of the same moments
+- [x] Seating: terrace walls on slopes, seats and casts cut in the ground, the town's own land printed by the plane;
+      settlement ground (lived-on tint, yards, lanes, gardens) and front trees hiding some feet, both styles
+- [x] Independent critique per style and one fix round each (owner, 25 Nov: don't over-polish); pixel references
+      rebaselined; `buildingLight` ground-relative lows widened (the ground under a town is now paler lived-on land);
+      `VOTE_ROUND` v3 (deploy the Worker first); merged to main
+- [ ] Left for later: real plane first paint is ~10–40 ms dearer (detail tile build; a 128² or precomputed tile would cut
+      it); Ein Gedi's stone houses low-contrast on stone ground; Karmei Tzur's far `beyond` blocks still read as slabs;
+      Shadmot's solar field sits high (needs the near plane's ground at its foot); Ein Gedi's V-gully bridged by the
+      model's town land; drawn shade band on Ein Gedi's cliff long; teal canopy trees at Ein Gedi and Nahalal (real)
+
 ## Worship ownership (audit follow-up)
 
 Owner decision, 2026-11-22, verbatim: **"מסגדים לא, ציונים כן"** (supersedes the earlier Decision B for famous

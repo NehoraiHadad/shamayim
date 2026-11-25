@@ -14,7 +14,7 @@ import { BODY, foliage, TOPS, UNDER, WHOLE } from './foliage'
 /** How far the crown stands up from the model's anchor, of its half height: its foot is on the ground. */
 const RISE = 0.16
 /** The foot's shade: its half width by the crown's, its strength. */
-const FOOT = [[1.35, 0.16], [1, 0.2], [0.62, 0.18]] as const
+const FOOT = [[1.35, 0.24], [1, 0.3], [0.62, 0.27]] as const
 
 function foot(brush: ReceiverBrush, x: number, y: number, r: number, alpha: number) {
   for (const [wide, strong] of FOOT) {
@@ -31,6 +31,26 @@ function leaves(brush: ReceiverBrush, { cx, cy, rx, ry, r, phase, alpha, body, d
   layer(lit, 0.74 * alpha, TOPS)
 }
 
-const NATURAL: CanopyHand = { inks: (bytes) => bytes, crown: { foot, leaves } }
+/** How far a plant's inks are drawn toward their own grey and the dry ground's warmth, so it sits in the land. */
+const DULL = 0.42, WARMTH = [1.04, 1, 0.9] as const
+
+const dulled = new WeakMap<Uint8Array, Uint8Array>()
+
+/** The plants' inks, their green quieted toward the land's olive: kept for each set of inks the model gives. */
+function inks(bytes: Uint8Array): Uint8Array {
+  let held = dulled.get(bytes)
+  if (held) return held
+  held = new Uint8Array(bytes.length)
+  for (let o = 0; o + 2 < bytes.length; o += 3) {
+    const r = bytes[o], g = bytes[o + 1], b = bytes[o + 2], y = 0.3 * r + 0.55 * g + 0.15 * b
+    held[o] = Math.min(255, Math.round((r + (y - r) * DULL) * WARMTH[0]))
+    held[o + 1] = Math.min(255, Math.round((g + (y - g) * DULL) * WARMTH[1]))
+    held[o + 2] = Math.min(255, Math.round((b + (y - b) * DULL) * WARMTH[2]))
+  }
+  dulled.set(bytes, held)
+  return held
+}
+
+const NATURAL: CanopyHand = { inks, crown: { foot, leaves } }
 
 export const paintRealCanopy = (ctx: Ctx2D, desc: LayerOf<'canopy'>, env: PaintEnv): void => paintCanopy(ctx, desc, env, NATURAL)

@@ -24,6 +24,26 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v))
 export const directK = (world: WorldState) => clamp01(world.light.shares.sun + 0.45 * world.light.shares.moon)
 
 /**
+ * The share of a cast shadow's run that comes toward the eye (0–1): the light ahead, behind what it falls on, throws it
+ * forward; a light from the side or behind the eye throws none toward it.
+ */
+export function towardOf(dir: WorldState['light']['dir']): number {
+  const flat = Math.hypot(dir.across, dir.ahead)
+  return flat > 1e-3 ? clamp01(dir.ahead / flat) : 0
+}
+
+/** A shadow's whole run on level ground per unit of the height that casts it (the light's cotangent), held to the cast's longest. */
+export const runOf = (altitude: number) => Math.min(2.5, 1 / Math.tan(Math.max(3, altitude) * Math.PI / 180))
+
+/**
+ * Where a place's walls are faced in its own limestone (0–1): the Judean hills and the Dead Sea's western shore, where the
+ * stone facing is the custom and Jerusalem's bylaw. By where the place stands, so it holds at every hour.
+ */
+export function stoneOf({ lat, lon }: { lat: number; lon: number }): number {
+  return smoothstep(31.1, 31.3, lat) * (1 - smoothstep(31.9, 32.05, lat)) * smoothstep(34.92, 35.0, lon) * (1 - smoothstep(35.45, 35.52, lon))
+}
+
+/**
  * The light the glyphs share: dark, direct light, each face's share of it by its normal (`faces`), cast shadow away from
  * the light, lit windows, aviation lights, lean.
  */
@@ -40,7 +60,8 @@ export function shineOf(world: WorldState): Shine {
     // The low sun's glint in the glass of the faces turned to it (strongest a little over the horizon, none at noon).
     glint: clamp01(light.shares.sun * 1.4) * (1 - smoothstep(6, 22, light.altitude)) * smoothstep(-1, 1.5, light.altitude),
     cast: { dx: light.shadow.dx, length: Math.min(2.5, light.shadow.length),
-      alpha: 0.55 * direct * (1 - light.shadow.softness) * moonK },
+      alpha: 0.55 * direct * (1 - light.shadow.softness) * moonK, toward: towardOf(light.dir), run: runOf(light.altitude) },
+    stone: stoneOf(world.place),
     // `litShare` is how lit the evening is (1 from 17 to 23 h); about two windows in five are lit then.
     windows: 0.4 * night.litShare * on,
     aviationStrength,

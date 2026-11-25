@@ -73,13 +73,15 @@ try {
         assert.ok(colors.light.walls >= 20, 'measure the light on shaded walls')
         for (const ratio of colors.light.ratio) band(ratio, ...WALL_LIGHT, 'wall light / ground light, B/R, over the expected sky and bounce')
         assert.ok(colors.light.skyOnly > WALL_LIGHT[1], 'the band must refuse a wall lit by the sky alone')
-        band(m.front, .67, .94, 'shaded wall/ground')
+        // The ground-relative lows (×~.88, Nov 2026): the ground under a town is now lived-on land, dustier and paler than the
+        // open hillside these bands were first measured on.
+        band(m.front, .59, .94, 'shaded wall/ground')
         assert.ok(m.n.roof >= 80, 'flat caps should resolve including beside clay roofs')
-        band(m.roof, .86, 1.50, 'flat roof/ground')
+        band(m.roof, .75, 1.50, 'flat roof/ground')
         // Tiberias: 1.645 while the "פני הים" label kept one block of the front row off the picture, 1.664 with the block drawn
         // (its shaded front joins the fronts' median; no other wall's pixel changed).
-        band(m.roof / m.front, 1.18, 1.67, 'flat roof/front')
-        band(m.sun, .78, 1.12, 'sunward return/ground')
+        band(m.roof / m.front, 1.17, 1.67, 'flat roof/front')
+        band(m.sun, .69, 1.12, 'sunward return/ground')
         band(m.spread, .11, .24, 'all-neighbour spread')
         // Tel Aviv's brightest roof pixel kept its own light (.353 to .358, one sRGB level) while the clouds at the horizon
         // beside it darkened (.319 to .305): 1.11 to 1.17 of the horizon.
@@ -89,7 +91,7 @@ try {
         assert.ok(m.highpass <= (place === 'tiberias' ? 1.36 : 1.34) * preStage7FineRms[place], '1 px high-pass RMS exceeds the relief limit')
         if (place === 'rosh-pina') {
           assert.ok(m.n.tile >= 100, 'clay planes should resolve')
-          band(m.tile, .64, .85, 'clay roof/ground')
+          band(m.tile, .56, .85, 'clay roof/ground')
           const maxRed = Math.min(m.horizonRed, Math.floor(.97 * m.horizonRed) + 4)
           assert.ok(Math.round(m.tileRed * m.horizonRed) <= maxRed, `tile red exceeds ${maxRed} with raster tolerance`)
         }
@@ -115,7 +117,7 @@ try {
         // Twilight gold on the shrine: 21 pixels near byte 77, where one sRGB level is .003 of linear chroma (.0438 to .0479).
         band(m.chroma, time === '1200' ? .09 : .04, .20, 'gold chroma')
         if (time !== '1200') {
-          band(m.dome, 2.1, 3.1, 'gold/ground')
+          band(m.dome, 1.95, 3.1, 'gold/ground') // 1.95: the paler lived-on ground under the town (Nov 2026)
           band(m.spread, .10, .24, 'twilight neighbour spread')
         }
       }

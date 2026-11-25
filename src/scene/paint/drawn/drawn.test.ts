@@ -5,7 +5,10 @@ import { billows } from './billows'
 import { paintDrawnSheet } from './cloudSheet'
 import type { SkyForm } from './outsideOwn'
 import { townBodies, type Box } from './townBlocks'
-import { townLight } from './townLight'
+import { planesOf, townLight } from './townLight'
+import { townEdges } from './townSilhouette'
+import { lightness } from '../../model/tone'
+import type { Tones } from '../../model/types'
 
 const sheet = (alpha: number[]) => ({ kind: 'cloudSheet', id: 'cloudSheet.low', lattice: 'low', genus: 'cu', xs: [0, 100, 200],
   ys: [0, 100, 200, 300], alpha, tone: alpha.map(() => 0.5), body: [0.6, 0.6, 0.65], shade: [0.3, 0.3, 0.35],
@@ -75,5 +78,57 @@ describe('drawn town', () => {
     expect(even.right - even.left).toBeGreaterThan(0.25)
     const sides = Array.from({ length: 41 }, (_, n) => townLight(shine((n - 20) / 20, 1), form(0)).right)
     for (let n = 1; n < sides.length; n++) expect(Math.abs(sides[n] - sides[n - 1])).toBeLessThan(0.16)
+  })
+
+  it('cuts a plank into a terrace of houses, stands a low one up and folds a sliver into a flat patch', () => {
+    const planks = townBodies([box({ x: 20, w: 9, top: 99, foot: 100, roof: 'flat', seed: 5 }), box({ x: 21, w: 1, top: 99, foot: 100, seed: 6 })])
+      .map((b) => b.block!)
+    expect(planks.length).toBeGreaterThan(1)
+    for (const b of planks) {
+      expect(b.foot - b.top).toBeGreaterThanOrEqual(1.4)
+      expect(b.w).toBeLessThanOrEqual(2.5 * (b.foot - b.top) + 1e-9)
+    }
+    const sliver = townBodies([box({ x: 60, w: 3, top: 99.5, foot: 100, seed: 7 })])[0].block!
+    expect(sliver.low).toBe(true)
+  })
+
+  it('keys the outside of the massing only: a join over a body behind, nothing where a body in front carries it', () => {
+    const bodies = townBodies([box({ x: 10, w: 6, top: 80, foot: 100, roof: 'flat', seed: 1 }),
+      box({ x: 14, w: 6, top: 90, foot: 104, roof: 'flat', seed: 2 })])
+    const [rear, near] = bodies.map((b) => b.block!)
+    const edges = townEdges(bodies)
+    // The near body's left side stands over the rear one: a joint where it does, the key below the rear's foot.
+    expect(edges.get(near)!.left.map((r) => r.key)).toEqual([false, true])
+    // The rear body's right side runs behind the near one: nothing there, the key above it.
+    expect(edges.get(rear)!.right).toEqual([{ from: 80, to: 90, key: true }])
+    expect(edges.get(rear)!.top.every((r) => r.key)).toBe(true)
+  })
+
+  it('lets a wall under a dull sky fall below its plaster, and lifts it only in the direct light', () => {
+    const form = { strength: 1, side: -0.8, tiers: [] } as unknown as SkyForm
+    const shine = (direct: number) => ({ night: 0, direct, glint: 0,
+      faces: { front: 0.6, left: 0.2, right: 0, top: 0.5, rim: 0, across: -0.3 } }) as unknown as Shine
+    const grey = (v: number): [number, number, number] => [v, v, v]
+    const t = { lit: grey(0.9), stoneLit: grey(0.9), shade: grey(0.3), deep: grey(0.1), rim: grey(0.8) } as unknown as Tones
+    const plaster = grey(0.5)
+    const dull = planesOf(t, townLight(shine(0), form), plaster, 0.5), sun = planesOf(t, townLight(shine(0.9), form), plaster, 0.5)
+    expect(Math.max(lightness(dull.front), lightness(dull.side))).toBeLessThan(lightness(plaster))
+    expect(Math.max(lightness(sun.front), lightness(sun.side))).toBeGreaterThan(lightness(plaster))
+  })
+  it('prints a front turned from the sun at its shade, and anchors a dull town to its ground', () => {
+    const form = { strength: 1, side: -0.8, tiers: [] } as unknown as SkyForm
+    const shine = (direct: number, front: number) => ({ night: 0, direct, glint: 0,
+      faces: { front, left: 0.45, right: 0, top: 0.75, rim: 0.1, across: -0.3 } }) as unknown as Shine
+    const grey = (v: number): [number, number, number] => [v, v, v]
+    const t = { lit: grey(0.9), stoneLit: grey(0.9), shade: grey(0.3), deep: grey(0.1), rim: grey(0.8) } as unknown as Tones
+    const plaster = grey(0.6)
+    const backlit = planesOf(t, townLight(shine(0.9, 0), form), plaster, 0.5)
+    const sunlit = planesOf(t, townLight(shine(0.9, 0.6), form), plaster, 0.5)
+    expect(lightness(backlit.front)).toBeLessThan(lightness(plaster))
+    expect(lightness(sunlit.front)).toBeGreaterThan(lightness(plaster))
+    const ground = grey(0.25), g = lightness(ground)
+    const dull = planesOf(t, townLight(shine(0, 0), form), plaster, 0.5, 'far', { ground, k: 1 })
+    expect(Math.abs(lightness(dull.front) - (g + 0.02))).toBeLessThan(0.005)
+    expect(Math.abs(lightness(dull.side) - (g - 0.06))).toBeLessThan(0.005)
   })
 })

@@ -84,6 +84,7 @@ export function outsideLayer(world: WorldState, box: SceneBox, clear: readonly B
     light: { key: layerKey('outside:light', formKey, tones.map(tonesKey), shape.marks.map((m) => Math.round(m.km / KM_STEP)),
       glyphAtmosphereKey(out.flatMap((i) => i.kind === 'mark' ? [i.glyph] : [])), Math.round(world.light.across * 64),
       [facesKey(shine), Math.round(shine.night * 64), Math.round(shine.direct * 64), Math.round(shine.cast.dx * 32), Math.round(shine.cast.alpha * 64),
+        Math.round(shine.cast.length * 16), Math.round((shine.cast.toward ?? 0) * 32), Math.round((shine.cast.run ?? 0) * 16),
         Math.round(shine.windows * 64), Math.round(shine.lean * 100), Math.round((shine.sway ?? 0) * 200)], seaKey,
       sea && Math.round((sea.drift ?? 0) * 4), groundKey, look?.key ?? [receiverLightKey(world), wallKms.map(km => Math.round(hazeAt(world, km) * 255))]),
     blend: 'source-over', tint: tones[0]?.wall ?? [0.2, 0.2, 0.25] },

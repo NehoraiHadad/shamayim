@@ -4,7 +4,11 @@ import type { LayerOf, RGB } from '../../model/types'
 export type SkyForm = { strength: number; side: number; tiers: { top: RGB; face: RGB; foot: RGB }[] }
 
 /** What this hand's light (`light/outsideLook.ts`) adds to the outside layer for its painter (`town.ts`): the desc's `own`. */
-export type OwnOutside = { form: SkyForm }
+export type OwnOutside = {
+  form: SkyForm
+  /** The ink the near plane prints the town's ground in (`light/meet`): set where the plane cuts the town's seats. */
+  ground?: RGB
+}
 
 /**
  * The sky's form over the town. A layer without it was lit for another hand: a fault of the caller's, loud in dev and

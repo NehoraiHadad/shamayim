@@ -3,7 +3,7 @@ import type { CanopyTones } from '../canopyTones'
 import type { Lamp } from './lamp'
 import type { PlantWind } from '../landWind'
 import type { ReceiverShadow } from '../planeCloudShadow'
-import type { Box, LayerBase, LightPart } from './base'
+import type { Box, LayerBase, LightPart, Plain } from './base'
 
 /**
  * Land, plane and outside-ground scene-model descriptors (Stage C2 + Living Land Stage 3).
@@ -108,8 +108,19 @@ export interface OutsideLandDesc {
   rim: RGB
 }
 
+/**
+ * The place standing on the near plane, for its painters alone (paint quality, never placement): its own bodies as
+ * `x` (centre), `w`, `foot`, `top` (px, four numbers each, back to front), its trees as `x`, `base`, `w`, `h`, and the top
+ * of its own ground over the ridge line (`OutsideLandDesc.top`); `key` names all of it.
+ */
+export interface PlaneTown { bodies: number[]; trees: number[]; land: Pt[] | null; key: string }
+
 export type LandLayers =
   | LayerBase & { kind: 'plane'; plane: 'back' | 'far' | 'near'; outline: Pt[]; fill: RGB; surfaceTone: PlanePalette;
-      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow; lamp?: Lamp }
+      gullies: Gully[]; terraces: Path[]; vegetation: PlaneVegetation; grain: Grain; light: PlaneLight; canopyId?: string; cloudShadow?: ReceiverShadow; lamp?: Lamp
+      /** The near plane's town (`planeTown`). */
+      town?: PlaneTown
+      /** What a style's own light adds for its painter alone (`StyleLight.meet`). */
+      own?: Plain }
   | LayerBase & { kind: 'canopy'; outline: Pt[]; vegetation: CanopyVegetation; wind: PlantWind; clear: readonly Box[]; receiver?: { form: string }; cloudShadow?: ReceiverShadow;
       tones?: CanopyTones; shadedTones?: CanopyTones & { key: string } }

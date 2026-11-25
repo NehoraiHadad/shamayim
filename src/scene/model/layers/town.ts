@@ -38,7 +38,13 @@ export interface Shine {
   faces: { front: number; left: number; right: number; top: number; rim: number; across: number }
   /** A low sun's glint in the windows of the faces turned to it (0–1). */
   glint?: number
-  cast: { dx: number; length: number; alpha: number }
+  /**
+   * For a hand that lays the cast on the ground: `toward`, the share of its run that comes toward the eye (0–1, a light
+   * ahead of it); `run`, its whole run on level ground per px of height (`length` is the run across the screen alone).
+   */
+  cast: { dx: number; length: number; alpha: number; toward?: number; run?: number }
+  /** How far the place's walls are faced in its own limestone (0–1, by where it stands, not the light), for a hand that paints it. */
+  stone?: number
   windows: number
   /** Continuous aviation lamp strength (0–1). */
   aviationStrength: number
