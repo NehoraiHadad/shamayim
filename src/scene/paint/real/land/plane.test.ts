@@ -1,13 +1,13 @@
 import { expect, it } from 'vitest'
-import { TEXEL } from '../../../model/planeBands'
 import type { Lamp } from '../../../model/layers/lamp'
 import type { LayerOf, PlaneLitField, Pt, RGB } from '../../../model/types'
 import { EMPTY_VEGETATION } from '../../../model/vegDescriptor'
 import { HAND, type Ctx2D, type PaintEnv } from '../../shared/base/hand'
 import { paintPlaneLight } from '../../shared/land/planeLight'
-import { paintRealPlane } from './plane'
+import { paintRealPlane, TEXELS } from './plane'
 
-const W = 180, H = 90, COLS = W / TEXEL
+/** The near plane's raster: its columns, and its texels per 3 px. */
+const W = 180, H = 90, COLS = W / TEXELS.near, PER = 3 / TEXELS.near
 const outline: Pt[] = [[0, 6], [W, 6], [W, H], [0, H]]
 const field = (sun: number, haze = 0): PlaneLitField => ({
   cols: 1, rows: 1, grid: new Uint8Array([110, 0, 200, haze]),
@@ -32,7 +32,7 @@ function raster(paint: typeof paintRealPlane, layer: LayerOf<'plane'>): Uint8Cla
   return pixels!
 }
 
-const mean = (pixels: Uint8ClampedArray, from = 4 * COLS * 3): RGB => {
+const mean = (pixels: Uint8ClampedArray, from = 4 * COLS * 3 * PER): RGB => {
   const sum = [0, 0, 0]
   for (let o = from; o < pixels.length; o += 4) for (let c = 0; c < 3; c++) sum[c] += pixels[o + c]
   return sum.map((s) => s / ((pixels.length - from) / 4) / 255) as unknown as RGB
@@ -51,15 +51,15 @@ it('turns a fold\'s banks as the light crosses, and lights none of it without a 
   const banks = (x: number, sun = 1) => {
     const cut = raster(paintRealPlane, desc(field(sun), lamp(x), gully)), whole = raster(paintRealPlane, desc(field(sun), lamp(x)))
     let side = 0
-    // Fourteen texels down, the two texels each side of the bed: what the fold alone changes.
-    for (let j = 8; j < 14; j++) for (const d of [1, 2]) {
+    // 24–42 px down, 6 px each side of the bed: what the fold alone changes.
+    for (let j = 8 * PER; j < 14 * PER; j++) for (let d = 1; d <= 2 * PER; d++) {
       const at = (i: number) => cut[4 * (j * COLS + i) + 1] - whole[4 * (j * COLS + i) + 1]
       side += at(COLS / 2 - 1 + d) - at(COLS / 2 - d)
     }
     return side
   }
-  expect(banks(30)).toBeGreaterThan(20)
-  expect(banks(150)).toBeLessThan(-20)
+  expect(banks(30)).toBeGreaterThan(20 * PER * PER)
+  expect(banks(150)).toBeLessThan(-20 * PER * PER)
   expect(raster(paintRealPlane, desc(field(0), lamp(30), gully))).toEqual(raster(paintRealPlane, desc(field(0), lamp(150), gully)))
 })
 
