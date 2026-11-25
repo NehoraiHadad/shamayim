@@ -1,14 +1,24 @@
 import { fullMoonRise } from './fullMoonRise'
+import { haloChance } from './haloChance'
 import { lunarEclipse } from './lunarEclipse'
+import { lunarOccultation } from './lunarOccultation'
 import { meteorShower } from './meteorShower'
+import { milkyWayWindow } from './milkyWayWindow'
+import { moonByStar } from './moonByStar'
 import { planetByMoon } from './planetByMoon'
+import { planetPair } from './planetPair'
 import { rainbowChance } from './rainbowChance'
 import { seen } from './seen'
+import { solarEclipse } from './solarEclipse'
+import { thinEveningCrescent } from './thinEveningCrescent'
 import type { Detector, EventSky, SpecialEvent } from './types'
 
 export { eventSky } from './sky'
 
-const DETECTORS: readonly Detector[] = [lunarEclipse, meteorShower, planetByMoon, rainbowChance, fullMoonRise]
+const DETECTORS: readonly Detector[] = [
+  solarEclipse, lunarEclipse, lunarOccultation, meteorShower, planetPair, planetByMoon, moonByStar,
+  fullMoonRise, thinEveningCrescent, milkyWayWindow, rainbowChance, haloChance,
+]
 
 /** Viewing opportunities through the next sunrise, ordered by confidence, rarity and time. */
 export function eventsOf(sky: EventSky, detectors: readonly Detector[] = DETECTORS): SpecialEvent[] {
@@ -18,4 +28,5 @@ export function eventsOf(sky: EventSky, detectors: readonly Detector[] = DETECTO
 }
 
 /** The one event to tell, or null on most days. */
-export const specialEvent = (sky: EventSky): SpecialEvent | null => eventsOf(sky)[0] ?? null
+export const specialEvent = (sky: EventSky, additional: readonly Detector[] = []): SpecialEvent | null =>
+  eventsOf(sky, [...DETECTORS, ...additional])[0] ?? null

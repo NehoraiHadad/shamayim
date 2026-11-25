@@ -20,13 +20,26 @@ function viewingOf({ cloud, weatherDependent }: Candidate, sky: EventSky, ms: nu
   return thick > (cloud.thick ?? 1) * 0.75 || all > (cloud.all ?? 1) * 0.75 ? 'cloud-dependent' : 'expected'
 }
 
-/** The runs of looks at which the place sees it: over the land, in the dark it needs, through the clouds. */
-function runsOf(c: Candidate, sky: EventSky): Look[][] {
-  const step = (c.stepMin ?? 10) * MINUTE, runs: Look[][] = []
-  let run: Look[] | null = null
+function samplesOf(c: Candidate, sky: EventSky): number[] {
   const from = Math.max(c.from, sky.from), to = Math.min(c.to, sky.to)
-  // Now, when it has begun, and then on round times.
+  if (from > to) return []
+  if (from === to) return [from]
+  const step = (c.stepMin ?? 10) * MINUTE
+  const samples = new Set((c.sampleAt ?? []).filter((ms) => ms >= from && ms <= to))
+  if (c.peakAt !== undefined && c.peakAt >= from && c.peakAt <= to) samples.add(c.peakAt)
   for (let ms = c.from < from ? from : Math.ceil(from / step) * step; ms <= to; ms = (Math.floor(ms / step) + 1) * step) {
+    samples.add(ms)
+  }
+  return [...samples].sort((a, b) => a - b)
+}
+
+const directionOf = ({ azimuth, altitude }: Direction): Direction => ({ azimuth, altitude })
+
+/** The runs of looks at which the place sees it: over the land, in the light it needs, through the clouds. */
+function runsOf(c: Candidate, sky: EventSky): Look[][] {
+  const runs: Look[][] = []
+  let run: Look[] | null = null
+  for (const ms of samplesOf(c, sky)) {
     const at = c.at(ms)
     const viewing = at && sky.clear(at) && dark(c, sky, ms) ? viewingOf(c, sky, ms) : null
     if (!at || !viewing) { run = null; continue }
@@ -41,12 +54,18 @@ function runsOf(c: Candidate, sky: EventSky): Look[][] {
 export function seen(c: Candidate, sky: EventSky): SpecialEvent | null {
   const runs = runsOf(c, sky)
   if (!runs.length) return null
-  const best = runs.flat().reduce((a, b) => a.viewing === b.viewing
-    ? (b.score > a.score ? b : a)
-    : (b.viewing === 'expected' ? b : a))
-  const [look, last] = c.tell === 'at' ? [best, best] : [runs[0][0], runs[0].at(-1)!]
-  const viewing = c.tell === 'span' && runs[0].some((p) => p.viewing === 'cloud-dependent') ? 'cloud-dependent' : look.viewing
+  // Prefer a usable clear window over one in which every sample depends on breaks in the clouds.
+  const run = runs.find((looks) => looks.every((look) => look.viewing === 'expected')) ?? runs[0]
+  const best = c.tell === 'at' ? runs.flat().reduce((a, b) => a.viewing === b.viewing
+    ? (b.score > a.score ? b : a) : (b.viewing === 'expected' ? b : a)) : null
+  const look = best ?? run[0], last = best ?? run.at(-1)!
+  const viewing = c.tell === 'span' && run.some((p) => p.viewing === 'cloud-dependent') ? 'cloud-dependent' : look.viewing
   const local = (ms: number) => nowIn(sky.place.timezone, new Date(ms))
-  return { what: c.what, perYear: c.perYear, viewing, where: { azimuth: look.azimuth, altitude: look.altitude },
-    when: { from: local(look.ms), to: local(last.ms), tell: c.tell } }
+  const peak = c.peakAt === undefined ? undefined : run.find((p) => p.ms === c.peakAt)
+  return { what: c.what, perYear: c.perYear, viewing, where: directionOf(look),
+    when: { from: local(look.ms), to: local(last.ms), tell: c.tell },
+    ...(c.kind && { kind: c.kind }),
+    ...(peak && { peak: local(peak.ms) }),
+    ...(c.track && { track: { to: directionOf(last) } }),
+    ...(c.approximateTime && { approximateTime: c.approximateTime }) }
 }

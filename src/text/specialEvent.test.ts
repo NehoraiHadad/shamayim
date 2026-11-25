@@ -14,7 +14,7 @@ describe('the special event\'s line', () => {
     expect(specialEventText(event({ from: '2026-11-24T19:40', to: '2026-11-24T23:00', tell: 'from' }, 225, 50), NOW))
       .toBe(`צדק ליד הירח · צפוי להיראות הערב מ־${ltr('19:40')} · גבוה בדרום־מערב`)
     expect(specialEventText(event({ from: '2026-11-24T15:00', to: '2026-11-24T16:30', tell: 'span' }), NOW))
-      .toBe(`צדק ליד הירח · צפוי להיראות היום ${ltr('15:00')}–${ltr('16:30')} · במזרח`)
+      .toBe(`צדק ליד הירח · צפוי להיראות היום ${ltr('15:00')}\u2060–\u2060${ltr('16:30')} · במזרח`)
     expect(specialEventText(event(at('2026-11-25T01:30'), 180, 80), NOW)).toBe(`צדק ליד הירח · צפוי להיראות הלילה ב־${ltr('01:30')} · כמעט מעל הראש`)
     expect(specialEventText(event(at('2026-11-25T05:10'), 350), NOW)).toBe(`צדק ליד הירח · צפוי להיראות מחר ב־${ltr('05:10')} · בצפון`)
     expect(specialEventText(event(at('2026-11-25T05:10')), '2026-11-25T02:00')).toBe(`צדק ליד הירח · צפוי להיראות הבוקר ב־${ltr('05:10')} · במזרח`)
@@ -32,5 +32,22 @@ describe('the special event\'s line', () => {
       .toBe(`סופרמון · ייתכן שייראה הערב ב־${ltr('17:30')} · נמוך בצפון־מזרח`)
     expect(specialEventText({ ...example, what: 'תיתכן קשת בענן', viewing: 'weather-dependent' }, NOW))
       .toBe(`תיתכן קשת בענן · הערב ב־${ltr('17:30')} · נמוך בצפון־מזרח`)
+  })
+
+  it('includes the eclipse peak and eye safety in both expected and uncertain conditions', () => {
+    const eclipse: SpecialEvent = { ...event({ from: '2026-11-24T13:00', to: '2026-11-24T15:00', tell: 'span' }),
+      what: 'ליקוי חמה חלקי', kind: 'solar-eclipse', peak: '2026-11-24T14:00' }
+    for (const viewing of ['expected', 'cloud-dependent'] as const) {
+      const text = specialEventText({ ...eclipse, viewing }, NOW)
+      expect(text).toContain(`שיא ב־${ltr('14:00')}`)
+      expect(text).toContain('משקפי ליקוי תקניים (ISO 12312‑2)')
+    }
+    expect(specialEventText({ ...eclipse, kind: 'solar-halo' }, NOW)).toContain('הימנעו ממבט ישיר אליה')
+  })
+
+  it('describes the direction of motion and approximate occultation times', () => {
+    const pass = { ...event(at('2026-11-24T17:30'), 270, 20), track: { to: { azimuth: 45, altitude: 20 } } }
+    expect(specialEventText(pass, NOW)).toContain('ממערב לצפון־מזרח')
+    expect(specialEventText({ ...event(at('2026-11-24T17:30')), approximateTime: true }, NOW)).toContain(`סביב ${ltr('17:30')}`)
   })
 })

@@ -46,6 +46,7 @@ Open-Meteo's free tier limits requests per IP address, so many users behind one 
 | `GET /v1/air-quality` | `air-quality-api.open-meteo.com/v1/air-quality` | 60 min | up to 12 h |
 | `GET /v1/elevation` | `api.open-meteo.com/v1/elevation` (no longer called by the app since the horizon panorama; kept for older clients) | 30 days | any age |
 | `GET /v1/live` | IMS stations (hourly cron, KV), see below | 5 min | 3 h |
+| `GET /v1/comets` | COBS visual observations, NASA/JPL Horizons (daily cron, KV) | 5 min | up to 30 h from collection and subject to observation expiry |
 
 - Only the query parameters the app sends are forwarded (per-route allowlist, coordinates checked and rounded to 4 decimals, at most 50 elevation points); anything else is a 400, unknown paths 404, non-GET 405.
 - `X-Fetched-At` (epoch ms) says when the data left Open-Meteo; the app uses it as `fetchedAt`, so a shared copy is not shown as "updated now". `X-Cache` is `HIT`, `MISS` or `STALE`.
@@ -89,6 +90,16 @@ including the rain probability the app shows. Nothing in production reads it: af
 (and deserve a place in it) and whether the rain probability is calibrated. Entries are gzipped (~160 kB, 4 a day) and
 expire after 13 months: a full year of seasons is about 250 MB of the free plan's 1 GB.
 
+**Bright comets (`GET /v1/comets`).** The 10:15 UTC daily Worker job filters and aggregates visual total-magnitude
+observations from the [COBS Comet Observation Database](https://cobs.si/) and its observers worldwide. The aggregate
+is distributed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) for noncommercial use.
+It requires agreement between two distinct observers, with estimates at most 48 and 96 hours old, and uses the
+fainter estimate. A recent unaided sighting supports a smaller brightness margin than an instrumented estimate.
+[NASA/JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) supplies the apparent positions and solar elongation. The app
+accounts for twilight, moonlight, local sky glow, haze, clouds and the terrain horizon. When the
+observations, ephemeris or forecast cannot support naked-eye viewing, the line is omitted. The Worker uses the existing
+`LIVE` KV binding. The browser reads only the Worker snapshot, which expires 30 hours after collection.
+
 **Order when the app asks Open-Meteo for something new** (a new hourly/current variable, a new parameter): the Worker
 refuses any name it does not list, so a production app that sends it before the Worker knows it gets 400 for every
 forecast (this took the forecast down on 2026-11-18). Always:
@@ -104,6 +115,20 @@ curl -s -o /dev/null -w "%{http_code}\n" -H "Origin: https://shamayim.pages.dev"
   "https://shamayim-api.nehoraihadad.com/v1/forecast?latitude=32.348&longitude=35.535&hourly=cloud_cover_high"
 # 200 = the Worker knows the name; 400 = not deployed yet (do not merge the app change)
 ```
+
+## Special sky events
+
+The app chooses at most one event through the next sunrise. It checks daylight, terrain and the hourly forecast at
+the selected place, favors windows with better viewing conditions, and uses rarity to rank comparable opportunities.
+Atmospheric effects such as halos use conditional wording. A missing or expired data source leaves the related event hidden.
+
+Local calculations include lunar encounters, bright planet pairs, a thin evening crescent, and a moonless window for the
+Milky Way at dark sites. Lunar occultation times are approximate and limited to the catalog of bright targets. The solar
+eclipse table covers 2026–2037. Eclipse Predictions by Fred Espenak, NASA's GSFC. See [NASA's solar eclipse safety guidance](https://science.nasa.gov/eclipses/safety/).
+
+ISS sightings use current orbital elements from [Where the ISS at?](https://wheretheiss.at/w/developer) and SGP4 propagation.
+The browser requests orbital elements without sending the selected place. Bright comets use the optional Worker feed
+documented above. The scheduled collector and feed become available when that Worker version is deployed.
 
 ## Structure
 

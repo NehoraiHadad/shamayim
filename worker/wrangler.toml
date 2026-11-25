@@ -21,9 +21,10 @@ enabled = true
 # Live correction (src/live.ts): once an hour, 25 minutes past (IMS readings arrive ~20 min late), read the IMS
 # station network and store each station's current forecast anomaly for `/v1/live`.
 # Forecast log (src/forecastLog.ts): every 6 hours, keep the IMS and Open-Meteo forecasts for later verification.
-# The second expression must match FORECAST_LOG_CRON in src/index.ts.
+# Comets (src/comets.ts): refresh observed brightness and ephemerides once a day for `/v1/comets`.
+# The last two expressions must match FORECAST_LOG_CRON and COMETS_CRON in the Worker source.
 [triggers]
-crons = ["25 * * * *", "40 */6 * * *"]
+crons = ["25 * * * *", "40 */6 * * *", "15 10 * * *"]
 
 # Temporary (src/voteLimit.ts): the style vote's requests from one address, and the votes of everyone, per location.
 [[ratelimits]]
