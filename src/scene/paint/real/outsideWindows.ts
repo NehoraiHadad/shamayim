@@ -69,7 +69,9 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'de
     // Storeys too fine to stand apart: their window rows as a fine horizontal texture, a row every px or so.
     const pitch = storey * Math.ceil(ROW_PITCH / storey), face = Math.min(1, b.w * .26)
     ctx.fillStyle = css(recess, ROWS * (1 - .5 * s.night))
-    for (let y = b.top + BOX_WINDOW_INSET_TOP; y + ROW_H < b.foot - .5; y += pitch) ctx.fillRect(x0 + face, y, b.w - 1.8 * face, ROW_H)
+    ctx.beginPath()
+    for (let y = b.top + BOX_WINDOW_INSET_TOP; y + ROW_H < b.foot - .5; y += pitch) ctx.rect(x0 + face, y, b.w - 1.8 * face, ROW_H)
+    ctx.fill()
   }
 }
 
@@ -122,7 +124,9 @@ export function paintTowerWindows(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lam
     // Storeys too fine to stand apart: window rows as a fine horizontal texture down the shaft.
     const pitch = storey * Math.ceil(ROW_PITCH / storey)
     ctx.fillStyle = css(windowRecess, ROWS * (1 - .5 * s.night))
-    for (let y = shaftTop + 1; y + ROW_H < tw.base - 1.2; y += pitch) ctx.fillRect(x0 + faceW, y, tw.w - 2 * faceW, ROW_H)
+    ctx.beginPath()
+    for (let y = shaftTop + 1; y + ROW_H < tw.base - 1.2; y += pitch) ctx.rect(x0 + faceW, y, tw.w - 2 * faceW, ROW_H)
+    ctx.fill()
   }
   if (tw.full || tw.storeys >= 30) lamps.push(aviationLamp(tw.x, tipY - .4, s))
 }
