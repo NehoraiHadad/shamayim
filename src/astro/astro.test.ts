@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moonEquatorial, moonIllumination } from './moon'
+import { moonEquatorial, moonIllumination, moonPosition } from './moon'
 import { sunEquatorial, sunPosition } from './sun'
 import { utcOf } from './utc'
 
@@ -17,6 +17,14 @@ describe('astronomy', () => {
     expect(moonIllumination(new Date('2026-11-17T12:00:00Z')).waxing).toBe(true)
     expect(moonIllumination(new Date('2026-11-28T12:00:00Z')).waxing).toBe(false)
   })
+
+  // JPL Horizons, Haifa (32.813° N, 34.9993° E), topocentric angular diameter in arcseconds.
+  it.each([['2026-11-13T16:00:00Z', 1774.241], ['2026-11-25T16:00:00Z', 1999.647]])(
+    'matches the lunar diameter at %s within three arcseconds', (at, publishedDiameter) => {
+      const moon = moonPosition(new Date(at), 32.813, 34.9993)
+      expect(Math.abs(2 * moon.angularRadiusDeg * 3600 - publishedDiameter)).toBeLessThan(3)
+    },
+  )
 
   it('places the sun and moon together at the solar eclipse', () => {
     // Gamma 0.898: the shadow axis passes far north of the Earth's centre, so seen from the centre the discs sit

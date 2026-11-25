@@ -15,7 +15,7 @@ it('dims the moon beam under a thin cirrostratus veil', () => {
     skyline: FLAT_SKYLINE, sunSkyline: FLAT_SKYLINE, palette, camera: SCENE_CAMERA,
     farFade: 0, aerosol: { visibilityKm: 30, dustWeight: 0 },
     sun: { ...body, altitude: -20, azimuth: 0, visible: 0, t: null, clearance: -50 },
-    moon: { ...body, altitude: 50, azimuth: 180, illumination: 1, tilt: 0, phase: 0.5 },
+    moon: { ...body, altitude: 50, azimuth: 180, illumination: 1, tilt: 0, phase: 0.5, angularRadiusDeg: 0.26 },
   }
   const clear = lightOf({ ...input, covers: { low: 0, mid: 0, high: 0 } })
   const covers = { low: 0, mid: 0, high: 0.85 }

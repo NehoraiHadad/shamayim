@@ -17,30 +17,49 @@ describe('the special event of a place', () => {
   })
 
   it('tells the full moon rising near sunset, on its one evening', () => {
-    expect(kinds(openSky('2026-11-24T12:00'))).toEqual(['ירח מלא זורח'])
-    expect(kinds(openSky('2026-11-23T12:00'))).toEqual([])
-    expect(kinds(openSky('2026-11-25T12:00'))).toEqual([])
-    const [event] = eventsOf(openSky('2026-11-24T12:00'))
+    expect(kinds(openSky('2026-10-26T12:00'))).toEqual(['ירח מלא זורח'])
+    expect(kinds(openSky('2026-10-25T12:00'))).toEqual([])
+    expect(kinds(openSky('2026-10-27T12:00'))).toEqual([])
+    const [event] = eventsOf(openSky('2026-10-26T12:00'))
     expect(event.when.tell).toBe('at')
-    expect(event.when.from >= '2026-11-24T16:15' && event.when.from <= '2026-11-24T16:30').toBe(true)
+    expect(event.when.from >= '2026-10-26T16:55' && event.when.from <= '2026-10-26T17:10').toBe(true)
     expect(event.where.azimuth).toBeGreaterThan(55)
     expect(event.where.azimuth).toBeLessThan(70)
   })
 
   it('drops what is past, what the clouds hide and what stands behind the land', () => {
-    expect(kinds(openSky('2026-11-24T19:00'))).toEqual([])
-    expect(kinds(openSky('2026-11-24T12:00', clouds(90)))).toEqual([])
-    const sky = openSky('2026-11-24T12:00')
+    expect(kinds(openSky('2026-10-26T19:00'))).toEqual([])
+    expect(kinds(openSky('2026-10-26T12:00', clouds(90)))).toEqual([])
+    const sky = openSky('2026-10-26T12:00')
     expect(kinds({ ...sky, clear: ({ altitude }) => altitude > 12 })).toEqual([])
     const [late] = eventsOf({ ...sky, clear: ({ altitude }) => altitude > 5 })
-    expect(late.when.from > '2026-11-24T16:40').toBe(true)
+    expect(late.when.from > '2026-10-26T17:15').toBe(true)
   })
 
   it('says what is under way now, to its end', () => {
-    const [moon] = eventsOf(openSky('2026-11-24T16:45'))
-    expect(moon).toMatchObject({ what: 'ירח מלא זורח', when: { from: '2026-11-24T16:45' } })
+    const [moon] = eventsOf(openSky('2026-10-26T17:20'))
+    expect(moon).toMatchObject({ what: 'ירח מלא זורח', when: { from: '2026-10-26T17:20' } })
     // The total phase of 2028-12-31 ends at 19:27: a quarter of an hour of it is left.
     expect(kinds(openSky('2028-12-31T19:12'))[0]).toBe('ליקוי ירח מלא')
+  })
+
+  it('tells the November supermoon on both viewing evenings, including after it rises', () => {
+    expect(kinds(openSky('2026-11-23T12:00'))).toEqual([])
+    expect(kinds(openSky('2026-11-24T12:00'))).toEqual(['סופרמון'])
+    const [event] = eventsOf(openSky('2026-11-25T12:00'))
+    expect(event).toMatchObject({ what: 'סופרמון', viewing: 'expected', when: { tell: 'from' } })
+    expect(event.when.from >= '2026-11-25T17:10' && event.when.from <= '2026-11-25T17:25').toBe(true)
+    expect(event.where.azimuth).toBeGreaterThan(55)
+    expect(eventsOf(openSky('2026-11-25T19:00'))[0]).toMatchObject({ what: 'סופרמון', when: { from: '2026-11-25T19:00' } })
+    expect(kinds(openSky('2026-11-26T12:00'))).toEqual([])
+    expect(kinds(openSky('2026-12-24T12:00'))).toContain('סופרמון')
+  })
+
+  it('qualifies borderline viewing and omits a supermoon with no usable forecast', () => {
+    const now = '2026-11-25T12:00'
+    expect(specialEvent(openSky(now, clouds(50)))?.viewing).toBe('cloud-dependent')
+    expect(specialEvent(openSky(now, clouds(90)))).toBeNull()
+    expect(specialEvent({ ...openSky(now), coversAt: () => null })).toBeNull()
   })
 
   it('reads the forecast hour by the clock of the place, also at a quarter to the hour of UT', () => {
@@ -75,19 +94,22 @@ describe('the special event of a place', () => {
 
   it('words a rainbow as a chance, with showers and a low sun, opposite the sun', () => {
     const [event] = eventsOf(openSky('2026-11-18T09:00', (hour) => (hour >= 14 && hour <= 16 ? showers : {})))
-    expect(event).toMatchObject({ what: 'תיתכן קשת בענן', when: { tell: 'span' } })
+    expect(event).toMatchObject({ what: 'תיתכן קשת בענן', viewing: 'weather-dependent', when: { tell: 'span' } })
     expect(event.when.from >= '2026-11-18T13:30' && event.when.to <= '2026-11-18T16:40').toBe(true)
     expect(event.where.azimuth).toBeGreaterThan(20)
     expect(event.where.azimuth).toBeLessThan(80)
     for (const weather of [{ ...showers, cloudLow: 100, cloudCover: 100, thickCloud: 100 }, { ...showers, precipitation: 0 },
-      { ...showers, precipProb: 20 }, { precipProb: 70 }]) expect(kinds(openSky('2026-11-18T09:00', () => weather))).not.toContain('תיתכן קשת בענן')
+      { ...showers, precipProb: 20 }, { ...showers, precipProb: null }, { precipProb: 70 }]) {
+      expect(kinds(openSky('2026-11-18T09:00', () => weather))).not.toContain('תיתכן קשת בענן')
+    }
     // No bow at noon in summer: the sun stands over 42°.
     expect(kinds(openSky('2027-06-25T09:00', (hour) => (hour >= 10 && hour <= 14 ? showers : {})))).toEqual([])
   })
 
   it('takes any detector and tells the rarest first', () => {
-    const at = (what: string, perYear: number) => (sky: EventSky): Candidate[] => [{ what, perYear, tell: 'at', from: sky.from, to: sky.to,
+    const at = (what: string, perYear: number, weatherDependent = false) => (sky: EventSky): Candidate[] => [{ what, perYear, weatherDependent, tell: 'at', from: sky.from, to: sky.to,
       at: () => ({ azimuth: 90, altitude: 30 }) }]
-    expect(eventsOf(openSky('2026-11-18T09:00'), [at('b', 5), at('a', 0.1), at('c', 9)]).map((e) => e.what)).toEqual(['a', 'b', 'c'])
+    expect(eventsOf(openSky('2026-11-18T09:00'), [at('b', 5), at('a', 0.1), at('c', 9), at('d', 0.05, true)]).map((e) => e.what))
+      .toEqual(['a', 'b', 'c', 'd'])
   })
 })

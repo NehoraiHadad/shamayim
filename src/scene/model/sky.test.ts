@@ -11,7 +11,7 @@ import { HAND, type Ctx2D, type PaintEnv } from '../paint/shared/base/hand'
 import { layersOn, sceneModel } from '.'
 import { driftAt, flashAt, strikes } from './anim'
 import { fallingOf } from './falling'
-import { moonDisc, sunDisc } from './bodies'
+import { bodyLayers, MOON_MAGNIFICATION, moonDisc, sunDisc } from './bodies'
 import { brightLimbAngle } from '../../world/moonShape'
 import { skyGeom } from './sky'
 import type { LayerDesc, LayerOf, SceneBox, SceneModel } from './types'
@@ -232,4 +232,20 @@ it('uses the true lunar bearing at six times and when both discs are drawn', () 
   const drawnSunOffset = angleError(moon.tilt, Math.atan2(sun.y - moon.y, sun.x - moon.x) * 180 / Math.PI)
   // At equal altitude and 90° separation, tan(offset) = sin(altitude).
   expect(drawnSunOffset).toBeCloseTo(Math.atan(Math.sin(altitude * Math.PI / 180)) * 180 / Math.PI, 5)
+})
+
+it('uses the same magnification for different lunar sizes and viewport widths', () => {
+  const place = loaded.get('haifa')!
+  const nearby = buildWorld({ ...worldInput(place, '2026-11-25T19:00'), forced: CLEAR })
+  const average = { ...nearby, bodies: { ...nearby.bodies, moon: { ...nearby.bodies.moon, angularRadiusDeg: 0.26 } } }
+  const layerFor = (w: WorldState) => bodyLayers(w, BOX).find((l) => l.moon)!
+  const nearLayer = layerFor(nearby), averageLayer = layerFor(average)
+  const averageRadius = averageLayer.moon!.r
+  const nearRadius = nearLayer.moon!.r
+  expect(averageRadius).toBeCloseTo(0.26 * average.camera.pxPerDeg * MOON_MAGNIFICATION)
+  expect(nearRadius / averageRadius).toBeCloseTo(nearby.bodies.moon.angularRadiusDeg / 0.26)
+  expect(nearRadius / averageRadius).toBeGreaterThan(1.06)
+  expect(moonDisc(nearby, { ...BOX, width: 520 })!.r / nearRadius).toBeCloseTo(520 / BOX.width)
+  expect(nearLayer.bounds.w).toBeGreaterThan(averageLayer.bounds.w)
+  expect(nearLayer.key).not.toEqual(averageLayer.key)
 })

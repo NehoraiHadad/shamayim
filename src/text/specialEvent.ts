@@ -25,6 +25,10 @@ function whenText({ from, to, tell }: SpecialEvent['when'], now: LocalTime): str
   return `${part} ${tell === 'from' ? 'מ־' : 'ב־'}${ltr(clock(from))}`
 }
 
-/** The event in one quiet line: what, when, where to look ("ירח מלא זורח · היום ב־16:52 · נמוך במזרח"). */
-export const specialEventText = (event: SpecialEvent, now: LocalTime): string =>
-  `${event.what} · ${whenText(event.when, now)} · ${whereText(event.where)}`
+/** The event in one line: what, when and where to look, phrased for the viewing forecast. */
+export function specialEventText(event: SpecialEvent, now: LocalTime): string {
+  const time = whenText(event.when, now)
+  const viewing = event.viewing === 'cloud-dependent' ? `ייתכן שייראה ${time}`
+    : event.viewing === 'expected' && event.when.from > now ? `צפוי להיראות ${time}` : time
+  return `${event.what} · ${viewing} · ${whereText(event.where)}`
+}

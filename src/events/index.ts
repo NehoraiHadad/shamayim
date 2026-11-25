@@ -10,11 +10,12 @@ export { eventSky } from './sky'
 
 const DETECTORS: readonly Detector[] = [lunarEclipse, meteorShower, planetByMoon, rainbowChance, fullMoonRise]
 
-/** Everything the place will see from now to the next sunrise, the rarest first (of two as rare, the sooner). */
+/** Viewing opportunities through the next sunrise, ordered by confidence, rarity and time. */
 export function eventsOf(sky: EventSky, detectors: readonly Detector[] = DETECTORS): SpecialEvent[] {
   return detectors.flatMap((detect) => detect(sky)).map((candidate) => seen(candidate, sky)).filter((event) => event !== null)
-    .sort((a, b) => a.perYear - b.perYear || a.when.from.localeCompare(b.when.from))
+    .sort((a, b) => Number(b.viewing === 'expected') - Number(a.viewing === 'expected')
+      || a.perYear - b.perYear || a.when.from.localeCompare(b.when.from))
 }
 
-/** The one event to tell: the rarest; null on most days. */
+/** The one event to tell, or null on most days. */
 export const specialEvent = (sky: EventSky): SpecialEvent | null => eventsOf(sky)[0] ?? null

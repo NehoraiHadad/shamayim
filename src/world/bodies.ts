@@ -50,7 +50,7 @@ export function sunBody(at: LocalTime, day: DayPoint | undefined, site: Site, sk
  */
 export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { altitude: number; azimuth: number }, judge: Skyline = skyline): MoonBody {
   const instant = utcOf(at, site.timezone)
-  const { altitude, azimuth } = moonPosition(instant, site.lat, site.lon)
+  const { altitude, azimuth, angularRadiusDeg } = moonPosition(instant, site.lat, site.lon)
   const { fraction, phase } = moonIllumination(instant)
   const camera = skyline.camera ?? SCENE_CAMERA
   const point = moonScenePoint(instant, site, skyline)
@@ -59,7 +59,7 @@ export function moonBody(at: LocalTime, site: Site, skyline: Skyline, sun: { alt
     azimuth, altitude, x: point.x * SCENE_W, y: point.y,
     up: apparentAltitude(altitude) > 0,
     overLand: clearance > 0, clearance, visible: discShare(clearance),
-    phase, illumination: fraction,
+    phase, illumination: fraction, angularRadiusDeg,
     tilt: brightLimbAngle({ altitude, azimuth }, sun, camera.handed),
   }
 }
