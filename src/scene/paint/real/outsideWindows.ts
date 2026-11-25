@@ -7,6 +7,9 @@ import { paintPass } from '../shared/base/paintPass'
 const MIN_STOREY_PX = .85
 const BOX_WINDOW_WIDTH = .55
 const BOX_WINDOW_INSET_TOP = .7
+/** The bay pitch (px); the share of bays and of storeys left without openings; a dark opening's depth by day. */
+const ROW_PITCH = .95, ROW_H = .4, ROWS = .16
+const BAY = 1.25, BLIND_BAY = .16, BLIND_STOREY = .07, RECESS = .24
 
 export type Box = Extract<OutsideItem, { kind: 'box' }>
 export type Tower = Extract<OutsideItem, { kind: 'tower' }>
@@ -28,19 +31,24 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'de
     const fade = Math.min(1, Math.max(0, (s.night - .6) / .2))
     const wh = Math.min(.6, storey * .5)
     const litTop: number[] = []
+    // A facade's openings stand in bays and storeys: what is missing is a whole bay (a stair, a blind party wall) or a
+    // whole storey (a shop front, a plant floor), never a scatter of single cells.
+    const bays: number[] = []
+    for (let wx = inner0; wx + .5 <= inner1; wx += BAY) bays.push(wx)
+    const blind = bays.map(() => r() < BLIND_BAY)
     for (let k = 0; k < b.storeys; k++) {
       const wy = b.top + BOX_WINDOW_INSET_TOP + k * storey
       if (wy + .5 > b.foot - .4) break
-      for (let wx = inner0; wx + .5 <= inner1; wx += 1.25) {
-        const present = r() >= .3
+      const plain = r() < BLIND_STOREY
+      for (const [i, wx] of bays.entries()) {
         const threshold = r(), catches = r() < .45, halo = r() < .12
-        if (!present) continue
+        if (blind[i] || plain) continue
         const on = threshold < s.windows
         if (on) {
           emitWindow(ctx, wx, wy, BOX_WINDOW_WIDTH, wh, warm)
           if (k === 0) litTop.push(wx)
         } else {
-          ctx.fillStyle = css(recess, .35 - .15 * s.night)
+          ctx.fillStyle = css(recess, RECESS - .1 * s.night)
           ctx.fillRect(wx, wy, BOX_WINDOW_WIDTH, wh)
         }
         if (!on && catches && glint > 0) {
@@ -57,6 +65,11 @@ export function paintBoxWindows(ctx: Ctx2D, b: Box, t: Pick<Tones, 'shade' | 'de
       }
     }
     if (litTop.length) shadeTopWindows(ctx, b, t, s, litTop, wh, scale)
+  } else if (b.w >= 1.6 && h >= 2) {
+    // Storeys too fine to stand apart: their window rows as a fine horizontal texture, a row every px or so.
+    const pitch = storey * Math.ceil(ROW_PITCH / storey), face = Math.min(1, b.w * .26)
+    ctx.fillStyle = css(recess, ROWS * (1 - .5 * s.night))
+    for (let y = b.top + BOX_WINDOW_INSET_TOP; y + ROW_H < b.foot - .5; y += pitch) ctx.fillRect(x0 + face, y, b.w - 1.8 * face, ROW_H)
   }
 }
 
@@ -104,6 +117,12 @@ export function paintTowerWindows(ctx: Ctx2D, tw: Tower, t: Tones, s: Shine, lam
         }
       }
     }
+  }
+  else if (tw.w >= 2) {
+    // Storeys too fine to stand apart: window rows as a fine horizontal texture down the shaft.
+    const pitch = storey * Math.ceil(ROW_PITCH / storey)
+    ctx.fillStyle = css(windowRecess, ROWS * (1 - .5 * s.night))
+    for (let y = shaftTop + 1; y + ROW_H < tw.base - 1.2; y += pitch) ctx.fillRect(x0 + faceW, y, tw.w - 2 * faceW, ROW_H)
   }
   if (tw.full || tw.storeys >= 30) lamps.push(aviationLamp(tw.x, tipY - .4, s))
 }
