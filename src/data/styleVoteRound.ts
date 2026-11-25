@@ -7,7 +7,7 @@
  * Votes of different rounds never mix. Change it in any release that changes how a style looks after voting began, and
  * deploy the Worker first.
  */
-export const VOTE_ROUND = 'v2'
+export const VOTE_ROUND = 'v3'
 
 /** The styles voted on and their names; the code knows none by its id (`src/test/architecture.ts`). */
 export const VOTE_NAMES = { real: 'מציאותי', drawn: 'מאויר' }

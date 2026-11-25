@@ -38,12 +38,17 @@ Baseline seen at 375 px DPR 2 (6 places × 10:30 / 16:20 / 20:00):
 - Drawn houses: walls shaded like cylinders (jars, cans, a row of drums at Haifa's shore); noisy windows; not seated
 - Outside scope, later: drawn jelly-blob small clouds and scale-like arcs in cumulus; real dusk cloud gaps as blurry holes
 
-- [~] Diagnosis per style (code cause of each defect, fix, files)
-- [ ] Tracks (worktrees): real ground, real houses, drawn ground, drawn houses; before/after stills of the same moments
-- [ ] Seating (owner, 25 Nov: houses look pasted on the ground, accuracy matters even for a few seconds' look): in the
-      house tracks, a foundation/terrace wall on the slope's low side, the ground's own air and focus at the same distance;
-      after merge, a joint pass: the ground of a settlement (yards, paths, built tint) and trees/folds in front of houses
-- [ ] Independent critique of the stills, a fix round, pixel references, `VOTE_ROUND` bump, merge
+- [x] Diagnosis per style (code cause of each defect, fix, files)
+- [x] Tracks (worktrees): real ground, real houses, drawn ground, drawn houses; before/after stills of the same moments
+- [x] Seating: terrace walls on slopes, seats and casts cut in the ground, the town's own land printed by the plane;
+      settlement ground (lived-on tint, yards, lanes, gardens) and front trees hiding some feet, both styles
+- [x] Independent critique per style and one fix round each (owner, 25 Nov: don't over-polish); pixel references
+      rebaselined; `buildingLight` ground-relative lows widened (the ground under a town is now paler lived-on land);
+      `VOTE_ROUND` v3 (deploy the Worker first); merged to main
+- [ ] Left for later: real plane first paint is ~10–40 ms dearer (detail tile build; a 128² or precomputed tile would cut
+      it); Ein Gedi's stone houses low-contrast on stone ground; Karmei Tzur's far `beyond` blocks still read as slabs;
+      Shadmot's solar field sits high (needs the near plane's ground at its foot); Ein Gedi's V-gully bridged by the
+      model's town land; drawn shade band on Ein Gedi's cliff long; teal canopy trees at Ein Gedi and Nahalal (real)
 
 ## Worship ownership (audit follow-up)
 
