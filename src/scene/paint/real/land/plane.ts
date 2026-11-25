@@ -4,6 +4,7 @@ import type { LayerOf } from '../../../model/types'
 import type { Ctx2D, PaintEnv } from '../../shared/base/hand'
 import { paintPlaneLight } from '../../shared/land/planeLight'
 import type { OwnGround, PlaneTexelCtx } from '../../shared/land/planeTexel'
+import { raisedOutline } from '../../shared/land/townGround'
 import { groundFormOf, type GroundForm } from './groundForm'
 
 /* The land as the eye sees it: the ground's own patches and small form, raked by the sun or the moon where its beam falls. */
@@ -17,7 +18,9 @@ const APART = 1.8
 /** A texel (px) of each plane: finer near, where its marks are seen. */
 export const TEXELS: Record<LayerOf<'plane'>['plane'], number> = { back: 3, far: 2, near: 1.5 }
 
-export function paintRealPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
+export function paintRealPlane(ctx: Ctx2D, given: LayerOf<'plane'>, env: PaintEnv): void {
+  // The near plane prints the place's own ground over its crest where the model raises it there.
+  const raised = raisedOutline(given.outline, given.town?.land), desc = raised === given.outline ? given : { ...given, outline: raised }
   paintPlaneLight(ctx, desc, env, (t) => lit(t, groundFormOf(t, desc), desc.lamp), TEXELS[desc.plane])
 }
 

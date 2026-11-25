@@ -9,7 +9,9 @@ import { groundKey } from './land/crest'
 import { inkAt, printGround, type GroundInk } from './land/groundInk'
 import { groundDabs, groundFields, groundLines } from './land/groundMarks'
 import { groundOf } from './land/pots'
+import { printTown } from './land/settlement'
 import { shadingOf, type Shading } from './land/shadeBlock'
+import { raisedOutline } from '../shared/land/townGround'
 
 /*
  * The land as a colour woodblock print: a block for each of a few pots of the model's material (its land cover), knife-edged
@@ -22,7 +24,9 @@ const baseOf = ({ levels }: Shading): GroundInk => {
   const base = levels[0]!
   return { key: 0, ink: [base.inks[0][0], base.inks[1]?.[0]], level: 0, air: base.air, light: 1, shown: 1 }
 }
-export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
+export function paintDrawnPlane(ctx: Ctx2D, given: LayerOf<'plane'>, env: PaintEnv): void {
+  // The near plane prints the place's own ground over its crest where the model raises it there.
+  const raised = raisedOutline(given.outline, given.town?.land), desc = raised === given.outline ? given : { ...given, outline: raised }
   const { bounds, vegetation: veg } = desc, { litField } = desc.light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
   for (const target of targets) target.save()
@@ -34,6 +38,7 @@ export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEn
     const brush = receiverBrush(ctx, env.shade)
     printGround(targets, t, ground, shading)
     paintVegStrata(brush, veg, toneAt)
+    if (desc.town) printTown(targets, brush, ground, shading, at, desc.town, desc.grain.seed)
     paintVegFields(brush, veg, toneAt)
     groundFields(brush, veg.fields, at)
     groundLines(brush, desc, at)
