@@ -8,7 +8,7 @@ const MIN_STOREY_PX = .85
 const BOX_WINDOW_WIDTH = .55
 const BOX_WINDOW_INSET_TOP = .7
 /** The bay pitch (px); the share of bays and of storeys left without openings; a dark opening's depth by day. */
-const ROW_PITCH = .95, ROW_H = .4, ROWS = .16
+const ROW_PITCH = .95, ROW_H = .4, ROWS = .12
 const BAY = 1.25, BLIND_BAY = .16, BLIND_STOREY = .07, RECESS = .24
 
 export type Box = Extract<OutsideItem, { kind: 'box' }>

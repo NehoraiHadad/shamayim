@@ -2,15 +2,7 @@ import type { accessoryTones } from '../../model/buildingLight'
 import type { RGB, Shine, Tones } from '../../model/types'
 import { css, mix, type Ctx2D } from '../shared/base/hand'
 
-const lum = (c: RGB) => .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
-/** Fired clay sits darker than the lime or stone wall under it: a roof is held at most this share of its wall's value. */
-const ROOF_UNDER_WALL = .8
-
-export function tileRoof(ctx: Ctx2D, x: number, y: number, w: number, tiles: readonly [RGB, RGB, RGB], s: Shine, t: Tones, base: RGB, detail: number,
-  wall?: RGB) {
-  const k = wall ? Math.min(1, ROOF_UNDER_WALL * lum(wall) / Math.max(1e-3, lum(mix(base, tiles[0], detail)))) : 1
-  const held = (c: RGB): RGB => [c[0] * k, c[1] * k, c[2] * k]
-  const tile = [held(tiles[0]), held(tiles[1]), held(tiles[2])] as const, coarse = held(base)
+export function tileRoof(ctx: Ctx2D, x: number, y: number, w: number, tile: readonly [RGB, RGB, RGB], s: Shine, t: Tones, coarse: RGB, detail: number) {
   const rh = Math.min(2.2, .45 * w + .3)
   const lx = x + w * .35, rx = x + w * .65
   ctx.fillStyle = css(mix(coarse, tile[0], detail))
@@ -33,6 +25,19 @@ export function tileRoof(ctx: Ctx2D, x: number, y: number, w: number, tiles: rea
     ctx.fillStyle = css(t.win, .45 * glint)
     ctx.fillRect(lx, y - rh, rx - lx, .22)
   }
+}
+
+/** The clay's own tooth: `tooth` (the layer's grain) laid over the roof's outline alone. Tiles are a textured material;
+ *  the plaster under them keeps a clean face. */
+export function tileTooth(ctx: Ctx2D, x: number, y: number, w: number, tooth: () => void) {
+  const rh = Math.min(2.2, .45 * w + .3)
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(x - .35, y); ctx.lineTo(x + w * .35, y - rh); ctx.lineTo(x + w * .65, y - rh); ctx.lineTo(x + w + .35, y)
+  ctx.closePath()
+  ctx.clip()
+  tooth()
+  ctx.restore()
 }
 
 export function solarHeater(ctx: Ctx2D, x: number, top: number, shades: ReturnType<typeof accessoryTones>) {

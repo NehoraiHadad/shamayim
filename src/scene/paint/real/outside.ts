@@ -31,9 +31,9 @@ import { paintNightWater } from './town/nightWater'
  * edge catching the sky. ORDER: the coastal sea (its body, waves, the light's path, the shore) → the cast
  * shadows of towers, boxes and marks → the grain over that ground (the land's tooth: plaster, glass, the marks and the
  * trees keep clean faces, no salt on a wall at 2×) → the bodies back to front (beyond the place, then the place by where
- * it stands), each with its street's shade on what stands behind it (`town/alleys`, `town/bodyForm`) → lamps and halos
- * (windows lit by night, aviation lights), which no grain dulls. By night the town's own
- * light with them (`town/nightTown`): on the street behind each nearer body, round the windows, down the sea.
+ * it stands), each with its street's shade on what stands behind it (`town/alleys`, `town/bodyForm`) and a clay roof
+ * with the grain again, its own tooth → lamps and halos (windows lit by night, aviation lights), which no grain dulls.
+ * By night the town's own light with them (`town/nightTown`): on the street behind each nearer body, round the windows, down the sea.
  * Screen px. Pure: randomness only from the items' seeds.
  */
 
@@ -55,12 +55,14 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
       s.cast, BOX_CONTACT, BOX_CAST)
     else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)
   }
-  paintPass(ctx, 'background', () => offSea(ctx, desc.sea, desc.bounds, () => grain(ctx, env, 13, 1 - .4 * s.night)))
+  // The ground's grain is of the background; a roof's (its clay's tooth) belongs to the body, like its paint.
+  const tooth = () => grain(ctx, env, 13, 1 - .4 * s.night)
+  paintPass(ctx, 'background', () => offSea(ctx, desc.sea, desc.bounds, tooth))
   const lamps: Lamp[] = [], alleys = alleysOf(desc.items)
   for (const [i, item] of desc.items.entries()) {
     if (item.kind === 'box' || item.kind === 'tower') {
       const f = desc.receivers[item.tier][item.receiver], tones = tiers[item.tier]
-      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale, alleys[i])
+      if (item.kind === 'box') paintBox(ctx, item, tones, s, lamps, f, desc.accessories[item.tier], env.scale, alleys[i], tooth)
       else paintTower(ctx, item, tones, s, lamps, f, env.scale, alleys[i])
     }
     else if (item.kind === 'tree') {

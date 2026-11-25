@@ -6,7 +6,7 @@ import { rng } from '../shared/base/core'
 import type { Lamp } from '../shared/town/glyphs/kit'
 import { mix, type Ctx2D } from '../shared/base/hand'
 import { paintBoxWindows, type Box } from './outsideWindows'
-import { solarHeater, tileRoof } from './outsideRoof'
+import { solarHeater, tileRoof, tileTooth } from './outsideRoof'
 import type { Alley } from './town/alleys'
 import { albedoOf, alleyShade, capTone, frontForm, ownPlaster, seat, softEdge } from './town/bodyForm'
 
@@ -21,21 +21,24 @@ export function paintBoxGeometry(ctx: Ctx2D, b: Box, t: Tones, s: Shine,
   // seam between two separately antialiased, subpixel surfaces.
   boxFaces(ctx, x0, b.top, b.w, h, f, detail, b.roof === 'tile' ? .42 : .20, enclosure)
   if (cap) topPlane(ctx, x0, b.top, b.w, cap, capTone(f))
-  frontForm(ctx, x0, b.top, b.w, b.foot, f, t, s, detail, b.roof === 'tile' && !!f.tile)
-  seat(ctx, x0, b.foot, b.w, h, f, t, detail)
-  if (!cap && b.roof === 'tile' && f.tile) tileRoof(ctx, x0, b.top, b.w, f.tile, s, t, f.tileBase ?? f.tile[0], detail, f.front.wall)
+  if (!cap && b.roof === 'tile' && f.tile) tileRoof(ctx, x0, b.top, b.w, f.tile, s, t, f.tileBase ?? f.tile[0], detail)
 
   if (b.heater && b.w > 2.6 && accessories) solarHeater(ctx, x0 + b.w * (.3 + .4 * tint), b.top, accessories)
 }
 
 export function paintBox(ctx: Ctx2D, b: Box, t: Tones, s: Shine, lamps: Lamp[], faces: BuildingFaces,
-  accessories: ReturnType<typeof accessoryTones> | null, scale: number, alley?: Alley) {
+  accessories: ReturnType<typeof accessoryTones> | null, scale: number, alley?: Alley, tooth?: () => void) {
   const r = rng(b.seed), tint = r()
   const x0 = b.x - b.w / 2
   const own = ownPlaster(faces, albedoOf(b.seed))
   alleyShade(ctx, alley, t, s)
   softEdge(ctx, x0, b.top, b.w, b.foot, own)
   paintBoxGeometry(ctx, b, t, s, own, accessories, tint)
+  if (tooth && b.roof === 'tile' && own.tile) tileTooth(ctx, x0, b.top, b.w, tooth)
+  // The light's form over the geometry (the masks of the building checks take the geometry alone).
+  const h = b.foot - b.top, detail = facadeDetail(b.w, h)
+  frontForm(ctx, x0, b.top, b.w, b.foot, own, t, s, detail, b.roof === 'tile' && !!own.tile)
+  seat(ctx, x0, b.foot, b.w, h, own, t, detail)
   const warm = mix(mix(t.wall, t.stone, .1 + .45 * tint), t.win, .9)
   paintBoxWindows(ctx, b, t, s, lamps, r, warm, faces.recess, t.win, scale)
 }

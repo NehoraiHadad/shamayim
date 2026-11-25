@@ -15,18 +15,23 @@ import type { Alley } from './alleys'
  */
 
 /** How far (± share) one body's plaster departs from the receiver's. */
-const ALBEDO = .12
+const ALBEDO = .1
 /** The street's shade on what stands behind a body: its depth under the sky, and more as the sun rakes along it. */
-const ALLEY_SKY = .2, ALLEY_SUN = .12
+const ALLEY_SKY = .16, ALLEY_SUN = .12
 /** The front's own turn away from the sun: the share of the width (at most, px) that darkens, and how much. */
-const TURN = .4, TURN_MAX = 1.6, TURN_DEPTH = .16
+const TURN = .4, TURN_MAX = 1.6, TURN_DEPTH = .1
+/** Where the eave's shadow begins under the tile line (px, the tiles keep their own lower edge), and its depth. */
+const EAVE_GAP = .2, EAVE = .26
 /** The parapet's sky-lit line (px) and its strength. */
 const PARAPET = .4, PARAPET_SKY = .5
 /** The street at the foot: the height (px, at most, and a share of the wall) that darkens, and how deep. */
-const FOOT = 2.4, FOOT_SHARE = .38, FOOT_DEPTH = .55
+const FOOT = 2.2, FOOT_SHARE = .3, FOOT_DEPTH = .32
 /** The plinth under a body: its depth (px) against the body's width, at most, and its cover where it leaves the wall. */
 const PLINTH = .22, PLINTH_MAX = 1.1, PLINTH_DEPTH = .9
 
+/** A flat roof's cap: how far it goes from the wall's tone to the sky-lit top's, and at most how much brighter than the
+ *  lit wall it stands (the sun on a roof is real; the stripes of the brightest caps in a town were not). */
+const CAP_TOP = .6, CAP_OVER_WALL = 1.3
 /** The soft edge's reach (px) and strength. */
 const SOFT = .3, SOFT_ALPHA = .3
 
@@ -36,7 +41,12 @@ export const albedoOf = (seed: number) => rng(seed * 31 + 7)() * 2 - 1
 const scale = (c: RGB, k: number): RGB => [c[0] * k, c[1] * k, c[2] * k]
 const scaleFace = (f: FaceTones, k: number): FaceTones => ({ wall: scale(f.wall, k), foot: scale(f.foot, k), eave: scale(f.eave, k) })
 
-/** The receiver's faces in this body's own plaster: every face scaled alike (an albedo, not a light). */
+const lum = (c: RGB) => .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
+
+/**
+ * The receiver's faces in this body's own plaster: every face scaled alike (an albedo, not a light). Its clay keeps the
+ * receiver's own value: the eave's shadow parts roof from wall (`frontForm`).
+ */
 export function ownPlaster(f: BuildingFaces, own: number): BuildingFaces {
   const k = 1 + ALBEDO * own
   const front = scaleFace(f.front, k), shared = f.left === f.front
@@ -50,8 +60,7 @@ export function ownPlaster(f: BuildingFaces, own: number): BuildingFaces {
  */
 export function capTone(f: BuildingFaces): RGB {
   const wall = f.front.wall, top = mix(f.unresolved, f.top, .75)
-  const lum = (c: RGB) => .2126 * c[0] + .7152 * c[1] + .0722 * c[2]
-  const held = mix(wall, top, .45), over = lum(held) / Math.max(1e-3, lum(wall) * 1.06)
+  const held = mix(wall, top, CAP_TOP), over = lum(held) / Math.max(1e-3, lum(wall) * CAP_OVER_WALL)
   return over > 1 ? scale(held, 1 / over) : held
 }
 
@@ -83,8 +92,8 @@ export function frontForm(ctx: Ctx2D, x: number, top: number, w: number, foot: n
   ctx.fillRect(x + w - band, top, band, h)
   if (roofed) {
     // The eave's shadow on the wall under the tiles.
-    ctx.fillStyle = css(t.deep, .42 * Math.max(.4, detail) * (1 - .5 * s.night))
-    ctx.fillRect(x, top, w, Math.min(.42, h * .3))
+    ctx.fillStyle = css(t.deep, EAVE * Math.max(.4, detail) * (1 - .5 * s.night))
+    ctx.fillRect(x, top + EAVE_GAP, w, Math.min(.36, h * .3))
   } else {
     ctx.fillStyle = css(mix(f.top, f.front.wall, .3), PARAPET_SKY * detail * (1 - .7 * s.night))
     ctx.fillRect(x, top, w, Math.min(PARAPET, h * .25))
