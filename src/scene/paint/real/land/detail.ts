@@ -1,5 +1,5 @@
 import type { LayerOf } from '../../../model/types'
-import { fractal, rng } from '../../shared/base/core'
+import { rng } from '../../shared/base/core'
 import type { Ctx2D, PaintEnv, Scratch } from '../../shared/base/hand'
 
 /*
@@ -12,13 +12,11 @@ import type { Ctx2D, PaintEnv, Scratch } from '../../shared/base/hand'
  * Two tiles, built once per seed: a fine one (a device px and two) over the whole plane, and a coarser one (two to three
  * device px: the grit and stones the eye sees nearest) that comes in toward the plane's foot. Each is drawn at one device
  * px to its px, unsmoothed, anchored to the scene (it never crawls), under the plane's outline mask. Pure: a seed's tile
- * is a function of it, and of nothing else (`TILE`, `FLAT`), so it is cached by the seed.
+ * is a function of it, and of nothing else (`TILE` and the constants here), so it is cached by the seed.
  */
 
 /** A tile's side (device px). */
 const TILE = 256
-/** How much wider than tall a mark lies (the slant of the ground under the eye). */
-const FLAT = 1.8
 /** The strength of each tile (its darkest and lightest px scale the ground's value by 1 ∓ this), by plane: haze and distance quiet it. */
 const FINE = 0.16, COARSE = 0.18
 const PLANE: Record<LayerOf<'plane'>['plane'], number> = { back: 0.35, far: 0.65, near: 1 }
@@ -30,26 +28,43 @@ const STONES = { fine: 6, coarse: 4 } as const
 const tiles = new Map<string, Scratch>()
 
 /**
- * One tile: a field of grit (gradient noise at the tile's scale, flattened) and stones (a dark spot with a lit cap). Its
+ * One octave of periodic value noise added into `v` (the tile, row by row): random values (−1…1) on a lattice of cells
+ * `cx` × `cy` px, eased between (smoothstep), times `amp`.
+ */
+function octave(v: Float32Array, r: () => number, cx: number, cy: number, amp: number) {
+  const nx = TILE / cx, ny = TILE / cy, lattice = Float32Array.from({ length: nx * ny }, () => 2 * r() - 1)
+  const ease = (t: number) => t * t * (3 - 2 * t)
+  for (let y = 0; y < TILE; y++) {
+    const gy = y / cy, j0 = Math.floor(gy), j1 = (j0 + 1) % ny, fy = ease(gy - j0)
+    for (let x = 0; x < TILE; x++) {
+      const gx = x / cx, i0 = Math.floor(gx), i1 = (i0 + 1) % nx, fx = ease(gx - i0)
+      const a = lattice[j0 * nx + i0], b = lattice[j0 * nx + i1], c = lattice[j1 * nx + i0], d = lattice[j1 * nx + i1]
+      v[y * TILE + x] += amp * (a + (b - a) * fx + (c + (d - c) * fx - a - (b - a) * fx) * fy)
+    }
+  }
+}
+
+/**
+ * One tile: a field of grit (value noise at the tile's scale, flattened) and stones (a dark spot with a lit cap). Its
  * px are grey about 128, the overlay's neutral: what is above lightens, what is below darkens.
  */
 function tileOf(env: PaintEnv, seed: number, coarse: boolean): Scratch {
   const key = `${seed}:${coarse ? 'c' : 'f'}`
   const held = tiles.get(key)
   if (held) return held
-  const v = new Float32Array(TILE * TILE), size = coarse ? 2.6 : 1.3, s = seed + (coarse ? 911 : 577)
-  // Grit: two octaves at the mark's size, flat; periodic over the tile so it repeats with no seam.
-  const fx = 1 / (size * FLAT * 2), fy = 1 / (size * 2)
-  for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
-    v[y * TILE + x] = 0.85 * (2 * fractal(s, x, y, fx, fy, 2, TILE) - 1) + 0.45 * (2 * fractal(s + 3, x, y, 2 * fx, 2 * fy, 1, TILE) - 1)
-  }
+  const v = new Float32Array(TILE * TILE), s = seed + (coarse ? 911 : 577), r = rng(s * 7 + 1)
+  // Grit: two octaves of value noise on lattices that divide the tile (so it repeats with no seam), flat as the ground
+  // lies under the eye (twice as wide as tall): the fine tile's cells 4 × 2 and 2 × 1 device px, the coarse tile's twice that.
+  const k = coarse ? 2 : 1
+  octave(v, r, 4 * k, 2 * k, 0.85)
+  octave(v, r, 2 * k, 1 * k, 0.45)
   // Stones: each a lit cap over its shadow, a px or two across, wider than tall.
-  const r = rng(s * 7 + 1), count = Math.round((coarse ? STONES.coarse : STONES.fine) * TILE * TILE / 1000)
+  const count = Math.round((coarse ? STONES.coarse : STONES.fine) * TILE * TILE / 1000)
   const put = (x: number, y: number, by: number) => {
     const n = ((y + TILE) % TILE) * TILE + ((x + TILE) % TILE)
     v[n] = Math.max(-1, Math.min(1, v[n] + by))
   }
-  for (let k = 0; k < count; k++) {
+  for (let stone = 0; stone < count; stone++) {
     const x = Math.floor(r() * TILE), y = Math.floor(r() * TILE), wide = 1 + Math.floor(r() * (coarse ? 3 : 2)), tall = coarse && r() < 0.4 ? 2 : 1
     const dark = 0.45 + 0.5 * r(), lit = r() < 0.65 ? 0.45 + 0.5 * r() : 0
     for (let i = 0; i < wide; i++) {
