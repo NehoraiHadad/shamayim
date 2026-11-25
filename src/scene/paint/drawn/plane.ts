@@ -1,13 +1,13 @@
 import type { LayerOf } from '../../model/types'
 import { css, outline, type Ctx2D, type PaintEnv } from '../shared/base/hand'
-import { paintVegFields, paintVegRows, paintVegStrata } from '../shared/land/landVegetation'
 import { preparePlaneTexels } from '../shared/land/planeTexel'
-import { mapInk, receiverBrush } from '../shared/land/receiverBrush'
-import { vegetationLight } from '../shared/land/vegetationLight'
-import { calm, pigment } from './kit/palette'
+import { receiverBrush } from '../shared/land/receiverBrush'
+import { pigment } from './kit/palette'
+import { printGrain } from './kit/printGrain'
 import { groundKey } from './land/crest'
 import { inkAt, printGround, type GroundInk } from './land/groundInk'
-import { groundDabs, groundFields, groundLines } from './land/groundMarks'
+import { printFields, printRows } from './land/fields'
+import { groundDabs, groundLines } from './land/groundMarks'
 import { groundOf } from './land/pots'
 import { shadingOf, type Shading } from './land/shadeBlock'
 
@@ -23,21 +23,17 @@ const baseOf = ({ levels }: Shading): GroundInk => {
   return { key: 0, ink: [base.inks[0][0], base.inks[1]?.[0]], level: 0, air: base.air, light: 1, shown: 1 }
 }
 export function paintDrawnPlane(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv): void {
-  const { bounds, vegetation: veg } = desc, { litField } = desc.light
+  const { bounds } = desc, { litField } = desc.light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
   for (const target of targets) target.save()
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
     const t = preparePlaneTexels(desc.outline, bounds, desc.surfaceTone, litField, desc.grain.seed, 0)
     const ground = groundOf(t, desc), shading = shadingOf(t, ground, desc.plane, targets.length > 1), at = inkAt(t, ground, shading)
-    const raw = vegetationLight(veg.tones, litField, desc.outline, bounds, targets.length > 1)
-    const toneAt: typeof raw = (i, x, y) => mapInk(raw(i, x, y), (rgb) => calm(rgb, 0.2))
     const brush = receiverBrush(ctx, env.shade)
-    printGround(targets, t, ground, shading)
-    paintVegStrata(brush, veg, toneAt)
-    paintVegFields(brush, veg, toneAt)
-    groundFields(brush, veg.fields, at)
+    printGround(targets, t, ground, shading, printGrain(env, desc.plane))
+    printFields(brush, desc, t, ground, at)
     groundLines(brush, desc, at)
-    paintVegRows(brush, veg, toneAt)
+    printRows(brush, desc, at)
     groundDabs(brush, desc, t, ground, at)
     groundKey(targets, brush, desc, t, baseOf(shading))
   } else for (const target of targets) {
