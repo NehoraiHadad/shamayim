@@ -5,12 +5,12 @@ import type { Lamp } from '../shared/town/glyphs/kit'
 import type { Ctx2D, PaintEnv } from '../shared/base/hand'
 import { grain, rockOf } from '../shared/town/marks'
 import { paintBox } from './outsideBox'
-import { paintOutsideLand } from '../shared/town/outsideGround'
 import { stripPhase } from '../shared/town/stripPhase'
 import { hairOf } from '../shared/land/water'
 import { paintPass } from '../shared/base/paintPass'
 import { paintTower } from './outsideTower'
 import { alleysOf } from './town/alleys'
+import { realFronts } from './town/fronts'
 import { paintTree } from './outsideTree'
 import { offSea, paintRealSea } from './sea/outsideSea'
 import { paintFoldedWindows } from './town/foldedWindows'
@@ -24,16 +24,17 @@ import { paintNightWater } from './town/nightWater'
  * hill as small stone boxes with a lit face, dark window rows, a few towers), and photographs of Tel Aviv's and Haifa's
  * skylines from the north at dusk (towers as glass shafts with a bright edge on the sun's side, the low city a mottle of
  * pale blocks under them, window rows as fine horizontal texture, red lights on the tall tops by night).
- * C5b: the place's own ground under it (its hill over the ridge line), the sea out to its horizon, the sky's light on the
- * mass under any cloud (tops lighter, feet darker, the face to the brighter sky).
+ * C5b: the sea out to its horizon (the place's own ground is the near plane's), the sky's light on the mass under any
+ * cloud (tops lighter, feet darker, the face to the brighter sky).
  * MEDIUM: the scene's flat opaque bodies cut from the ridge colour, hard edges, no outline; one light: the face toward
  * the true sun lit, the other in shade; haze in the tones (by row); a mass is many boxes, each its own plaster, its roof
  * edge catching the sky. ORDER: the coastal sea (its body, waves, the light's path, the shore) → the cast
  * shadows of towers, boxes and marks → the grain over that ground (the land's tooth: plaster, glass, the marks and the
  * trees keep clean faces, no salt on a wall at 2×) → the bodies back to front (beyond the place, then the place by where
  * it stands), each with its street's shade on what stands behind it (`town/alleys`, `town/bodyForm`) and a clay roof
- * with the grain again, its own tooth → lamps and halos (windows lit by night, aviation lights), which no grain dulls.
- * By night the town's own light with them (`town/nightTown`): on the street behind each nearer body, round the windows, down the sea.
+ * with the grain again, its own tooth → the small trees before the houses' feet (`town/fronts`) → lamps and halos
+ * (windows lit by night, aviation lights), which no grain dulls. By night the town's own light with them
+ * (`town/nightTown`): on the street behind each nearer body, round the windows, down the sea.
  * Screen px. Pure: randomness only from the items' seeds.
  */
 
@@ -45,10 +46,8 @@ const BOX_CAST = { alpha: .6, inset: 0, edgeY: -.15, tipY: .35, bottomY: .8, tip
 export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
   const { shine: s, tiers } = desc
   const lateralLight = glyphLight(s), night = nightLight(desc)
-  paintPass(ctx, 'background', () => {
-    if (desc.land) paintOutsideLand(ctx, desc.land, s)
-    if (desc.sea) paintRealSea(ctx, desc.sea, s, stripPhase(desc, env), hairOf(env))
-  })
+  // The place's own land is the near plane's (it prints the town's ground in the ground's own material).
+  if (desc.sea) paintPass(ctx, 'background', () => paintRealSea(ctx, desc.sea!, s, stripPhase(desc, env), hairOf(env)))
   for (const item of desc.items) {
     if (item.kind === 'tower') castShadow(ctx, item, tiers[item.tier], s.cast, TOWER_CONTACT, TOWER_CAST)
     else if (item.kind === 'box') castShadow(ctx, { x: item.x, base: item.foot, w: item.w, h: item.foot - item.top }, tiers[item.tier],
@@ -74,6 +73,8 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
       paintStreetLight(ctx, env, item, night)
     }
   }
+  // The small trees before the houses' feet, after the houses (they belong to the town: no background pass).
+  for (const { tree, tier } of realFronts(desc.items)) paintTree(ctx, tree, tiers[tier], s, lateralLight, rockOf(desc, env, tree.seed))
   if (night && desc.sea) paintNightWater(ctx, desc.sea, desc.items, night, stripPhase(desc, env))
   if (night) paintWindowBloom(ctx, env, lamps, night)
   drawLamps(ctx, lamps, 1 / env.scale)
