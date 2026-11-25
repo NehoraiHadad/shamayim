@@ -47,7 +47,7 @@ const CAST_INK = 0.5, CAST_ALPHA = 0.8
  *  ink (dusk, an even sky): a dull light shows a wall about the ground's value and hue, never a palette of its own. */
 const ANCHOR_LIGHT = [0.3, 0.5] as const
 /** How much more of its air the ground of a town beyond the place takes than the place's own (its tones are its own km's). */
-const BEYOND_AIR = 0.2
+const BEYOND_AIR = 0.05
 /** A crown's step of value from its ground in a dull light, its lit half's, and how much of the ground's hue it takes. */
 const LEAF_ANCHOR = { green: -0.05, lit: -0.01, hue: 0.3 } as const
 
@@ -65,13 +65,15 @@ export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Pai
     return p
   }
   // The near plane cuts the place's own bodies' seats and casts in its wood and prints their ground (`light/meet`); in a
-  // dull light their blocks are anchored to that ground's ink, aired as far as their row is.
+  // dull light their blocks are anchored to that ground's ink, which the plane prints in one block up the whole place.
   const own = (desc.own as OwnOutside).ground, seated = Boolean(own)
   const k = own ? (1 - smoothstep(ANCHOR_LIGHT[0], ANCHOR_LIGHT[1], s.direct)) * (1 - s.night) : 0
-  const anchor = (tier: number, foot: number, beyond = false): Anchor | undefined =>
-    own ? { ground: mix(own, tiers[tier].mist, beyond ? BEYOND_AIR : far.air(foot)), k } : undefined
+  // A full day's light: the direct light past the anchor's, and no night.
+  const day = smoothstep(ANCHOR_LIGHT[1], ANCHOR_LIGHT[1] + 0.15, s.direct) * (1 - s.night)
+  const anchor = (tier: number, beyond = false): Anchor | undefined =>
+    own ? { ground: beyond ? mix(own, tiers[tier].mist, BEYOND_AIR) : own, k, day } : undefined
   const print = (tier: number, foot: number, beyond = false): Print =>
-    ({ tier: tierOf(beyond, foot), anchor: anchor(tier, foot, beyond), seated: seated && !beyond })
+    ({ tier: tierOf(beyond, foot), anchor: anchor(tier, beyond), seated: seated && !beyond })
   // The place's own ground is the near plane's: printed there in its inks, under its yards and lanes (`land/settlement`).
   if (desc.sea) paintOutsideSea(ctx, inkedSea(desc.sea), s, stripPhase(desc, env))
   // Every body's seat first, under all of them: its shade on the ground, one flat block along the ground line, so none
@@ -89,7 +91,7 @@ export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Pai
   }
   const leaf = leafLight(light, lateral)
   const lamps: Lamp[] = []
-  const crown = (tier: number, base: number) => leafy(far(tier, base), anchor(tier, base))
+  const crown = (tier: number, base: number) => leafy(far(tier, base), anchor(tier))
   for (const { block, item } of bodies) {
     if (block) {
       const p = print(block.tier, block.foot, block.beyond)
@@ -153,9 +155,8 @@ function receding(items: readonly OutsideItem[], tiers: readonly Tones[]) {
     if (!tones) made.set(key, tones = aired(tiers[tier], (deep * step) / 8))
     return tones
   }
-  const depth = (foot: number) => Math.min(1, Math.max(0, (near - foot) / span))
-  /** How far up the place's rows a foot stands (0 its nearest, 1 its farthest), and the share of its air in its tones. */
-  return Object.assign(at, { depth, air: (foot: number) => (deep * Math.round(8 * depth(foot))) / 8 })
+  /** How far up the place's rows a foot stands: 0 its nearest, 1 its farthest. */
+  return Object.assign(at, { depth: (foot: number) => Math.min(1, Math.max(0, (near - foot) / span)) })
 }
 
 const LIGHTS: ReadonlySet<string> = new Set(['win', 'gold', 'mist'])

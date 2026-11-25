@@ -58,7 +58,15 @@ const DULL_FACE = 0.35
 const FACE_SHADE = 0.05, FACE_LIT = 0.2
 /** Against the light: a flat roof's slab goes this far to the light; the front's light under which the edge toward the
  *  sun takes a lit rim. */
-const SLAB_LIT = 0.5, BACKLIT = 0.15
+const SLAB_LIT = 0.85, BACKLIT = 0.15
+/** The paper's value a lit rim and a lit slab take at least against the light: the backlight is shown by them. */
+const PAPER_LIT = 0.9
+/**
+ * By day, a face in the sun's shade (a front against the light, a side away from it) as the print keeps it: its stone's
+ * own hue and chroma (the plaster a share toward its lit cream), at a step of value over the lit ground (front, side), with
+ * a warm bounce from that ground: its share of the ground's hue and the warmth it adds (Oklab a, b).
+ */
+const SHADED_STONE = { cream: 0.35, front: 0.06, side: 0.0, ground: 0.25, warmA: 0.004, warmB: 0.014 } as const
 
 /** Against the light: the front's light under this, and a side's this much over it. */
 const AGAINST = 0.1, OVER = 0.35
@@ -86,7 +94,12 @@ export const sideWidth = (l: TownLight, w: number) => {
  * The ground the town stands on (`light/meet`): its ink and how far the town is anchored to it (1 with no direct light by
  * day, none in the sun or by night).
  */
-export interface Anchor { ground: RGB; k: number }
+export interface Anchor {
+  ground: RGB; k: number
+  /** How much of a full day's light the town stands in (direct light high, no night): its faces in the sun's shade keep
+   *  their stone's colour, a warm step over the lit ground, never mud. */
+  day?: number
+}
 
 /**
  * A body's colour blocks: front, its one side, the roof seen from the front and its hip, the key's and the joins' ink;
@@ -123,17 +136,40 @@ export function planesOf(t: Tones, l: TownLight, plaster: RGB, stone: number, ti
   const side = sideLit ? litUp : Math.max(0, Math.min(down, front - gap * 0.5))
   const face = (v: number) => v >= 0.5 ? mix(plaster, lit, (v - 0.5) * 2 * FRONT) : mix(dark, plaster, v * 2)
   const backlit = direct * (1 - smoothstep(0, BACKLIT, l.front))
-  const roof = mix(mix(mix(plaster, t.rim, 0.5), mix(lit, t.rim, 0.25), l.top), lit, SLAB_LIT * backlit * l.top)
+  const paper = atLeast(lit, PAPER_LIT)
+  const roof = mix(mix(mix(plaster, t.rim, 0.5), mix(lit, t.rim, 0.25), l.top), paper, SLAB_LIT * backlit * l.top)
   const tint = anchorOf(anchor)
   // A face in the sun's shade takes the lit ground's colour back into it (its bounce): warm on a warm ground, never the
-  // sky's blue alone.
-  const bounced = (v: number) => anchor && v < 0.5 ? hued(face(v), anchor.ground, BOUNCE * direct * (1 - v * 2)) : face(v)
-  const planes = { front: tint(bounced(front), ANCHOR.front), side: tint(bounced(side), ANCHOR.side), right, roof: tint(roof, ANCHOR.slab) }
-  // The key: the body's darker face a step down, as the land's key is its block's (`kit/lines` KEY_STEP); a join, under half that.
+  // sky's blue alone. By day it keeps its stone's colour, a warm step over the ground.
+  const day = anchor?.day ?? 0, stoneShade = mix(plaster, lit, SHADED_STONE.cream)
+  const bounced = (v: number, by: number) => {
+    if (!anchor || v >= 0.5) return face(v)
+    const dull = hued(face(v), anchor.ground, BOUNCE * direct * (1 - v * 2))
+    return day > 0 ? mix(dull, shadedStone(stoneShade, anchor.ground, by), day) : dull
+  }
+  const planes = { front: tint(bounced(front, SHADED_STONE.front), ANCHOR.front), side: tint(bounced(side, SHADED_STONE.side), ANCHOR.side), right,
+    roof: tint(roof, ANCHOR.slab) }
+  // The key: the body's faces a step down, the step as small as they are dark (as the land's key is its block's,
+  // `kit/lines` KEY_STEP), so a dusk town is never a lattice of dark lines; a join, under half that.
+  // Against the light, the edge toward the sun catches it: a rim of paper light on the front, where no lit side shows.
+  const rim = backlit > 0.5 && !sideLit && Math.abs(l.left - l.right) > 0.02 ? { rgb: paper, right: l.right > l.left } : null
+  // By day the key is cut from the darker face, so the massing reads in the light; at dusk from the faces' middle.
   const darker = labOf(planes.front).l < labOf(planes.side).l ? planes.front : planes.side
-  // Against the light, the edge toward the sun catches it: a rim of the light on the front, where no lit side shows.
-  const rim = backlit > 0.5 && !sideLit && Math.abs(l.left - l.right) > 0.02 ? { rgb: face(up(1)), right: l.right > l.left } : null
-  return { ...planes, ink: keyStep(darker, KEY_STEP[tier]), joint: keyStep(darker, KEY_STEP[tier] * 0.45), rim, tint }
+  const body = mix(mix(planes.front, planes.side, 0.5), darker, day)
+  return { ...planes, ink: keyStep(body, KEY_STEP[tier]), joint: keyStep(body, KEY_STEP[tier] * 0.45), rim, tint }
+}
+
+/** A colour at least this light (Oklab), its hue held. */
+function atLeast(rgb: RGB, l: number): RGB {
+  const lab = labOf(rgb)
+  return lab.l >= l ? rgb : rgbOfLab({ ...lab, l })
+}
+
+/** A stone face in the day's shade: its own hue and chroma, a step `by` over its ground's value, warmed by that ground. */
+function shadedStone(stone: RGB, ground: RGB, by: number): RGB {
+  const s = labOf(stone), g = labOf(ground), k = SHADED_STONE.ground
+  return rgbOfLab({ l: g.l + by,
+    a: s.a + (g.a - s.a) * k + SHADED_STONE.warmA, b: s.b + (g.b - s.b) * k + SHADED_STONE.warmB })
 }
 
 /** How much of its ground's hue a face in the sun's shade takes back from it, at the shade's dark. */
@@ -146,7 +182,7 @@ function hued(rgb: RGB, to: RGB, k: number): RGB {
 }
 
 /** The value under which a key's step is made smaller, and its least share: no near-black line on a dusk block. */
-const KEY_DIM = 0.7, KEY_DIMMEST = 0.35
+const KEY_DIM = 0.6, KEY_DIMMEST = 0.4
 
 /** An ink a step of value from a block's, the step smaller on a dark block (as the land's `stepped`), its hue held. */
 function keyStep(rgb: RGB, by: number): RGB {

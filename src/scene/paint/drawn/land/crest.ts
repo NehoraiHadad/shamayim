@@ -16,7 +16,9 @@ import { stepped, type GroundInk } from './groundInk'
  */
 
 /** How strongly the key line is printed. */
-const SEED = 5501, FOOT = { from: 0.5, alpha: 0.2 } as const, KEY_ALPHA = 0.8
+const SEED = 5501, KEY_ALPHA = 0.8
+/** The near plane's bokashi to its foot: where it starts (share of the plane's depth), and its strength there. */
+export const FOOT = { from: 0.5, alpha: 0.2 } as const
 /** The crest's bokashi on far and back planes: how far down it reaches (share of the plane's depth, most px), its wipes, how dark it starts. */
 const CREST = { reach: 0.55, most: 46, wipes: 7, dark: -0.08, alpha: 0.09 } as const
 /** The sun's rim: its line (px), the least it must gain on the face below and the least sun, the least columns in a row. */

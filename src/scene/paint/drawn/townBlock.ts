@@ -42,7 +42,9 @@ export function paintBlock(ctx: Ctx2D, b: Block, t: Tones, l: TownLight, lamps: 
   const r = rng(b.seed ^ 0x3c1), stone = r(), s = pen.scale
   const x0 = snap(b.x - b.w / 2, s), x1 = snap(b.x + b.w / 2, s), top = snap(b.top, s), foot = snap(b.foot, s)
   const w = Math.max(1 / s, x1 - x0), h = Math.max(1 / s, foot - top), plaster = plasterOf(t, stone)
-  const planes = planesOf(t, l, plaster, stone, print.tier, print.anchor)
+  const own = planesOf(t, l, plaster, stone, print.tier, print.anchor)
+  // At dusk a small body is one block of its ground's value: its slab no lighter than its wall.
+  const planes = print.anchor?.k && (foot - top) * s < SMALL_DEVICE ? { ...own, roof: mix(own.roof, own.front, print.anchor.k) } : own
   // The back tier's key is the lighter joint's ink: at a pixel wide, a full key round a far house is all there is of it.
   const ink = print.tier === 'back' ? planes.joint : planes.ink
   if (b.low) {
@@ -62,7 +64,8 @@ export function paintBlock(ctx: Ctx2D, b: Block, t: Tones, l: TownLight, lamps: 
   townWindows(ctx, { top: top + deep, foot, storeys: b.storeys }, t, l, front, planes.front, r, lamps, windows, pen)
   if (small) {
     // Two flat blocks: the key only where the mass meets the sky over it.
-    if (edges && !roofed) keyedEdges(ctx, x0, top, w, h, { left: [], right: [], foot: [], top: edges.top.filter((run) => run.key) }, ink, planes.joint, pen)
+    // At dusk (the town anchored to its ground) a small flat roof takes no head key: its slab's step is enough.
+    if (edges && !roofed && !print.anchor?.k) keyedEdges(ctx, x0, top, w, h, { left: [], right: [], foot: [], top: edges.top.filter((run) => run.key) }, ink, planes.joint, pen)
   } else {
     // Where the plane cuts the body's seat, its foot is the plane's ground line, not a key of the body's own.
     const keyed = edges && print.seated ? { ...edges, foot: [] } : edges
