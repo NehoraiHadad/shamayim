@@ -40,6 +40,9 @@ Baseline seen at 375 px DPR 2 (6 places × 10:30 / 16:20 / 20:00):
 
 - [~] Diagnosis per style (code cause of each defect, fix, files)
 - [ ] Tracks (worktrees): real ground, real houses, drawn ground, drawn houses; before/after stills of the same moments
+- [ ] Seating (owner, 25 Nov: houses look pasted on the ground, accuracy matters even for a few seconds' look): in the
+      house tracks, a foundation/terrace wall on the slope's low side, the ground's own air and focus at the same distance;
+      after merge, a joint pass: the ground of a settlement (yards, paths, built tint) and trees/folds in front of houses
 - [ ] Independent critique of the stills, a fix round, pixel references, `VOTE_ROUND` bump, merge
 
 ## Worship ownership (audit follow-up)
