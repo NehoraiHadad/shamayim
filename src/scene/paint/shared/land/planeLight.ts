@@ -36,15 +36,15 @@ function paintTerraces(brush: ReceiverBrush, desc: LayerOf<'plane'>) {
   }
 }
 
-/** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`); a hand's own ground has its gullies in it. */
-export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, ground?: (t: PlaneTexelCtx) => OwnGround): void {
+/** Paints the complete lit terrain plane in one cached pass (replaces dual-band `planeScratch`); a hand's own ground has its gullies in it, and may ask for a finer `texel`. */
+export function paintPlaneLight(ctx: Ctx2D, desc: LayerOf<'plane'>, env: PaintEnv, ground?: (t: PlaneTexelCtx) => OwnGround, texel?: number): void {
   const { light } = desc
   const { litField } = light
   const targets = env.shade ? [ctx, env.shade] : [ctx]
   for (const target of targets) target.save()
 
   if (desc.surfaceTone.palette.length && desc.surfaceTone.cells.length) {
-    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, ground)
+    paintLitSurface(ctx, desc.outline, desc.bounds, desc.surfaceTone, litField, desc.key, desc.grain.amount * env.hand.grain, desc.grain.seed, env, ground, texel)
     const litVeg = desc.vegetation
     const toneAt = vegetationLight(litVeg.tones, litField, desc.outline, desc.bounds, Boolean(env.shade))
     const brush = receiverBrush(ctx, env.shade)
