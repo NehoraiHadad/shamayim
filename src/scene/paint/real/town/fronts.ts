@@ -18,10 +18,10 @@ type Own = Extract<OutsideItem, { kind: 'box' | 'tower' }>
 export interface Front { tree: TreeDesc; tier: number }
 
 const cache = new WeakMap<readonly OutsideItem[], Front[]>()
-/** The answers by the layer's form key (its geometry): a new hour gives a new item list of the same bodies. */
+/** The answers by the items' geometry (`itemsKey`): a new hour gives a new item list of the same bodies. */
 const byKey = new Map<string, Front[]>()
 
-/** `key`: the layer's form key, which names the items' geometry. */
+/** `key`: the items' geometry (`itemsKey`). */
 export function realFronts(items: readonly OutsideItem[], key?: string): Front[] {
   const cached = cache.get(items) ?? (key === undefined ? undefined : byKey.get(key))
   if (cached) return cached

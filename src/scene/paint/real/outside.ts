@@ -18,6 +18,7 @@ import { nightLight, paintStreetLight, paintWindowBloom } from './town/nightTown
 import { paintNightWater } from './town/nightWater'
 import { apron, shadowedGround } from './town/apron'
 import { leafy } from './town/leaf'
+import { itemsKey } from './town/itemsKey'
 
 /*
  * The place seen from outside (stage C5, variant B) in the enriched hand.
@@ -67,7 +68,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
   // The ground's grain is of the background; a roof's (its clay's tooth) belongs to the body, like its paint.
   const tooth = () => grain(ctx, env, 13, 1 - .4 * s.night)
   paintPass(ctx, 'background', () => offSea(ctx, desc.sea, desc.bounds, tooth))
-  const lamps: Lamp[] = [], alleys = alleysOf(desc.items, desc.key)
+  const lamps: Lamp[] = [], geometry = itemsKey(desc.items, desc.key), alleys = alleysOf(desc.items, geometry)
   for (const [i, item] of desc.items.entries()) {
     if (item.kind === 'box' || item.kind === 'tower') {
       const f = desc.receivers[item.tier][item.receiver], tones = tiers[item.tier]
@@ -84,7 +85,7 @@ export function paintOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv
     }
   }
   // The small trees before the houses' feet, after the houses (they belong to the town: no background pass).
-  for (const { tree, tier } of realFronts(desc.items, desc.key)) paintTree(ctx, tree, leafy(tiers[tier]), s, lateralLight, rockOf(desc, env, tree.seed))
+  for (const { tree, tier } of realFronts(desc.items, geometry)) paintTree(ctx, tree, leafy(tiers[tier]), s, lateralLight, rockOf(desc, env, tree.seed))
   if (night && desc.sea) paintNightWater(ctx, desc.sea, desc.items, night, stripPhase(desc, env))
   if (night) paintWindowBloom(ctx, env, lamps, night)
   drawLamps(ctx, lamps, 1 / env.scale)
