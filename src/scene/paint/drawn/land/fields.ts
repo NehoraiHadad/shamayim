@@ -1,3 +1,4 @@
+import { smoothstep } from '../../../../domain/smoothstep'
 import { labOf, rgbOfLab, toLinear, toSrgb } from '../../../model/tone'
 import type { LayerOf, RGB } from '../../../model/types'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
@@ -23,6 +24,8 @@ const LEAST = 0.25, PATCH = [-0.035, 0, 0.025] as const
 const TURN = 2.2
 /** How much of the step of value between the ground's material and the field's the field keeps. */
 const VALUE = 0.4
+/** The ground's values over which a field keeps its own hue in full, and how much of it it keeps under them (dusk). */
+const DUSK = { from: 0.3, to: 0.5, keep: 0.4 } as const
 /** The furrows a ploughed field takes, their ink's step; a stratum's and a row's step of value and their width (share of the tier's cut). */
 /** A stratum's runs and the gaps between them (px). */
 const RUN = [10, 26] as const, GAP = [4, 12] as const
@@ -92,8 +95,11 @@ function turned([lit, shade]: ReceiverInk, rho: RGB, tone: RGB, patch: number): 
   const value = (lum(lin) / Math.max(1e-4, lum(rho))) ** (1 - VALUE)
   const by = [0, 1, 2].map((m) => Math.min(TURN, Math.max(1 / TURN, lin[m] / Math.max(1e-4, rho[m]) / value)))
   const turn = (rgb: RGB): RGB => {
-    const out = rgb.map((v, m) => toSrgb(Math.min(1, toLinear(v) * by[m]))) as unknown as RGB, lab = labOf(out)
-    return rgbOfLab({ ...lab, l: Math.min(1, Math.max(0, lab.l + patch * Math.min(1, lab.l / 0.6))) })
+    const out = rgb.map((v, m) => toSrgb(Math.min(1, toLinear(v) * by[m]))) as unknown as RGB, lab = labOf(out), under = labOf(rgb)
+    // The field's own hue fades with the light as the ground's does: at dusk a field is its ground a step off, not a green lamp.
+    const hue = DUSK.keep + (1 - DUSK.keep) * smoothstep(DUSK.from, DUSK.to, under.l)
+    return rgbOfLab({ l: Math.min(1, Math.max(0, lab.l + patch * Math.min(1, lab.l / 0.6))),
+      a: under.a + (lab.a - under.a) * hue, b: under.b + (lab.b - under.b) * hue })
   }
   return [turn(lit), shade && turn(shade)]
 }

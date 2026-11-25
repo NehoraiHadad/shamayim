@@ -12,6 +12,9 @@ import type { Planes, TownLight } from './townLight'
 
 /** A tile roof's eave past the wall (px); its pitch and ridge are the house's type's (`townBlocks`). */
 const EAVE = 0.25
+/** A tile roof's step of value from the ground in a dull light, its front and its hip, and the share of the ground's hue it
+ *  takes (its red is its own). */
+const ANCHORED = { front: -0.01, hip: -0.05, hue: 0.25 } as const
 /** A flat roof's slab: against the width and the height, least and most (px). */
 const FLAT = 0.14, FLAT_SHARE = 0.16, FLAT_LEAST = 0.5, FLAT_MOST = 1
 /** How far a tile roof goes to the shade with no direct light (dusk, an even sky): its red is the sun's. */
@@ -20,20 +23,23 @@ const ROOF_DULL = 0.45
 const SLAB_JOINT = 5
 
 export function tileRoof(ctx: Ctx2D, b: Block, x0: number, top: number, w: number, face: { x0: number; x1: number }, t: Tones,
-  l: TownLight, p: Planes, pen: Pen) {
+  l: TownLight, p: Planes, pen: Pen, bare = false) {
   const s = pen.scale, x1 = x0 + w, mid = x0 + w / 2
   const peak = snap(top - riseOf({ w, hip: b.hip }), s), ridge = (w * b.ridge) / 2
   const e0 = x0 - EAVE, e1 = x1 + EAVE, r0 = mid - ridge, r1 = mid + ridge
   const dull = ROOF_DULL * (1 - l.on * (1 - l.night))
   const lit = (k: number) => mix(mix(mix(t.roof, t.shade, 0.4 * (1 - k)), t.roofLit, Math.min(1, 0.2 + 0.8 * k)), t.shade, dull)
   // The roof's front plane faces the sky and the light as the front does; the hip's end takes the side's light.
-  const front = lit(Math.min(1, 0.3 * l.top + 0.7 * l.front + 0.2)), hip = mix(lit(0), lit(1), sideShare(p))
+  const front = p.tint(lit(Math.min(1, 0.3 * l.top + 0.7 * l.front + 0.2)), ANCHORED.front, ANCHORED.hue)
+  const hip = p.tint(mix(lit(0), lit(1), sideShare(p)), ANCHORED.hip, ANCHORED.hue)
   block(ctx, [[e0, top], [e1, top], [r1, peak], [r0, peak]], front)
   // The hip's end: a triangle from the ridge's end down to the eave over the side.
   const corner = p.right ? face.x1 : face.x0
   if (p.right) block(ctx, [[r1, peak], [e1, top], [corner, top]], hip)
   else block(ctx, [[r0, peak], [e0, top], [corner, top]], hip)
   joint(ctx, e0, top, e1 - e0, false, mix(p.joint, t.deep, 0.2), pen)
+  // A small house's roof is a flat block on its wall: keyed only where it meets the sky.
+  if (bare) return
   keyedRun(ctx, [[x0, top], [e0, top], [r0, peak], [r1, peak], [e1, top], [x1, top]], mix(p.ink, t.roof, 0.15), pen)
   ctx.strokeStyle = css(mix(p.joint, t.roof, 0.2))
   ctx.lineWidth = 1 / s

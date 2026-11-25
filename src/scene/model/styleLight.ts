@@ -4,7 +4,7 @@ import type { FallTile } from './fallTile'
 import type { LandIrradiance } from './landIrradiance'
 import type { LampKind } from './layers/lamp'
 import type { outsideShape } from './outsideShape'
-import type { OutsideItem, Plain, SceneBox, Shine, Tones } from './types'
+import type { LayerOf, OutsideItem, Plain, SceneBox, Shine, Tones } from './types'
 
 /** How much of the sky's and the ground's light a face keeps at twilight. */
 export type TwilightScreen = (n: Normal) => { sky: number; ground: number }
@@ -50,6 +50,11 @@ export interface StyleLight {
   /** Asks for the near rain and snow on a larger tile. */
   fallTile?: FallTile
   outside?: (facts: OutsideFacts) => OutsideLook
+  /**
+   * The place and the near plane it stands on, met: a hand that prints the two as one block (the town's ground in the
+   * plane's ink, the houses' seats cut in the plane) adds to each what it reads of the other, in their `own` and keys.
+   */
+  meet?: (outside: LayerOf<'outside'>, near: LayerOf<'plane'>) => { outside: LayerOf<'outside'>; near: LayerOf<'plane'> }
   sky?: { grade?: SkyGrade }
 }
 

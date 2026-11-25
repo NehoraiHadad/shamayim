@@ -80,7 +80,8 @@ export function groundDabs(brush: ReceiverBrush, desc: LayerOf<'plane'>, t: Plan
     const i = columnAt(t, x), deep = depthAt(t, i, y)
     if (deep === null || y < t.crestY[i] + 2) continue
     const at = inkAt(x, y)
-    if (at.level !== SHADE || close > (0.35 + 0.65 * deep) * at.shown) continue
+    // None where the block is wiped back toward the foot: the graver cuts the wood that prints.
+    if (at.level !== SHADE || close > (0.35 + 0.65 * deep) * at.shown * (1 - 1.4 * (at.wiped ?? 0))) continue
     const len = (LONG[0] + (LONG[1] - LONG[0]) * long * long) * (0.4 + 0.6 * deep)
     let ink = inks.get(at.key)
     if (!ink) inks.set(at.key, ink = { at, dabs: [] })

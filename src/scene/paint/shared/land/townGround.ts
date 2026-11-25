@@ -49,16 +49,48 @@ export function bodiesOf(town: PlaneTown): Body[] {
 export interface TownGrid { x: number; y: number; cols: number; rows: number; cell: number }
 
 /**
+ * A hand's bound on a house's own ground (optional; none, the ground as both hands had it): its half width past the walls
+ * and its half depth at most (px), and whether it stops at the foot of the next row down the slope, so a big house's yard
+ * is a yard and not the hillside.
+ */
+export interface GroundCap { rx: number; ry: number; rows: boolean }
+
+/** A house's ground bell: its middle, half width and half depth (px), and the lowest it reaches (px). */
+function bellOf(b: Body, cap: GroundCap | undefined, below: number) {
+  const rx = cap ? Math.min(AROUND * b.w, b.w / 2 + cap.rx) : AROUND * b.w, ry = cap ? Math.min(DEPTH * b.w, cap.ry) : DEPTH * b.w
+  const cy = b.foot + 0.3 * b.w
+  return { cx: (b.x0 + b.x1) / 2, cy, rx, ry, low: Math.min(cy + REACH * ry, below) }
+}
+
+/** The foot of the nearest row down the slope under each house (px), where the hand stops a house's ground there. */
+function rowsBelow(bodies: readonly Body[], cap: GroundCap | undefined): Float32Array {
+  const out = new Float32Array(bodies.length).fill(Infinity)
+  if (!cap?.rows) return out
+  const stands = standing(bodies)
+  bodies.forEach((b, k) => {
+    const seen = new Set<number>()
+    for (let c = Math.floor(b.x0 / BIN); c <= Math.floor(b.x1 / BIN); c++) for (const m of stands.bins.get(c) ?? []) {
+      if (seen.has(m)) continue
+      seen.add(m)
+      const o = bodies[m]
+      if (o.x1 > b.x0 && o.x0 < b.x1 && o.foot > b.foot + 0.5 && o.foot < out[k]) out[k] = o.foot
+    }
+  })
+  return out
+}
+
+/**
  * How much of each cell is lived on (0 … 1): every house's ground round it summed, so a lone house is a small yard and a
  * dense quarter one ground, then cut with a wandering edge so the town fades into the hillside in drifts, not a ring.
  */
-export function livedOn(bodies: readonly Body[], g: TownGrid, seed: number): Float32Array {
-  const sum = new Float32Array(g.cols * g.rows)
-  for (const b of bodies) {
-    const cx = (b.x0 + b.x1) / 2, cy = b.foot + 0.3 * b.w, rx = AROUND * b.w, ry = DEPTH * b.w
+export function livedOn(bodies: readonly Body[], g: TownGrid, seed: number, cap?: GroundCap): Float32Array {
+  const sum = new Float32Array(g.cols * g.rows), below = rowsBelow(bodies, cap)
+  for (const [k, b] of bodies.entries()) {
+    const { cx, cy, rx, ry, low } = bellOf(b, cap, below[k])
     const i0 = Math.max(0, Math.floor((cx - REACH * rx - g.x) / g.cell)), i1 = Math.min(g.cols - 1, Math.ceil((cx + REACH * rx - g.x) / g.cell))
-    const j0 = Math.max(0, Math.floor((cy - REACH * ry - g.y) / g.cell)), j1 = Math.min(g.rows - 1, Math.ceil((cy + REACH * ry - g.y) / g.cell))
+    const j0 = Math.max(0, Math.floor((cy - REACH * ry - g.y) / g.cell)), j1 = Math.min(g.rows - 1, Math.ceil((low - g.y) / g.cell))
     for (let j = j0; j <= j1; j++) {
+      if (g.y + j * g.cell > low) break
       const dy = (g.y + j * g.cell - cy) / ry, row = j * g.cols, dy2 = dy * dy
       if (dy2 >= REACH * REACH) continue
       for (let i = i0; i <= i1; i++) {
@@ -85,10 +117,16 @@ export function livedOn(bodies: readonly Body[], g: TownGrid, seed: number): Flo
 }
 
 /** The bounds (px) the lived-on ground can reach. */
-export function townExtent(bodies: readonly Body[]): { x0: number; x1: number; y0: number; y1: number } | null {
+export function townExtent(bodies: readonly Body[], cap?: GroundCap): { x0: number; x1: number; y0: number; y1: number } | null {
   if (!bodies.length) return null
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
   for (const b of bodies) {
+    if (cap) {
+      const rx = Math.min(AROUND * b.w, b.w / 2 + cap.rx), ry = Math.min(DEPTH * b.w, cap.ry)
+      x0 = Math.min(x0, b.x0 - REACH * rx); x1 = Math.max(x1, b.x1 + REACH * rx)
+      y0 = Math.min(y0, b.foot - REACH * ry); y1 = Math.max(y1, b.foot + 0.3 * b.w + REACH * ry)
+      continue
+    }
     x0 = Math.min(x0, b.x0 - REACH * AROUND * b.w); x1 = Math.max(x1, b.x1 + REACH * AROUND * b.w)
     y0 = Math.min(y0, b.foot - REACH * DEPTH * b.w); y1 = Math.max(y1, b.foot + (0.3 + REACH * DEPTH) * b.w)
   }

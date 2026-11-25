@@ -34,23 +34,24 @@ const RISES = 1.3, RISES_BY = 1.6
 /** A body under this height (px) is a flat patch; the least height a standing body is given (px); the longest a body may
  *  be against its height (a longer one is a terrace of several); how much a terrace's houses differ in height. */
 const FOLD = 0.8, LEAST_H = 1.4, PLANK = 2.5, TERRACE_VARY = 0.12
-/** A terrace this low (px) is a row of small houses apart, not one terrace: the gap between them (px), how much more
- *  they differ in height. */
-const SMALL = 2.5, APART = 0.5, SMALL_VARY = 0.3
+/** A terrace this low (px) is a strip of small houses joined wall to wall (a row of far houses reads as one strip, never
+ *  as gravel): how much more its houses differ in height. */
+const SMALL = 2.5, SMALL_VARY = 0.15
 /** A tile roof's pitch where no type is given, and its ridge. */
-const HIP = 0.4, RIDGE = 0.3
-/** A tile roof's height at most (px), and over its pitch (px). */
-const HIP_MAX = 2.6, HIP_OVER = 0.3
+const HIP = 0.28, RIDGE = 0.3
+/** A tile roof's height at most (px), and over its pitch (px): a village roof is a low hip, not a tower's cap. */
+const HIP_MAX = 2, HIP_OVER = 0.15
 
 /**
  * The village house types, as an illustrator keeps a few for a hill of houses: their width and height against the
  * data's, their roof's pitch and ridge (no pitch: a flat roof), and how often each stands.
  */
 const HOUSES = [
-  { w: 1, h: 1, hip: 0.4, ridge: 0.3, share: 0.34 },
-  { w: 0.86, h: 1.14, hip: 0.56, ridge: 0.16, share: 0.26 },
-  { w: 1.18, h: 0.9, hip: 0.27, ridge: 0.5, share: 0.22 },
-  { w: 1.06, h: 0.96, hip: 0, ridge: 0, share: 0.18 },
+  // The moshav's single-storey house: wide and low under a low hip.
+  { w: 1.22, h: 0.82, hip: 0.27, ridge: 0.34, share: 0.34 },
+  { w: 0.94, h: 1, hip: 0.3, ridge: 0.18, share: 0.26 },
+  { w: 1.18, h: 0.88, hip: 0.25, ridge: 0.5, share: 0.22 },
+  { w: 1.06, h: 0.92, hip: 0, ridge: 0, share: 0.18 },
 ] as const
 
 const gathered = new WeakMap<readonly OutsideItem[], TownBody[]>()
@@ -97,9 +98,8 @@ function stood(b: Block): Block[] {
   const tall = Math.max(LEAST_H, h)
   const n = b.roof === 'tile' ? 1 : Math.max(1, Math.min(Math.ceil(b.w / (PLANK * tall)), Math.floor(b.w / LEAST_W)))
   if (n === 1) return [{ ...b, top: b.foot - tall }]
-  const r = rng(b.seed ^ 0x51ab), pw = b.w / n, x0 = b.x - b.w / 2, small = tall < SMALL
-  const gap = small ? APART : 0, vary = small ? SMALL_VARY : TERRACE_VARY
-  return Array.from({ length: n }, (_, i) => ({ ...b, x: x0 + pw * (i + 0.5), w: pw - gap, seed: (b.seed + i * 0x9e37) >>> 0,
+  const r = rng(b.seed ^ 0x51ab), pw = b.w / n, x0 = b.x - b.w / 2, vary = tall < SMALL ? SMALL_VARY : TERRACE_VARY
+  return Array.from({ length: n }, (_, i) => ({ ...b, x: x0 + pw * (i + 0.5), w: pw, seed: (b.seed + i * 0x9e37) >>> 0,
     top: b.foot - Math.max(LEAST_H, tall * (1 + vary * (2 * r() - 1))) }))
 }
 

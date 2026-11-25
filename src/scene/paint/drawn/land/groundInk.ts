@@ -7,13 +7,15 @@ import type { ReceiverInk } from '../../shared/land/receiverBrush'
 import { pigment, valued } from '../kit/palette'
 import type { Grain } from '../kit/printGrain'
 import { cellAt, type Ground } from './pots'
-import { SHADE, type Shading } from './shadeBlock'
+import { SHADE, type Shading, type Wipe } from './shadeBlock'
 
 /**
  * The ink a place of the ground was laid in, on each target; its block; the clear air in front of it; its light against
  * the plane's mean; how plainly its block shows in the sun; how far in from the shade block's edge it lies (px, below 0 outside).
  */
-export interface GroundInk { key: number; ink: ReceiverInk; level: number; air: number; light: number; shown: number; inside?: number }
+export interface GroundInk { key: number; ink: ReceiverInk; level: number; air: number; light: number; shown: number; inside?: number
+  /** How far a shade run's bokashi has wiped its block back to the base here (0 … 1). */
+  wiped?: number }
 
 /** The shade block's own edge on its shade side: its width (px) and how much darker than the block. */
 const EDGE = { wide: 0.9, dark: -0.05 } as const
@@ -22,7 +24,7 @@ const EDGE = { wide: 0.9, dark: -0.05 } as const
  * The blocks printed, each flat: every pot in the base block's ink, then each lit or shade block's ink within its outline;
  * the shade block's knife edge left a hair darker inside it.
  */
-export function printGround(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots }: Ground, { levels }: Shading, grain?: Grain): void {
+export function printGround(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots }: Ground, { levels, wipes }: Shading, grain?: Grain): void {
   const { x, y, w, h } = t.bounds
   targets.forEach((ctx, k) => {
     levels.forEach((level, v) => {
@@ -42,19 +44,44 @@ export function printGround(targets: readonly Ctx2D[], t: PlaneTexelCtx, { pots 
         ctx.lineJoin = 'round'
         ctx.stroke(level.path)
       }
+      if (v === SHADE && level.path) wiped(ctx, t, pots, levels[0]!.inks[k], wipes)
       ctx.restore()
     })
   })
 }
 
+/**
+ * The shade block's bokashi toward the foot: each run's lower part wiped back to the base block, the base's ink in every
+ * pot laid over it from nothing to full, so a hillside's shade ends as the damp cloth leaves it, never closed to a point.
+ */
+export function wiped(ctx: Ctx2D, t: PlaneTexelCtx, pots: Ground['pots'], base: readonly RGB[], wipes: readonly Wipe[]) {
+  for (const w of wipes) {
+    pots.forEach(({ shapes }, p) => {
+      const g = ctx.createLinearGradient(0, w.y0, 0, w.y1)
+      g.addColorStop(0, css(base[p], 0))
+      g.addColorStop(1, css(base[p], 1))
+      ctx.fillStyle = g
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(w.x0 - 1, w.y0, w.x1 - w.x0 + 2, w.y1 - w.y0 + 2)
+      ctx.clip()
+      if (p) ctx.fill(shapes)
+      else ctx.fillRect(t.bounds.x, w.y0, t.bounds.w, w.y1 - w.y0 + 2)
+      ctx.restore()
+    })
+  }
+}
+
 export type InkAt = (x: number, y: number) => GroundInk
 
 /** What a place was printed in. */
-export function inkAt(t: PlaneTexelCtx, { label, pots }: Ground, { levels, levelAt, light, inside }: Shading): InkAt {
+export function inkAt(t: PlaneTexelCtx, { label, pots }: Ground, { levels, levelAt, light, inside, wipes }: Shading): InkAt {
   return (x, y) => {
     const n = cellAt(t, x, y), p = label[n], v = levels[levelAt[n]] ? levelAt[n] : 0
     const level = levels[v]!, [lit, shade] = level.inks.map((byPot) => byPot[p])
-    return { key: v * pots.length + p, ink: [lit, shade], level: v, air: level.air, light: light[n], shown: level.shown[0], inside: insideAt(t, inside, x, y) }
+    let wiped = 0
+    if (v === SHADE) for (const w of wipes) if (x >= w.x0 && x <= w.x1 && y > w.y0) wiped = Math.max(wiped, Math.min(1, (y - w.y0) / (w.y1 - w.y0)))
+    return { key: v * pots.length + p, ink: [lit, shade], level: v, air: level.air, light: light[n], shown: level.shown[0], inside: insideAt(t, inside, x, y), wiped }
   }
 }
 

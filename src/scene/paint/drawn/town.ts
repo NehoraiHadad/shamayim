@@ -1,3 +1,4 @@
+import { smoothstep } from '../../../domain/smoothstep'
 import type { LayerOf, OutsideItem, RGB, Tones, TreeDesc } from '../../model/types'
 import { drawLamps, glyphLight, glyphShadow } from '../shared/town/glyphs'
 import type { Lamp } from '../shared/town/glyphs/kit'
@@ -6,13 +7,14 @@ import { grain, rockOf, tree } from '../shared/town/marks'
 import { stripPhase } from '../shared/town/stripPhase'
 import { paintOutsideSea } from '../shared/town/outsideGround'
 import { townFronts } from './land/fronts'
-import { skyFormIn } from './outsideOwn'
-import { paintBlock } from './townBlock'
+import { skyFormIn, type OwnOutside } from './outsideOwn'
+import { paintBlock, type Print } from './townBlock'
 import { castBlock } from './townCast'
-import { townBodies, townGround, type Block } from './townBlocks'
+import { townBodies, townGround } from './townBlocks'
 import { penFor, type KeyTier, type Pen } from './townKey'
 import { paintTownGlyph } from './townGlyph'
-import { townLight, type TownLight } from './townLight'
+import { anchorOf, townLight, type Anchor, type TownLight } from './townLight'
+import { seatOf } from './townSeats'
 import { townEdges } from './townSilhouette'
 import { daylit, inkedSea, inkedTones } from './townTones'
 import { paintDrawnTower } from './townTower'
@@ -41,11 +43,13 @@ const RECEDE = 0.1, RECEDE_OVER = 16, TIERS_OWN = 0.14
 const FAR_ROWS = 0.5
 /** The ground's shade under a body (`townCast`): its ink, from the town's shade toward its deep, and its strength. */
 const CAST_INK = 0.5, CAST_ALPHA = 0.8
-/** A body seated on its own front row: how far above the ground there it may stand and still be on it (px). */
-const SEATED = 0.8
-/** The steepest fall across a body a hill gives (px down per px across): a deeper step beside it is a row in front of it,
- *  not its ground. */
-const FALL = 0.45
+/** The direct light over which the town is lit by the sun alone, and under which it is anchored in full to its ground's
+ *  ink (dusk, an even sky): a dull light shows a wall about the ground's value and hue, never a palette of its own. */
+const ANCHOR_LIGHT = [0.3, 0.5] as const
+/** How much more of its air the ground of a town beyond the place takes than the place's own (its tones are its own km's). */
+const BEYOND_AIR = 0.2
+/** A crown's step of value from its ground in a dull light, its lit half's, and how much of the ground's hue it takes. */
+const LEAF_ANCHOR = { green: -0.05, lit: -0.01, hue: 0.3 } as const
 
 export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: PaintEnv): void {
   const { shine: s } = desc, lit = daylit(s), tiers = desc.tiers.map((t) => inkedTones(t, lit)), form = skyFormIn(desc)
@@ -54,36 +58,49 @@ export function paintDrawnOutside(ctx: Ctx2D, desc: LayerOf<'outside'>, env: Pai
   const bodies = townBodies(desc.items), ground = townGround(bodies), edges = townEdges(bodies), pens = new Map<KeyTier, Pen>()
   // The town stands on its own ground, a step behind the near land's crest: its front rows take the far key, the rows
   // up the place and the towns beyond it the back one, towers and houses alike (the key steps with distance alone).
-  const pen = (beyond: boolean, foot: number) => {
-    const tier: KeyTier = beyond || far.depth(foot) > FAR_ROWS ? 'back' : 'far'
+  const tierOf = (beyond: boolean, foot: number): KeyTier => beyond || far.depth(foot) > FAR_ROWS ? 'back' : 'far'
+  const pen = (tier: KeyTier) => {
     let p = pens.get(tier)
     if (!p) pens.set(tier, p = penFor(tier, env.scale))
     return p
   }
+  // The near plane cuts the place's own bodies' seats and casts in its wood and prints their ground (`light/meet`); in a
+  // dull light their blocks are anchored to that ground's ink, aired as far as their row is.
+  const own = (desc.own as OwnOutside).ground, seated = Boolean(own)
+  const k = own ? (1 - smoothstep(ANCHOR_LIGHT[0], ANCHOR_LIGHT[1], s.direct)) * (1 - s.night) : 0
+  const anchor = (tier: number, foot: number, beyond = false): Anchor | undefined =>
+    own ? { ground: mix(own, tiers[tier].mist, beyond ? BEYOND_AIR : far.air(foot)), k } : undefined
+  const print = (tier: number, foot: number, beyond = false): Print =>
+    ({ tier: tierOf(beyond, foot), anchor: anchor(tier, foot, beyond), seated: seated && !beyond })
   // The place's own ground is the near plane's: printed there in its inks, under its yards and lanes (`land/settlement`).
   if (desc.sea) paintOutsideSea(ctx, inkedSea(desc.sea), s, stripPhase(desc, env))
   // Every body's seat first, under all of them: its shade on the ground, one flat block along the ground line, so none
   // stands pasted on.
   for (const { block, item } of bodies) {
     if (block) {
-      if (block.low) continue
+      // What stands beyond the place stands on another ground: its seat is its own.
+      if (block.low || (seated && !block.beyond)) continue
       const seat = seatOf(block, ground)
       castBlock(ctx, { x: block.x, w: block.w, h: block.foot - block.top, left: seat?.left ?? block.foot, right: seat?.right ?? block.foot },
         shadeInk(far(block.tier, block.foot)), CAST_ALPHA, s.cast)
     } else if (item.kind === 'tower') {
-      castBlock(ctx, { x: item.x, w: item.w, h: item.h, left: item.base, right: item.base }, shadeInk(far(item.tier, item.base)), CAST_ALPHA, s.cast)
+      if (!seated) castBlock(ctx, { x: item.x, w: item.w, h: item.h, left: item.base, right: item.base }, shadeInk(far(item.tier, item.base)), CAST_ALPHA, s.cast)
     } else if (item.kind === 'mark') glyphShadow(ctx, item.glyph, s)
   }
-  const leaf = leafLight(light, lateral, s.night)
+  const leaf = leafLight(light, lateral)
   const lamps: Lamp[] = []
+  const crown = (tier: number, base: number) => leafy(far(tier, base), anchor(tier, base))
   for (const { block, item } of bodies) {
-    if (block) paintBlock(ctx, block, far(block.tier, block.foot), light, lamps, s.windows, pen(block.beyond, block.foot), seatOf(block, ground),
-      edges.get(block))
-    else if (item.kind === 'tower') paintDrawnTower(ctx, item, far(item.tier, item.base), light, s, lamps, pen(false, item.base))
-    else if (item.kind === 'tree') tree(ctx, grown(item.tree), leafy(far(item.tier, item.tree.base)), s, leaf, rockOf(desc, env, item.tree.seed))
+    if (block) {
+      const p = print(block.tier, block.foot, block.beyond)
+      paintBlock(ctx, block, far(block.tier, block.foot), light, lamps, s.windows, pen(p.tier), seatOf(block, ground), edges.get(block), p)
+    } else if (item.kind === 'tower') {
+      const p = print(item.tier, item.base)
+      paintDrawnTower(ctx, item, far(item.tier, item.base), light, s, lamps, pen(p.tier), p)
+    } else if (item.kind === 'tree') tree(ctx, grown(item.tree), crown(item.tier, item.tree.base), s, leaf, rockOf(desc, env, item.tree.seed))
     else lamps.push(...paintTownGlyph(ctx, { ...item.glyph, tones: inkedTones(item.glyph.tones, lit) }, s))
   }
-  for (const { tree: t, tier } of townFronts(desc.items)) tree(ctx, t, leafy(far(tier, t.base)), s, leaf, rockOf(desc, env, t.seed))
+  for (const { tree: t, tier } of townFronts(desc.items)) tree(ctx, t, crown(tier, t.base), s, leaf, rockOf(desc, env, t.seed))
   grain(ctx, env, 13, GRAIN * (1 - 0.4 * s.night))
   drawLamps(ctx, lamps, 1 / env.scale)
 }
@@ -93,30 +110,28 @@ const shadeInk = (t: Tones) => mix(t.shade, t.deep, CAST_INK)
 
 /** A crown's shade, as the print cuts it: its own green a step down, not the walls' blue shade over it. */
 const LEAF_SHADE = 0.3
-const leafy = (t: Tones): Tones => ({ ...t, shade: mix(t.green, t.deep, LEAF_SHADE) })
+function leafy(t: Tones, anchor?: Anchor): Tones {
+  const shade = mix(t.green, t.deep, LEAF_SHADE)
+  if (!anchor?.k) return { ...t, shade }
+  // In a dull light a crown is a block of its ground's value, a little darker, still green.
+  const tint = anchorOf(anchor)
+  return { ...t, green: tint(t.green, LEAF_ANCHOR.green, LEAF_ANCHOR.hue), greenLit: tint(t.greenLit, LEAF_ANCHOR.lit, LEAF_ANCHOR.hue),
+    shade: tint(shade, LEAF_ANCHOR.green - 0.04, LEAF_ANCHOR.hue) }
+}
 
 /**
  * A crown's lit half: the side the town's light leans to (the sky's brighter side under an even sky), by day at least
  * a fair share of the crown, so a clump reads as foliage in the light and not as a dark ball; the direct light's own lean
  * where that is the stronger.
  */
-function leafLight(l: TownLight, lateral: number, night: number): number {
+function leafLight(l: TownLight, lateral: number): number {
   const lean = Math.max(-1, Math.min(1, LEAF_TURN * (l.left - l.right)))
-  const least = LEAF_LEAST * (1 - night)
+  // Its least lit share is the direct light's: in a dull light a crown is its shade, with no sunlit half to speak of.
+  const least = LEAF_LEAST * l.on
   const k = Math.abs(lean) > Math.abs(lateral) ? lean : lateral
   return Math.sign(k || 1) * Math.min(1, Math.max(Math.abs(k), least))
 }
 
-/** Where the ground lies under a body of the front row, at its two corners, and its low side; none for one behind. */
-function seatOf(b: Block, ground: (x: number) => number | undefined) {
-  if (b.beyond) return undefined
-  const x0 = b.x - b.w / 2, x1 = b.x + b.w / 2, at = ground(b.x)
-  if (at === undefined || b.foot < at - SEATED) return undefined
-  const most = b.foot + FALL * (b.w + 1)
-  const side = (x: number) => { const g = ground(x) ?? b.foot; return g > most ? b.foot : Math.max(b.foot, g) }
-  const left = side(x0 - 0.5), right = side(x1 + 0.5)
-  return { left, right, low: Math.max(left, right) }
-}
 
 function grown(tree: TreeDesc): TreeDesc {
   const by = Math.max(GROWN, GROWN_MIN / tree.w)
@@ -138,8 +153,9 @@ function receding(items: readonly OutsideItem[], tiers: readonly Tones[]) {
     if (!tones) made.set(key, tones = aired(tiers[tier], (deep * step) / 8))
     return tones
   }
-  /** How far up the place's rows a foot stands: 0 its nearest, 1 its farthest. */
-  return Object.assign(at, { depth: (foot: number) => Math.min(1, Math.max(0, (near - foot) / span)) })
+  const depth = (foot: number) => Math.min(1, Math.max(0, (near - foot) / span))
+  /** How far up the place's rows a foot stands (0 its nearest, 1 its farthest), and the share of its air in its tones. */
+  return Object.assign(at, { depth, air: (foot: number) => (deep * Math.round(8 * depth(foot))) / 8 })
 }
 
 const LIGHTS: ReadonlySet<string> = new Set(['win', 'gold', 'mist'])
