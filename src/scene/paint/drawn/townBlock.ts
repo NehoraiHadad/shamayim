@@ -3,7 +3,8 @@ import { rng } from '../shared/base/core'
 import type { Lamp } from '../shared/town/glyphs/kit'
 import { css, mix, type Ctx2D } from '../shared/base/hand'
 import type { Block } from './townBlocks'
-import { joint, keyedBox, snap, type Pen } from './townKey'
+import { joint, keyedBox, keyedEdges, snap, type Pen } from './townKey'
+import type { Edges } from './townSilhouette'
 import { planesOf, plasterOf, sideWidth, type Planes, type TownLight } from './townLight'
 import { flatRoof, tileRoof } from './townRoof'
 import { townWindows } from './townWindows'
@@ -22,25 +23,36 @@ const WALL_LEAST = 0.45, WALL_MOST = 0.6, WALL_TALLEST = 3
 const GROUND_RUN = 0.5
 /** The pen as it stands where none is given (tests, one device pixel per px). */
 const PEN: Pen = { scale: 1, line: 1 }
+/** A low patch's step from its roof tone toward the key's ink. */
+const PATCH = 0.15
 
 export function paintBlock(ctx: Ctx2D, b: Block, t: Tones, l: TownLight, lamps: Lamp[], windows: number, pen: Pen = PEN,
-  seat?: Seat) {
+  seat?: Seat, edges?: Edges) {
   const r = rng(b.seed ^ 0x3c1), stone = r(), s = pen.scale
   const x0 = snap(b.x - b.w / 2, s), x1 = snap(b.x + b.w / 2, s), top = snap(b.top, s), foot = snap(b.foot, s)
   const w = Math.max(1 / s, x1 - x0), h = Math.max(1 / s, foot - top), plaster = plasterOf(t, stone)
   const planes = planesOf(t, l, plaster, stone)
+  if (b.low) {
+    // Too low to stand: one flat block of its roof's tone, a value step on the ground, no key.
+    ctx.fillStyle = css(mix(planes.roof, planes.ink, PATCH))
+    ctx.fillRect(x0, foot - h, w, h)
+    return
+  }
   const walled = seat ? terrace(ctx, x0, w, foot, h, seat, t, planes, pen) : false
   const front = bodyPlanes(ctx, x0, top, w, h, sideWidth(l, w), planes, pen)
   const roofed = b.roof === 'tile'
   const deep = roofed ? 0 : flatRoof(ctx, b, x0, top, w, h, t, planes, pen)
   townWindows(ctx, { top: top + deep, foot, storeys: b.storeys }, t, l, front, planes.front, r, lamps, windows, pen)
-  keyedBox(ctx, x0, top, w, h, planes.ink, pen, !roofed)
-  // The ground's key line along the foot, run a little past the walls into the ground, where no terrace wall carries it.
+  const ends = edges ? keyedEdges(ctx, x0, top, w, h, edges, planes.ink, planes.joint, pen, !roofed) : (keyedBox(ctx, x0, top, w, h, planes.ink, pen, !roofed), { left: true, right: true })
+  // The ground's key line runs a little past the walls into the ground where the foot is keyed at a corner and no terrace
+  // wall carries it.
   if (!walled) {
     ctx.fillStyle = css(planes.ink)
-    ctx.fillRect(x0 - GROUND_RUN, foot - pen.line, w + 2 * GROUND_RUN, pen.line)
+    if (ends.left) ctx.fillRect(x0 - GROUND_RUN, foot - pen.line, GROUND_RUN, pen.line)
+    if (ends.right) ctx.fillRect(x0 + w, foot - pen.line, GROUND_RUN, pen.line)
+    if (!edges) ctx.fillRect(x0, foot - pen.line, w, pen.line)
   }
-  if (roofed) tileRoof(ctx, x0, top, w, front, t, l, planes, pen)
+  if (roofed) tileRoof(ctx, b, x0, top, w, front, t, l, planes, pen)
 }
 
 /**
