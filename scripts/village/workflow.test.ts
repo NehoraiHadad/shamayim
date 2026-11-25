@@ -1,13 +1,18 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 import { OSM } from './input'
 import { writeTiles } from './write'
 
 const workflow = readFileSync('.github/workflows/village.yml', 'utf8')
+const tempDir = () => {
+  const dir = mkdtempSync(join(tmpdir(), 'village-'))
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }))
+  return dir
+}
 const step = (name: string) => workflow.split(/^ {6}- /m).find(text => text.includes(`name: ${name}`) && text.includes('upload-artifact')) ?? ''
 
 describe('the data workflow', () => {
@@ -23,7 +28,7 @@ describe('the data workflow', () => {
 })
 
 it('a build that fails a gate writes no tile', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'village-')), out = join(dir, 'il')
+  const dir = tempDir(), out = join(dir, 'il')
   const houses = Array.from({ length: 10 }, (_, i) => [31.64, 35.04 + i * 3e-4, 15, 10, 0, 150, OSM])
   writeFileSync(join(dir, 'groups.jsonl'), JSON.stringify({ places: [[31.64, 35.04]], houses }))
   writeFileSync(join(dir, 'facts.json'), JSON.stringify({ buildings: 10, kept: 10, partSources: 0, datasets: { [OSM]: 10 }, keptDatasets: { [OSM]: 10 } }))
@@ -37,7 +42,7 @@ it('a build that fails a gate writes no tile', () => {
 }, 60_000)
 
 it('the tiles go out with their licence, and its share-alike', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'village-'))
+  const dir = tempDir()
   await writeTiles(dir, join(dir, 'list.json'), new Map([['316_350', '{}']]), '2026-11-18.0')
   const notice = readFileSync(join(dir, 'LICENSE.txt'), 'utf8')
   for (const words of ['Derivative', 'Share-alike', 'https://opendatacommons.org/licenses/odbl/1-0/', 'OpenStreetMap', 'Microsoft', '2026-11-18.0'])

@@ -4,15 +4,14 @@
 // SHOT_TIME='2026-11-19T10:00:00+02:00' runs the page's clock from that moment (Date shifted, still ticking).
 import { spawn } from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
+import { makeProfile, QUIET, removeProfile, stopChrome } from './chromeProfile.mjs'
 
 const [url, out, waitMs = '6000', clickText] = process.argv.slice(2)
 const chrome = process.env.CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'shamayim-shot-'))
+const profile = makeProfile()
 const port = 9300 + Math.floor(Math.random() * 500)
 const browser = spawn(chrome, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
-  '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-first-run', 'about:blank'], { stdio: 'ignore' })
+  '--use-angle=swiftshader', '--enable-unsafe-swiftshader', ...QUIET, 'about:blank'], { stdio: 'ignore' })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function target() {
@@ -60,7 +59,6 @@ try {
   console.log('saved', out)
   ws.close()
 } finally {
-  browser.kill()
-  await sleep(300)
-  try { fs.rmSync(profile, { recursive: true, force: true }) } catch { /* locked */ }
+  await stopChrome(browser)
+  removeProfile(profile)
 }
