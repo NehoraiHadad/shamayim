@@ -15,16 +15,18 @@ import { foldsOf } from './folds'
 export interface GroundForm { rho: Float32Array; form: Float32Array }
 
 /** How flat the slant makes a mark; how far it follows the crest's line, eased over this many px; how far the marks are bent (px). */
-const FLAT = 2.4, FOLLOW = 0.35, EASED = 30, BENT = 18
+const FLAT = 2.4, FOLLOW = 0.7, EASED = 30, BENT = 18
 /** The marks' octaves (px across). */
 const OCTAVES = [3, 6, 12, 24, 48, 96] as const
+/** The depths the octaves' weights are kept for; the least weight an octave is read at. */
+const LEVELS = 48, FAINT = 0.1
 const TURNS = OCTAVES.map((_, o) => [Math.cos(0.9 + 1.7 * o), Math.sin(0.9 + 1.7 * o)] as const)
 /** The size (px) a plane's marks centre on at its crest and at its foot. */
 const DEPTH: Record<LayerOf<'plane'>['plane'], readonly [number, number]> = { back: [2.6, 4], far: [4, 8], near: [7, 20] }
 /** Each field's size of the depth's: the soil and grass, the rock, the scrub. */
 const LAYOUT = 3, ROCK = 0.75, SCRUB = 0.55
 /** How far the limestone runs along the slope's contours (its ledges); the dark under a ledge, how far down (of the rock's size). */
-const LEDGE = 1.9, UNDER = 0.22, BELOW = 0.35
+const LEDGE = 1.6, UNDER = 0.22, BELOW = 0.35
 /** The size (px) of the drifts that gather rock in one place and leave bare rests in another. */
 const DRIFT = 150
 /** How much of the ground each takes: rock (more where the land is dry), scrub (by the model's green), how hard their edges. */
@@ -64,7 +66,7 @@ function weights(c: number, texel: number, into: Float32Array): void {
   let sum = 0
   OCTAVES.forEach((s, k) => {
     const d = Math.log2(s / c), fine = smooth(texel, 2.2 * texel, s)
-    const w = (d <= 0 ? Math.pow(2, 0.55 * d) : Math.exp(-1.6 * d * d)) * fine
+    const w = (d <= 0 ? Math.pow(2, 0.7 * d) : Math.exp(-1.6 * d * d)) * fine
     into[k] = w
     sum += w * w
   })
@@ -78,14 +80,20 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
   const folds = foldsOf(t, desc), line = eased(crestY, Math.round(EASED / texel)), [c0, c1] = DEPTH[desc.plane], rough = desc.plane === 'back' ? 0.6 : 1
   const baseOf = new Float32Array(cells * 3), size = new Float32Array(cells), inside = new Uint8Array(cells)
   const layout = new Float32Array(cells), rock = new Float32Array(cells), scrub = new Float32Array(cells), grain = new Float32Array(cells)
-  const broad = new Float32Array(cells), green = new Float32Array(cells), above = new Float32Array(cells), drift = new Float32Array(cells)
-  const wL = new Float32Array(OCTAVES.length), wR = new Float32Array(OCTAVES.length), wS = new Float32Array(OCTAVES.length)
+  const broad = new Float32Array(cells), green = new Float32Array(cells), drift = new Float32Array(cells)
+  // The octaves' weights at each depth, ready: the soil and grass, the rock, the scrub.
+  const table = (of: number) => Array.from({ length: LEVELS }, (_, l) => {
+    const w = new Float32Array(OCTAVES.length)
+    weights((c0 + (c1 - c0) * l / (LEVELS - 1)) * of, texel, w)
+    return w
+  })
+  const wL = table(LAYOUT), wR = table(ROCK), wS = table(SCRUB)
   // Each field a sum of the octaves weighed by depth, so a mark shrinks with distance without being stretched.
   // Each octave turned its own way, so no mark lines up with the raster.
   const field = (k: number, x: number, y: number, w: Float32Array) => {
     let sum = 0
     for (let o = 0; o < OCTAVES.length; o++) {
-      if (w[o] <= 0.02) continue
+      if (w[o] < FAINT) continue
       const [cos, sin] = TURNS[o], f = 1 / OCTAVES[o]
       sum += w[o] * (2 * fractal(seed + k + 7 * o, x * cos - y * sin, x * sin + y * cos, f, f, 1) - 1)
     }
@@ -100,15 +108,14 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const v = clamp01((y - crestY[i]) / Math.max(1, footY[i] - crestY[i])), near = v * v * (3 - 2 * v), c = c0 + (c1 - c0) * near
     const down = (y - bounds.y - FOLLOW * (1 - v) * line[i]) * FLAT
     const bend = BENT * (2 * fractal(seed + 5, off, down, 0.006, 0.006, 1) - 1), x = off + bend, d = down + bend
-    weights(c * LAYOUT, texel, wL); weights(c * ROCK, texel, wR); weights(c * SCRUB, texel, wS)
+    const level = Math.round(near * (LEVELS - 1))
     size[n] = c
-    layout[n] = field(11, x, d, wL)
-    rock[n] = field(41, x / LEDGE, d, wR)
-    above[n] = field(41, x / LEDGE, d - BELOW * FLAT * c * ROCK, wR)
-    drift[n] = smooth(0.3, 0.7, fractal(seed + 131, off, down, 1 / DRIFT, 1 / DRIFT, 2))
-    scrub[n] = field(71, x, d, wS)
+    layout[n] = field(11, x, d, wL[level])
+    rock[n] = field(41, x / LEDGE, d, wR[level])
+    drift[n] = smooth(0.3, 0.7, fractal(seed + 131, off, down, 1 / DRIFT, 1 / DRIFT, 1))
+    scrub[n] = field(71, x, d, wS[level])
     grain[n] = 2 * fractal(seed + 97, x, d, 1 / Math.max(2.2 * texel, 0.3 * c), 1 / Math.max(2.2 * texel, 0.3 * c), 1) - 1
-    broad[n] = 2 * fractal(seed + 3, off, down, 1 / 110, 1 / 110, 2) - 1
+    broad[n] = 2 * fractal(seed + 3, off, down, 1 / 110, 1 / 110, 1) - 1
     materialAt(plain, bounds.x + off, y, clamp01(off / Math.max(1, bounds.w)), v, base)
     // A grey palette (a town's ground) warmed toward the soil it lies on, its light kept.
     const hi = Math.max(base[0], base[1], base[2]), chroma = hi > 0 ? (hi - Math.min(base[0], base[1], base[2])) / hi : 0
@@ -137,7 +144,9 @@ function made(t: PlaneTexelCtx, desc: LayerOf<'plane'>): GroundForm {
     const grass = calm * rough * smooth(grassAt + layoutEdge, grassAt - layoutEdge, layout[n])
     // Rock gathers in its drifts, scrub in the rests between.
     const rockAt = at(rocks, 1 - rocky * (0.3 + 1.4 * drift[n])), rim = (f: number) => rough * smooth(rockAt - rockEdge, rockAt + rockEdge, f)
-    const stone = rim(rock[n]), ledge = UNDER * calm * rim(above[n]) * (1 - stone)
+    // The rock a little up the slope: its ledge's lip falls here.
+    const up = Math.round(BELOW * size[n] * ROCK / texel), above = n >= up * cols ? rock[n - up * cols] : rock[n]
+    const stone = rim(rock[n]), ledge = UNDER * calm * rim(above) * (1 - stone)
     const bushAt = at(bushes, 1 - (SCRUBBY[0] + (SCRUBBY[1] - SCRUBBY[0]) * g) * (1.4 - 0.8 * drift[n]))
     const bush = rough * (1 - stone) * smooth(bushAt - bushEdge, bushAt + bushEdge, scrub[n])
     let r = b0, gg = b1, bb = b2
