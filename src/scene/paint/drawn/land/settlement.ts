@@ -25,7 +25,7 @@ const BLOCKS = [{ at: 0.3, by: 0.022, dust: 0.35 }, { at: 0.7, by: 0.035, dust: 
 /** Dust: the hue a trodden ground turns to (Oklab a, b, a unit), its chroma its own; the values over which the hue turns in full (none in the dusk, where the ground's ink is dark). */
 const DUST = { a: 0.29, b: 0.96 } as const, TURNS = [0.3, 0.62] as const
 /** The grid the blocks are cut on (px a cell), and the least points a shape keeps. */
-const CELL = 1, LEAST = 5
+const CELL = 1.5, LEAST = 4
 /** A yard's step of value and dust; a garden's step of value and its green (Oklab a, b). */
 const YARD = { by: 0.045, dust: 0.45 } as const, GARDEN = { by: -0.05, a: -0.035, b: 0.012 } as const
 /** A lane's step of value and dust; its least width (px). */

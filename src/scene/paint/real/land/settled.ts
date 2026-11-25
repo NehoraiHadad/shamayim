@@ -1,5 +1,4 @@
 import type { LayerOf } from '../../../model/types'
-import { fractal } from '../../shared/base/core'
 import type { PlaneTexelCtx } from '../../shared/land/planeTexel'
 import { bodiesOf, livedOn, townMarks, type Lane } from '../../shared/land/townGround'
 
@@ -36,14 +35,14 @@ export function settledOf(t: PlaneTexelCtx, desc: LayerOf<'plane'>): Settled | n
     over(p.x - p.rx - texel, p.x + p.rx + texel, p.y - p.ry - texel, p.y + p.ry + texel, (x, y, n) => {
       // Its edge wanders, so a yard is a worn patch, not an oval.
       const dx = (x - p.x) / (p.rx + texel / 2), dy = (y - p.y) / (p.ry + texel / 2)
-      const d = Math.sqrt(dx * dx + dy * dy) + 0.35 * (fractal(p.seed, x, y * 2, 0.5, 0.5, 1) - 0.5)
+      const d = Math.sqrt(dx * dx + dy * dy) + wobble(p.seed, dx, dy)
       into[n] = Math.max(into[n], smooth(1, 0.6, d))
     })
   }
   for (const s of shrubs) {
     const cy = s.base - 0.5 * s.h, rx = s.w / 2 + texel / 2, ry = s.h / 2 + texel / 2
     over(s.x - rx, s.x + rx, cy - ry, cy + ry, (x, y, n) => {
-      const dx = (x - s.x) / rx, dy = (y - cy) / ry, d = dx * dx + dy * dy + 0.3 * (fractal(s.seed, x, y, 0.7, 0.7, 1) - 0.5)
+      const dx = (x - s.x) / rx, dy = (y - cy) / ry, d = dx * dx + dy * dy + wobble(s.seed, dx, dy)
       const crown = smooth(1, 0.55, d)
       if (crown <= out.tree[n]) return
       out.tree[n] = crown
@@ -58,15 +57,23 @@ type Over = (x0: number, x1: number, y0: number, y1: number, at: (x: number, y: 
 /** A lane's share of each texel: its width antialiased at the texel, worn here and there along it. */
 function line({ pts, wide }: Lane, texel: number, seed: number, over: Over, into: Float32Array) {
   const half = wide / 2
+  let gone = 0
   for (let k = 0; k + 1 < pts.length; k++) {
-    const [ax, ay] = pts[k], [bx, by] = pts[k + 1], dx = bx - ax, dy = by - ay, long = Math.max(1e-6, dx * dx + dy * dy)
+    const [ax, ay] = pts[k], [bx, by] = pts[k + 1], dx = bx - ax, dy = by - ay, long = Math.max(1e-6, dx * dx + dy * dy), from = gone
+    gone += Math.sqrt(long)
     over(Math.min(ax, bx) - half - texel, Math.max(ax, bx) + half + texel, Math.min(ay, by) - half - texel, Math.max(ay, by) + half + texel, (x, y, n) => {
       const u = Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / long)), d = Math.hypot(x - ax - u * dx, y - ay - u * dy)
       const share = Math.min(1, Math.max(0, (half + texel / 2 - d) / texel)) * Math.min(1, (half * 2 + 0.2) / texel)
-      const worn = 1 - WORN * smooth(0.45, 0.75, fractal(seed + 61, x, y, 1 / WORN_PX, 1 / WORN_PX, 1))
+      const along = (from + u * Math.sqrt(long)) / WORN_PX, worn = 1 - WORN * smooth(0.5, 0.9, Math.sin(along + seed) * Math.sin(0.61 * along + 2 * seed))
       into[n] = Math.max(into[n], share * worn)
     })
   }
+}
+
+/** A small turn of an edge round its middle, by the angle: two slow waves, a mark's own. */
+function wobble(seed: number, dx: number, dy: number): number {
+  const a = Math.atan2(dy, dx), p = (seed % 997) / 997 * 2 * Math.PI
+  return 0.1 * Math.sin(3 * a + p) + 0.07 * Math.sin(5 * a + 2.3 * p)
 }
 
 function smooth(lo: number, hi: number, v: number): number {
