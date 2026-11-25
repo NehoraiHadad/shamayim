@@ -1,5 +1,5 @@
 import { TEXEL } from '../../../model/planeBands'
-import { labOf, toSrgb } from '../../../model/tone'
+import { labOf, rgbOfLab, toLinear, toSrgb } from '../../../model/tone'
 import type { LayerOf, RGB } from '../../../model/types'
 import { fractal } from '../../shared/base/core'
 import { samplePlaneTexel, type PlaneTexelCtx } from '../../shared/land/planeTexel'
@@ -13,9 +13,14 @@ import { classesOf } from './classes'
  * No light in it, so it stands still while the hour is dragged and is kept.
  */
 
-/** The pots a plane takes; how far the material is gathered (cells); where a pot's edge stands, its smallest shape (points). */
-const POTS = { near: 6, far: 4, back: 3 } as const
+/** The pots a plane is gathered into, and the most it keeps; how far the material is gathered (cells); where a pot's edge stands, its smallest shape (points). */
+const POTS = { near: 6, far: 1, back: 1 } as const, MOST = 4
 const GATHER = 1.2, EDGE = 0.43, LEAST = 7
+/**
+ * Pots nearer than this (Oklab) are one pigment, mixed together; those kept are pushed apart about their mean until the
+ * nearest two stand this far, value more than hue, by at most this much: each a distinct step in the box, as the plate's banks and wood.
+ */
+const MERGE = 0.045, APART = 0.075, SPREAD = 2.4
 /** How far a slow noise bends the sides of patches and shades (px): the model's lie in columns, the land's do not. */
 const BENT = 90, BENT_SEED = 733
 
@@ -57,10 +62,44 @@ function gather(t: PlaneTexelCtx, k: number): Ground {
     const { l, a, b } = labOf([toSrgb(rho[0][n]), toSrgb(rho[1][n]), toSrgb(rho[2][n])])
     lab.set([l, a, b], n * 3)
   }
-  const { label, count } = classesOf(lab, on, k)
+  const classes = classesOf(lab, on, k), { count } = classes, label = mixed(classes)
   const order = [...count.keys()].filter((c) => count[c]).sort((a, b) => count[b] - count[a])
   if (!order.length) order.push(label[0])
-  return { on, bent, label: label.map((c) => Math.max(0, order.indexOf(c))), pots: order.map((c) => potOf(t, rho, label, on, c)) }
+  return { on, bent, label: label.map((c) => Math.max(0, order.indexOf(c))), pots: apart(order.map((c) => potOf(t, rho, label, on, c))) }
+}
+
+/** Pots too near to tell apart mixed into the larger, and the nearest mixed till no more than `MOST` are left; the labels after. */
+function mixed({ label, pots, count }: ReturnType<typeof classesOf>): Uint8Array {
+  const into = [...count.keys()], dist = (p: number, q: number) => Math.hypot(...[0, 1, 2].map((m) => pots[p * 3 + m] - pots[q * 3 + m]))
+  for (;;) {
+    const live = into.filter((c, k) => c === k && count[c])
+    let best: [number, number] | null = null, least = Infinity
+    for (const p of live) for (const q of live) if (p < q && dist(p, q) < least) { least = dist(p, q); best = [p, q] }
+    if (!best || (least >= MERGE && live.length <= MOST)) break
+    const [big, small] = count[best[0]] >= count[best[1]] ? best : [best[1], best[0]], whole = count[big] + count[small]
+    for (let m = 0; m < 3; m++) pots[big * 3 + m] = (pots[big * 3 + m] * count[big] + pots[small * 3 + m] * count[small]) / whole
+    count[big] = whole
+    count[small] = 0
+    into.forEach((c, k) => { if (c === small) into[k] = big })
+  }
+  return label.map((c) => into[c])
+}
+
+/** The pots' reflectances pushed apart about their mean (Oklab of their sRGB), the value by the whole push, the hue by its root. */
+function apart(pots: Pot[]): Pot[] {
+  if (pots.length < 2) return pots
+  const labs = pots.map(({ rho }) => labOf(rho.map(toSrgb) as unknown as RGB)), whole = pots.reduce((sum, p) => sum + p.count, 0)
+  const mean = (key: 'l' | 'a' | 'b') => labs.reduce((sum, lab, p) => sum + lab[key] * pots[p].count, 0) / whole
+  const m = { l: mean('l'), a: mean('a'), b: mean('b') }
+  let least = Infinity
+  for (let p = 0; p < labs.length; p++) for (let q = p + 1; q < labs.length; q++) {
+    least = Math.min(least, Math.hypot(labs[p].l - labs[q].l, labs[p].a - labs[q].a, labs[p].b - labs[q].b))
+  }
+  const by = Math.min(SPREAD, Math.max(1, APART / Math.max(1e-4, least))), hue = Math.sqrt(by)
+  return pots.map((pot, p) => {
+    const lab = labs[p], rgb = rgbOfLab({ l: Math.min(0.97, Math.max(0.08, m.l + (lab.l - m.l) * by)), a: m.a + (lab.a - m.a) * hue, b: m.b + (lab.b - m.b) * hue })
+    return { ...pot, rho: rgb.map((v) => toLinear(Math.min(1, Math.max(0, v)))) as unknown as RGB }
+  })
 }
 
 function potOf(t: PlaneTexelCtx, rho: readonly Float32Array[], label: Uint8Array, on: Uint8Array, c: number): Pot {
