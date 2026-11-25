@@ -4,7 +4,6 @@ import type { LocalTime } from '../../domain/types'
 import { formatProb, formatTemp } from '../../text/format'
 import { ltr } from '../../text/isolate'
 import { keyStep } from '../scrub/keyStep'
-import { ChevronIcon } from '../icons'
 import { WeatherIcon } from '../WeatherIcon'
 import { smoothPath } from './curve'
 import marks from './markers.module.css'
@@ -32,9 +31,7 @@ interface Props {
 /** Horizontally scrolling hours with a temperature curve; sunrise, sunset and midnight marked. */
 export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSelect, onScrub, onRelease, scrubbing = false, nowButton }: Props) {
   const gradId = useId()
-  const titleId = useId()
-  const scrollId = `${titleId}-scroll`
-  const { scrollerRef, earlier, later, away, bringNextSun, pageBy } = useHourlyScroll(tone === 'sky', slots)
+  const { scrollerRef, away, bringNextSun } = useHourlyScroll(tone === 'sky', slots)
   const selectedHour = selected?.slice(0, 13)
   const firstHour = slots.find((s) => s.type === 'hour')
   const pointer = useStripScrub({ scrollerRef, slots, shownHour: selectedHour, scrubbing, first: firstHour?.time,
@@ -56,30 +53,9 @@ export function HourlyStrip({ slots, label, tone = 'sky', selected = null, onSel
   }
 
   return (
-    <section className={`${styles.strip} ${styles[tone]}`} aria-labelledby={tone === 'sky' ? titleId : undefined}
-      aria-label={tone === 'sheet' ? label : undefined} data-prob={hasProb || undefined}>
-      {tone === 'sky' && (
-        <header className={styles.heading}>
-          <h2 id={titleId}>{label}</h2>
-          {(earlier || later) && (
-            <>
-              <span className={styles.scrollHint} aria-hidden="true">‹ גללו לשעות נוספות</span>
-              <div className={styles.scrollButtons}>
-                <button type="button" className={styles.earlier} aria-label="שעות קודמות" aria-controls={scrollId}
-                  aria-disabled={!earlier} tabIndex={earlier ? 0 : -1} onClick={() => pageBy('earlier')}>
-                  <ChevronIcon />
-                </button>
-                <button type="button" className={styles.later} aria-controls={scrollId}
-                  aria-disabled={!later} tabIndex={later ? 0 : -1} onClick={() => pageBy('later')}>
-                  שעות נוספות <ChevronIcon />
-                </button>
-              </div>
-            </>
-          )}
-        </header>
-      )}
+    <section className={`${styles.strip} ${styles[tone]}`} aria-label={label} data-prob={hasProb || undefined}>
       <div className={styles.graph}>
-        <div className={styles.scroller} id={scrollId} ref={scrollerRef}
+        <div className={styles.scroller} ref={scrollerRef}
           tabIndex={tone === 'sheet' ? 0 : undefined} role={tone === 'sheet' ? 'group' : undefined}
           aria-label={tone === 'sheet' ? 'גלילה לפי שעות' : undefined}>
           <div className={styles.track} style={{ '--hour-count': hours.length } as CSSProperties} {...pointer}>
