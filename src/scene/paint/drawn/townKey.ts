@@ -1,6 +1,7 @@
 import type { RGB } from '../../model/types'
 import { css, outline, type Ctx2D } from '../shared/base/hand'
 import { LINE, type Tier } from './kit/lines'
+import type { Edges, Run } from './townSilhouette'
 
 /*
  * The town's key line: the keyblock's sumi, one ridge of wood round each body. Its weight is set by the body's distance
@@ -31,6 +32,30 @@ export function keyedBox(ctx: Ctx2D, x: number, top: number, w: number, h: numbe
   ctx.fillRect(x + w - k, top, k, h)
   ctx.fillRect(x, top + h - k, w, k)
   if (head) ctx.fillRect(x, top, w, k)
+}
+
+/**
+ * Round a standing body by its edges (`townSilhouette`): the key, inside it, where it meets the air or the land; the
+ * lighter joint where it stands over a body behind; nothing where one in front carries the join. Its head unless a roof
+ * takes it. Returns whether its foot is keyed at each corner, so the ground's line can run on past it.
+ */
+export function keyedEdges(ctx: Ctx2D, x: number, top: number, w: number, h: number, edges: Edges, ink: RGB, seam: RGB, pen: Pen,
+  head = true) {
+  const k = Math.min(pen.line, w / 3, h / 3), px = 1 / pen.scale
+  const lay = (runs: readonly Run[], lo: number, hi: number, draw: (from: number, to: number, wide: number) => void) => {
+    for (const r of runs) {
+      const from = Math.max(lo, snap(r.from, pen.scale)), to = Math.min(hi, snap(r.to, pen.scale))
+      if (to <= from) continue
+      ctx.fillStyle = css(r.key ? ink : seam)
+      draw(from, to, r.key ? k : Math.min(k, px))
+    }
+  }
+  lay(edges.left, top, top + h, (a, b, d) => ctx.fillRect(x, a, d, b - a))
+  lay(edges.right, top, top + h, (a, b, d) => ctx.fillRect(x + w - d, a, d, b - a))
+  if (head) lay(edges.top, x, x + w, (a, b, d) => ctx.fillRect(a, top, b - a, d))
+  lay(edges.foot, x, x + w, (a, b, d) => ctx.fillRect(a, top + h - d, b - a, d))
+  const end = (runs: readonly Run[], at: number) => runs.some((r) => r.key && r.from <= at + 0.5 && r.to >= at - 0.5)
+  return { left: end(edges.foot, x) && end(edges.left, top + h), right: end(edges.foot, x + w) && end(edges.right, top + h) }
 }
 
 /** A join inside a body: one device pixel of the lighter ink, upright at `x` or level at `y`. */

@@ -37,8 +37,9 @@ export function townLight(s: Shine, form: SkyForm): TownLight {
 /** A body's plaster: its own stone (0…1). */
 export const plasterOf = (t: Tones, stone: number): RGB => mix(mix(t.wall, t.shade, 0.35 * (1 - stone)), t.stone, 1.1 * stone)
 
-/** The side a body shows against its width, at least and as it turns to the light (px at most). */
-const SIDE = 0.24, SIDE_LIT = 0.12, SIDE_MAX = 3.2
+/** The side a body shows against its width, at least and as it turns to the light (px at most); a lit side shown
+ *  against the light, against the width and at most (px): the stone in the sun is then the body's larger face. */
+const SIDE = 0.24, SIDE_LIT = 0.12, SIDE_MAX = 3.2, SHOWN_LIT = 0.45, SHOWN_LIT_MAX = 6
 /** The least step of value between a body's two faces under the sun: the print never lets them come out alike. */
 const GAP = 0.4
 /** How much of its sunlit step a body keeps under an even sky (overcast, rain, dusk): its faces close toward the plaster. */
@@ -47,6 +48,9 @@ const EVEN = 0.4
 const LIT_LEAST = 0.72, LIT_TURN = 1.6
 /** The shade face's value under no light, and how far its own light lifts it. */
 const SHADE_LEAST = 0.52, SHADE_TURN = 0.35
+/** The plaster's place on the faces' scale with no direct light (dusk, an even sky): a dull wall is the plaster gone a
+ *  share of the way to its own shade, as the model's wall under a dull sky returns about what the ground does. */
+const DULL_FACE = 0.35
 
 /** Against the light: the front's light under this, and a side's this much over it. */
 const AGAINST = 0.1, OVER = 0.35
@@ -65,7 +69,10 @@ export function sideOf(l: TownLight): { right: boolean; k: number; lit: boolean 
 }
 
 /** The width (px) of the side a body `w` wide shows. */
-export const sideWidth = (l: TownLight, w: number) => Math.min(SIDE_MAX, w * (SIDE + SIDE_LIT * sideOf(l).k))
+export const sideWidth = (l: TownLight, w: number) => {
+  const { k, lit } = sideOf(l)
+  return lit ? Math.min(SHOWN_LIT_MAX, w * SHOWN_LIT) : Math.min(SIDE_MAX, w * (SIDE + SIDE_LIT * k))
+}
 
 /** A body's colour blocks: front, its one side, the roof seen from the front and its hip, and the key's ink. */
 export interface Planes { front: RGB; side: RGB; right: boolean; roof: RGB; ink: RGB; joint: RGB }
@@ -76,9 +83,12 @@ export function planesOf(t: Tones, l: TownLight, plaster: RGB, stone: number): P
   const dark = mix(mix(plaster, t.shade, SHADED + SHADED_SUN * l.on), t.deep, DEEP)
   const { right, k, lit: sideLit } = sideOf(l)
   const hi = Math.max(l.left, l.right, l.front), lo = Math.min(k, l.front)
-  const sun = EVEN + (1 - EVEN) * l.on, gap = GAP * sun
-  const up = 0.5 + (LIT_LEAST - 0.5 + (1 - LIT_LEAST) * Math.min(1, LIT_TURN * hi)) * sun
-  const down = Math.min(up - gap, SHADE_LEAST * (0.8 + 0.2 * l.on) + SHADE_TURN * lo)
+  // The faces' values: 0 the shade's dark, 0.5 the plaster, 1 the light. Only the direct light lifts a face over its
+  // plaster; with none (dusk, an even sky) the lit face sinks below it and the shade face further, a step apart.
+  const sun = EVEN + (1 - EVEN) * l.on, gap = GAP * sun, direct = l.on * (1 - l.night)
+  const mid = 0.5 - DULL_FACE * (1 - direct)
+  const up = mid + (LIT_LEAST - 0.5 + (1 - LIT_LEAST) * Math.min(1, LIT_TURN * hi)) * direct
+  const down = Math.max(0, Math.min(up - gap, (SHADE_LEAST * (0.8 + 0.2 * l.on) + SHADE_TURN * lo) * (mid * 2)))
   const front = sideLit ? down : up, side = sideLit ? up : down
   const face = (v: number) => v >= 0.5 ? mix(plaster, lit, (v - 0.5) * 2 * FRONT) : mix(dark, plaster, v * 2)
   const shade = face(down)
