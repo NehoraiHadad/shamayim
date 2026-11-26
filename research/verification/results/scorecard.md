@@ -103,7 +103,51 @@ Hits / false alarms / misses; CSI = hits ÷ (hits + false alarms + misses); freq
 
 ### Shown chance of rain (today only: Open-Meteo keeps no older runs of it)
 
-Not scored yet: om-archive/pass4 (precipitation_probability) is not downloaded.
+**Per hour** (event: > 0.1 mm in the hour)
+
+| forecast | n | rained | Brier | skill vs climatology |
+|---|---:|---:|---:|---:|
+| ICON alone | 766,421 | 3.47 % | 0.027 | 0.193 |
+| ECMWF alone | 766,421 | 3.47 % | 0.0443 | -0.322 |
+| plain blend = app | 766,421 | 3.47 % | 0.0281 | 0.161 |
+
+Reliability of the app's number (shown → how often it rained):
+
+| shown | n | mean shown | rained |
+|---|---:|---:|---:|
+| 0-10% | 658,268 | 0.5 % | 0.2 % |
+| 10-20% | 27,368 | 14.4 % | 4.5 % |
+| 20-30% | 17,964 | 24.7 % | 8.3 % |
+| 30-40% | 14,600 | 34.7 % | 14.5 % |
+| 40-50% | 10,277 | 44.4 % | 21.3 % |
+| 50-60% | 7,767 | 54.7 % | 30.0 % |
+| 60-70% | 6,974 | 64.8 % | 36.5 % |
+| 70-80% | 6,538 | 74.8 % | 45.1 % |
+| 80-90% | 6,579 | 85.0 % | 51.4 % |
+| 90-100% | 10,086 | 96.4 % | 67.0 % |
+
+**Per day** (event: > 0.1 mm on the day; shown = the day maximum)
+
+| forecast | n | rained | Brier | skill vs climatology |
+|---|---:|---:|---:|---:|
+| ICON alone | 31,815 | 16.25 % | 0.053 | 0.61 |
+| ECMWF alone | 31,815 | 16.25 % | 0.0693 | 0.491 |
+| plain blend = app | 31,815 | 16.25 % | 0.0483 | 0.645 |
+
+Reliability of the app's number (shown → how often it rained):
+
+| shown | n | mean shown | rained |
+|---|---:|---:|---:|
+| 0-10% | 21,828 | 0.8 % | 1.0 % |
+| 10-20% | 1,724 | 14.6 % | 9.1 % |
+| 20-30% | 1,293 | 24.9 % | 14.7 % |
+| 30-40% | 1,214 | 34.9 % | 25.9 % |
+| 40-50% | 1,032 | 44.4 % | 37.1 % |
+| 50-60% | 693 | 54.7 % | 48.3 % |
+| 60-70% | 627 | 64.7 % | 65.7 % |
+| 70-80% | 560 | 75.0 % | 78.0 % |
+| 80-90% | 757 | 85.3 % | 88.6 % |
+| 90-100% | 2,087 | 97.5 % | 98.5 % |
 
 ## Breakdowns
 
