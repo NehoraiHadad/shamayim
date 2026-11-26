@@ -1,4 +1,4 @@
-import type { ModelPair } from '../blend'
+import { CLOUD_ICON_WEIGHT, type ModelPair } from '../blend'
 import { smoothstep } from '../smoothstep'
 import { lowCloudModel, totalCloudModel, type CloudResidualModel } from './cloudTables'
 
@@ -36,6 +36,36 @@ function predict(model: CloudResidualModel, features: readonly number[]): number
   return value
 }
 
+/** ICON's excess low cloud over IFS and how far it is trusted to be spurious (README: lowering isolated low cloud). */
+function lowExcessOf(cover: ModelPair<number>, low: ModelPair<number>): { gap: number; lowGap: number; lowExcess: number; influence: number } | null {
+  const readings = [cover.icon, cover.ecmwf, low.icon, low.ecmwf]
+  if (!readings.every((v): v is number => v !== null && Number.isFinite(v))) return null
+  const [iconCover, ifsCover, iconLow, ifsLow] = readings
+  const gap = iconCover - ifsCover
+  const lowGap = iconLow - ifsLow
+  const lowExcess = Math.min(Math.max(lowGap, 0), Math.max(gap, 0))
+  const influence = (1 - smoothstep(5, 15, ifsCover)) * smoothstep(15, 30, gap)
+    * smoothstep(0.55, 0.80, lowExcess / Math.max(gap, 1))
+  return { gap, lowGap, lowExcess, influence }
+}
+
+/**
+ * How much of the blend's cover (and its low layer) is ICON's isolated low cloud, at any lead: where IFS expects a
+ * nearly clear sky and ICON's extra cover is mostly low cloud, ICON's share of that excess is taken back out of the blend.
+ * The README's candidate (Shadmot Mehola, 24 Nov: 21.2 % → 0 %); held-out MAE 14.83 → 10.25 pp on the cases it changed.
+ */
+export function lowExcessShift(cover: ModelPair<number>, low: ModelPair<number>): number {
+  const excess = lowExcessOf(cover, low)
+  return excess ? CLOUD_ICON_WEIGHT * excess.lowExcess * excess.influence : 0
+}
+
+/** Take the isolated low cloud out of a blended cover and its low layer (the low layer stays within the cover). */
+export function withoutLowExcess(cover: number | null, low: number | null, shift: number): { cover: number | null; low: number | null } {
+  if (!shift || cover === null) return { cover, low }
+  const total = Math.max(0, cover - shift)
+  return { cover: total, low: low === null ? null : Math.min(total, Math.max(0, low - shift)) }
+}
+
 /** Apply the same features and units as build_cloud_calibration.py. Hourly precipitation is in mm. */
 export function cloudAdjustment(input: CloudInputs, localHour: number, utcOffsetSeconds: number,
   weight: number): CloudAdjustment | null {
@@ -44,12 +74,7 @@ export function cloudAdjustment(input: CloudInputs, localHour: number, utcOffset
   const readings = [...fields.map((f) => f.icon), ...fields.map((f) => f.ecmwf)]
   if (!readings.every((v): v is number => v !== null && Number.isFinite(v))) return null
 
-  const [iconCover, iconLow, , , , ifsCover, ifsLow] = readings
-  const gap = iconCover - ifsCover
-  const lowGap = iconLow - ifsLow
-  const lowExcess = Math.min(Math.max(lowGap, 0), Math.max(gap, 0))
-  const influence = (1 - smoothstep(5, 15, ifsCover)) * smoothstep(15, 30, gap)
-    * smoothstep(0.55, 0.80, lowExcess / Math.max(gap, 1))
+  const { gap, lowGap, lowExcess, influence } = lowExcessOf(cover, low)!
   const utcHour = (localHour - utcOffsetSeconds / 3600 + 24) % 24
   // The training set uses the latest forecast only, with its long-lead feature held at zero.
   const features = [...readings, 0.4 * lowExcess * influence, gap, lowGap, 0, Number(utcHour >= 7 && utcHour < 15)]

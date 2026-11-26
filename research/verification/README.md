@@ -391,6 +391,11 @@ cover MAE. The largest gains were at night. The masks verify total
 cover and are less certain in low light. Longer-range or layer-specific
 claims require archived runs with cloud layers and validation against
 local sky observations. The candidate has been evaluated offline.
+The app applies it at every lead in the calibration region
+(`src/domain/correction/cloud.ts`, `lowExcessShift`), to the total and the
+low layer alike, before the ground-trained near-term fit below. It was
+verified on the latest forecast only; at longer leads it rests on ICON's
+false cloudy count growing with lead in the table above.
 [Open-Meteo Previous Runs](https://open-meteo.com/en/docs/previous-runs-api) ·
 [Satellite sampling code](verify_cloud.py) ·
 [IMS hourly visual observations](https://ims.gov.il/he/CurrentDataXML)

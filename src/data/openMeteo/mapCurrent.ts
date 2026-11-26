@@ -1,7 +1,7 @@
 import { blendNumber, CLOUD_ICON_WEIGHT } from '../../domain/blend'
 import { nearestWindDirection } from '../../domain/bracket'
 import { skyCodeForCover } from '../../domain/conditions'
-import { applyCloudAdjustment, type CloudAdjustment } from '../../domain/correction/cloud'
+import { applyCloudAdjustment, lowExcessShift, withoutLowExcess, type CloudAdjustment } from '../../domain/correction/cloud'
 import type { CurrentWeather, HourPoint } from '../../domain/types'
 import { expectUnit, num, numOrNull, obj, str, type Json } from './guards'
 import { thickCloud } from './mapHelpers'
@@ -18,8 +18,10 @@ export function mapCurrent(raw: Json, hours: readonly Pick<HourPoint, 'time' | '
   const iconCover = numOrNull(current.cloud_cover)
   const iconLow = numOrNull(current.cloud_cover_low)
   const paired = iconCover !== null && iconLow !== null && ecmwf?.cloudCover != null && ecmwf.cloudLow != null
-  const clouds = applyCloudAdjustment(cloud(iconCover, 'cloudCover'), cloud(iconLow, 'cloudLow'),
-    paired ? adjustment : undefined)
+  // As the hours: ICON's isolated low cloud over a clear IFS sky comes out (only where the IFS values are given).
+  const shift = ecmwf ? lowExcessShift({ icon: iconCover, ecmwf: ecmwf.cloudCover ?? null }, { icon: iconLow, ecmwf: ecmwf.cloudLow ?? null }) : 0
+  const lean = withoutLowExcess(cloud(iconCover, 'cloudCover'), cloud(iconLow, 'cloudLow'), shift)
+  const clouds = applyCloudAdjustment(lean.cover, lean.low, paired ? adjustment : undefined)
   const cloudLow = clouds.low
   const cloudMid = cloud(numOrNull(current.cloud_cover_mid), 'cloudMid')
   const cloudCover = clouds.cover ?? num(current.cloud_cover, 'current.cloud_cover')

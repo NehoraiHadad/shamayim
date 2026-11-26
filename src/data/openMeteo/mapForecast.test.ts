@@ -4,8 +4,9 @@ import { SHADMOT_MEHOLA } from '../../config/place'
 import live from '../../test/fixtures/forecast-multi-2026-11-17.json'
 import { DataError } from './guards'
 import { mapForecast } from './mapForecast'
+import { cloudAdjustment } from '../../domain/correction/cloud'
 
-function lowCloudDisagreement(time: string) {
+function lowCloudDisagreement(time: string, ifs = 0) {
   const series = (value: number) => live.hourly.time.map(() => value)
   return {
     ...live,
@@ -13,8 +14,8 @@ function lowCloudDisagreement(time: string) {
     current: { ...live.current, time, weather_code: 2, cloud_cover: 53,
       cloud_cover_low: 53, cloud_cover_mid: 0, cloud_cover_high: 0 },
     hourly: { ...live.hourly,
-      cloud_cover_icon_seamless: series(53), cloud_cover_ecmwf_ifs025: series(0),
-      cloud_cover_low_icon_seamless: series(53), cloud_cover_low_ecmwf_ifs025: series(0),
+      cloud_cover_icon_seamless: series(53), cloud_cover_ecmwf_ifs025: series(ifs),
+      cloud_cover_low_icon_seamless: series(53), cloud_cover_low_ecmwf_ifs025: series(ifs),
       cloud_cover_mid_icon_seamless: series(0), cloud_cover_mid_ecmwf_ifs025: series(0),
       cloud_cover_high_icon_seamless: series(0), cloud_cover_high_ecmwf_ifs025: series(0),
       precipitation_icon_seamless: series(0), precipitation_ecmwf_ifs025: series(0),
@@ -75,44 +76,65 @@ describe('mapForecast', () => {
       .toMatchObject({ cloudCover: 10, weatherCode: 61 })
   })
 
-  it('uses the ground-trained cover and low layer for current and near hours, then fades into the base blend', () => {
+  it('takes ICON\'s isolated low cloud over a clear IFS sky out at every lead (Shadmot Mehola, 24 Nov)', () => {
     const today = '2026-11-17'
     const forecast = mapForecast(lowCloudDisagreement(`${today}T17:00`))
+    expect(forecast.current.cloudCover).toBe(0)
+    for (const time of [`${today}T18:00`, `${today}T21:00`, '2026-11-18T00:00', '2026-11-18T17:00', '2026-11-19T00:00']) {
+      const row = forecast.hours.find((r) => r.time === time)!
+      expect(row.cloudCover).toBe(0)
+      expect(row.cloudLow).toBe(0)
+      expect(row.weatherCode).toBe(0)
+    }
+    // Outside the calibration region the ordinary blend stands.
+    const uncalibrated = mapForecast(lowCloudDisagreement(`${today}T17:00`), { calibrateClouds: false })
+    expect(uncalibrated.current.cloudCover).toBe(53)
+    expect(uncalibrated.hours.find((row) => row.time === `${today}T17:00`)?.cloudCover).toBeCloseTo(31.8)
+  })
+
+  it('matches the exported Python fit (19.7643 % at half strength for the 53 % / clear case at 15:00 UTC)', () => {
+    const p = (icon: number, ecmwf: number) => ({ icon, ecmwf })
+    const adjustment = cloudAdjustment({ cover: p(53, 0), low: p(53, 0), mid: p(0, 0), high: p(0, 0), rain: p(0, 0) }, 17, 7200, 0.5)!
+    expect(21.2 + adjustment.cover).toBeCloseTo(19.7643, 4)
+  })
+
+  it('uses the ground-trained cover and low layer for current and near hours, then fades into the base blend', () => {
+    const today = '2026-11-17'
+    // IFS cloudy too: not isolated low cloud, so only the ground-trained fit moves the blend (0.4 × 53 + 0.6 × 20).
+    const base = 33.2
+    const forecast = mapForecast(lowCloudDisagreement(`${today}T17:00`, 20))
     const at = (time: string) => forecast.hours.find((row) => row.time === time)!
     const near = at(`${today}T18:00`)
     const taper = at(`${today}T21:00`)
-    // The exported Python fit gives 19.7643% at half strength for this disagreement at 15:00 UTC.
-    expect(forecast.current.cloudCover).toBeCloseTo(19.7643, 4)
-    expect(near.cloudCover).toBeCloseTo(forecast.current.cloudCover)
+    expect(Math.abs(near.cloudCover - base)).toBeGreaterThan(1)
     expect(near.cloudLow).toBeLessThanOrEqual(near.cloudCover)
     expect(near.thickCloud).toBe(Math.round(near.cloudLow!))
-    expect(taper.cloudCover).toBeGreaterThan(near.cloudCover)
-    expect(taper.cloudCover).toBeLessThan(21.2)
+    expect(Math.abs(taper.cloudCover - base)).toBeLessThan(Math.abs(near.cloudCover - base))
     for (const time of [`${today}T23:00`, '2026-11-18T00:00', '2026-11-19T00:00']) {
-      expect(at(time).cloudCover).toBeCloseTo(21.2)
-      expect(at(time).cloudLow).toBeCloseTo(21.2)
+      expect(at(time).cloudCover).toBeCloseTo(base)
+      expect(at(time).cloudLow).toBeCloseTo(base)
     }
   })
 
   it('uses the ordinary blend with incomplete layers and outside the calibration region', () => {
     const time = '2026-11-17T17:00'
-    const raw = lowCloudDisagreement(time)
+    const raw = lowCloudDisagreement(time, 20)
     const incomplete = mapForecast({ ...raw, hourly: {
       ...raw.hourly, cloud_cover_mid_ecmwf_ifs025: raw.hourly.time.map(() => null),
     } })
-    expect(incomplete.current.cloudCover).toBeCloseTo(21.2)
-    expect(incomplete.hours.find((row) => row.time === time)?.cloudCover).toBeCloseTo(21.2)
+    expect(incomplete.current.cloudCover).toBeCloseTo(33.2)
+    expect(incomplete.hours.find((row) => row.time === time)?.cloudCover).toBeCloseTo(33.2)
     const uncalibrated = mapForecast(raw, { calibrateClouds: false })
     expect(uncalibrated.current.cloudCover).toBe(53)
-    expect(uncalibrated.hours.find((row) => row.time === time)?.cloudCover).toBeCloseTo(31.8)
+    expect(uncalibrated.hours.find((row) => row.time === time)?.cloudCover).toBeCloseTo(0.6 * 53 + 0.4 * 20)
   })
 
   it('keeps the next local date on the base blend even close to midnight', () => {
-    const forecast = mapForecast(lowCloudDisagreement('2026-11-17T23:30'))
+    const forecast = mapForecast(lowCloudDisagreement('2026-11-17T23:30', 20))
     const before = forecast.hours.find((row) => row.time === '2026-11-17T23:00')!
     const after = forecast.hours.find((row) => row.time === '2026-11-18T00:00')!
-    expect(before.cloudCover).toBeLessThan(21.2)
-    expect(after.cloudCover).toBeCloseTo(21.2)
+    expect(Math.abs(before.cloudCover - 33.2)).toBeGreaterThan(0.5)
+    expect(after.cloudCover).toBeCloseTo(33.2)
     expect(forecast.current.cloudCover).toBeCloseTo((before.cloudCover + after.cloudCover) / 2)
   })
 

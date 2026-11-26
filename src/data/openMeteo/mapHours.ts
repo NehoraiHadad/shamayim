@@ -1,7 +1,7 @@
 import { blendDirection, blendNumber, blendWeatherCode, CLOUD_ICON_WEIGHT, iconWeight, roundTemperature } from '../../domain/blend'
 import { bracketAt } from '../../domain/bracket'
 import { skyCodeForCover } from '../../domain/conditions'
-import { applyCloudAdjustment, cloudAdjustment, cloudCalibrationWeight } from '../../domain/correction/cloud'
+import { applyCloudAdjustment, cloudAdjustment, cloudCalibrationWeight, lowExcessShift, withoutLowExcess } from '../../domain/correction/cloud'
 import { hourlyTemperatureAdd, temperatureIconWeight } from '../../domain/correction/temperature'
 import { correctGust, correctHumidity, humidityIconWeight } from '../../domain/correction/windHumidity'
 import { minutesBetweenLocal } from '../../domain/minutes'
@@ -98,7 +98,10 @@ export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds
     const rh = humidities[index]
     const modelRh = modelHumidities[index]
     const code = codes[index] ?? 0
-    const clouds = applyCloudAdjustment(cover[index], low[index], adjustments[index])
+    // ICON's isolated low cloud over a clear IFS sky comes out at every lead; the ground-trained fit adds to it near now.
+    const lean = calibrateClouds ? withoutLowExcess(cover[index], low[index], lowExcessShift(cloudCover[index], cloudLow[index]))
+      : { cover: cover[index], low: low[index] }
+    const clouds = applyCloudAdjustment(lean.cover, lean.low, adjustments[index])
     // Preserve the reported dry-sky category when neither model supplies a numeric cover.
     const cloud = clouds.cover ?? (code === 3 ? 100 : code === 2 ? 65 : code === 1 ? 25 : 0)
 
