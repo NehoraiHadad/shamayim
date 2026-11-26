@@ -4,6 +4,7 @@ import { moonLook } from '../../world/moonShape'
 import { sunFlattening, sunLight, aerosolDepth } from '../../world/sceneLight'
 import type { WorldState } from '../../world/types'
 import { luminanceOf } from './cloudChromaticity'
+import { crestOf } from './crest'
 import { solarAerosolSlantDepth } from './cloudDust'
 import { dustDiscColour, sunDiscAlpha } from './dustDisc'
 import { shownThrough, throughDisc } from './discThrough'
@@ -22,23 +23,31 @@ export const MOON_MAGNIFICATION = 22
 /** The pale coin dust makes of the sun (the SVG's #F3E3B8). */
 const COIN: RGB = [0xf3 / 255, 0xe3 / 255, 0xb8 / 255]
 
+/**
+ * Whether a disc still shows over the land as drawn: up, or (from a height, where the sea's and the far land's own
+ * horizon lies under eye level) part of it still over the drawn land's top, which hides the rest of it as it sets.
+ */
+const shown = (world: WorldState, box: SceneBox, geom: SkyGeom, up: boolean, x: number, y: number, r: number): boolean =>
+  up || y - r < crestOf(world, box, geom)(x)
+
 /** The sky's own colour at a height, as it is seen. */
 const skyBehind = (world: WorldState, box: SceneBox, y: number): RGB =>
   filterAt(skyGradeOf(world, box), y, stopAt(skyStops(world, box), y / box.skyHeight, mixSrgb))
 
 /**
  * The sun's disc where the world puts it (`bodies.sun`: its true azimuth across, its apparent altitude up on the shared
- * relief), while it is up: hot core, redder limb, squashed by refraction near the horizon, a close aureole as wide as the
+ * relief), while any of it shows over the drawn land: hot core, redder limb, squashed by refraction near the horizon, a close aureole as wide as the
  * aerosol makes it; veiled by the cloud in front (the share of its direct light the layers take). Behind a ridge it is
  * still drawn: whatever land and structures are drawn in front of it hide it (the land surface lies over the sky), and the
  * light judges it on that same drawn line (`world/drawnSkyline.ts`).
  */
 export function sunDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGeom(world, box), clouds: readonly LayerDesc[] = []): Disc | null {
   const sun = world.bodies.sun
-  if (!sun.up) return null
+  const x = geom.left + sun.x * geom.s, y = box.landTop + sun.y
+  if (!shown(world, box, geom, sun.up, x, y, SUN_R)) return null
   const aerosol = world.air
   const { rgb, strength } = sunLight(Math.max(0, sun.altitude), aerosol)
-  const coin = coinOf(aerosol), veil = veilOf(world), x = geom.left + sun.x * geom.s, y = box.landTop + sun.y
+  const coin = coinOf(aerosol), veil = veilOf(world)
   const through = throughDisc(world, geom, clouds, x, y, SUN_R)
   const core = mixRgb(mixRgb(rgb, WHITE, 0.5 * strength), COIN, coin)
   const limb: RGB = mixRgb([rgb[0] * 0.86, rgb[1] * 0.78, rgb[2] * 0.66], COIN, coin)
@@ -64,11 +73,11 @@ export function moonDisc(world: WorldState, box: SceneBox, geom: SkyGeom = skyGe
   const cloud = 100 * (thick + 0.2 * (union - thick))
   const look = moonLook({ altitude: moon.altitude, fraction: moon.illumination, sunAltitude: world.bodies.sun.altitude, cloudCover: cloud,
     farFade: world.air.farFade })
-  if (!look || !moon.up) return null
-  const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
-  const air = moonAir(moon.altitude, world.air, look.daylight)
   const x = geom.left + moon.x * geom.s, y = box.landTop + moon.y
   const r = moon.angularRadiusDeg * world.camera.pxPerDeg * geom.s * MOON_MAGNIFICATION
+  if (!look || !shown(world, box, geom, moon.up, x, y, r)) return null
+  const bone: RGB = [0xe9 / 255, 0xe4 / 255, 0xd4 / 255], day: RGB = [0xf3 / 255, 0xf6 / 255, 0xfa / 255]
+  const air = moonAir(moon.altitude, world.air, look.daylight)
   return {
     // Dimmer is nearer the sky's own colour behind it, not thinner: the seas of a thin disc would show brighter than its face.
     x, y, r, rgb: mixRgb(skyBehind(world, box, y), tinted(mixRgb(bone, day, look.daylight), air.tint), air.dim),
