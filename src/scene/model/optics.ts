@@ -26,13 +26,14 @@ const q = (v: number, step: number) => Math.round(v / step)
 export const MASK_STEPS = 120
 
 /**
- * The sky's outline over the land between two x (sky px): from the top down to the land's crest, or to the eye's horizon
- * where the land stands lower (what is under the horizon is not seen in the sky either). Clockwise, in 2 px steps.
+ * The sky's outline over the land between two x (sky px): from the top down to the land's crest as drawn. From a height
+ * the sea's and the far land's own horizon lies under eye level (`skyBelowEye`), and the sky shown goes on down to it:
+ * a halo or a bow cut at eye level would end in a straight edge over the sea. Clockwise, in 2 px steps.
  */
-export function skyClip(crest: (x: number) => number, horizon: number, x0: number, x1: number, top: number): Pt[] {
+export function skyClip(crest: (x: number) => number, x0: number, x1: number, top: number): Pt[] {
   const out: Pt[] = [[x0, top], [x1, top]]
-  for (let x = x1; x >= x0; x -= 2) out.push([x, Math.min(crest(x), horizon)])
-  out.push([x0, Math.min(crest(x0), horizon)])
+  for (let x = x1; x >= x0; x -= 2) out.push([x, crest(x)])
+  out.push([x0, crest(x0)])
   return out
 }
 
@@ -79,7 +80,7 @@ export function rainbowLayer(world: WorldState, box: SceneBox, geom: SkyGeom = s
     const d = onCircle(bow.antisolar, mid, bearingOfScreen(frame, phi))
     const a = rainAt(d.azimuth) * (0.35 + 0.65 * smoothstep(0, 6, d.altitude)) * inView(d.azimuth)
     const x = frame.at[0] + Math.cos(phi) * mid * frame.k, y = frame.at[1] + Math.sin(phi) * mid * frame.k
-    if (a > 0.05 && x > 0 && x < geom.width && y < Math.min(crest(x), geom.horizon) - 1) seen = true
+    if (a > 0.05 && x > 0 && x < geom.width && y < crest(x) - 1) seen = true
     return a
   })
   // Nothing of it over the land in view (the bow behind the eye, or all under the land): no layer.
@@ -109,7 +110,7 @@ export function haloLayer(world: WorldState, box: SceneBox, geom: SkyGeom, veil:
   if (halo.dogs > 0.04 && halo.dogOffset !== null) {
     for (const side of [-1, 1] as const) {
       const x = cx + side * frame.k * halo.dogOffset
-      if (cy < Math.min(crest(x), geom.horizon) - 2 && x > -10 && x < geom.width + 10) {
+      if (cy < crest(x) - 2 && x > -10 && x < geom.width + 10) {
         dogs.push({ x, y: cy, r: 3 * frame.k, alpha: 0.85 * halo.dogs * opacity, side })
       }
     }
@@ -127,10 +128,10 @@ function bowLayer(look: 'rainbow' | 'halo', world: WorldState, box: SceneBox, ge
   x1 = Math.min(geom.width, Math.ceil(x1))
   // Down to the lowest sky over the land in its span.
   let floor = 0
-  for (let x = x0; x <= x1; x += 2) floor = Math.max(floor, Math.min(crest(x), geom.horizon))
+  for (let x = x0; x <= x1; x += 2) floor = Math.max(floor, crest(x))
   y1 = Math.min(box.skyHeight, Math.ceil(Math.min(y1, floor + 1)))
   if (x1 - x0 < 2 || y1 - y0 < 2) return null
-  const clip = skyClip(crest, geom.horizon, x0, x1, y0)
+  const clip = skyClip(crest, x0, x1, y0)
   const bounds = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
   const id = `bow.${look}`
   return {
