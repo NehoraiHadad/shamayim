@@ -32,6 +32,21 @@ describe('openMeteoIcon provider', () => {
     expect(forecast.fetchedAt).toBeLessThanOrEqual(Date.now())
   })
 
+  it('uses the calibrated cloud blend at the requested Israeli location', async () => {
+    stubFetch({})
+    const [local, abroad] = await Promise.all([
+      openMeteoIcon.getForecast(SHADMOT_MEHOLA),
+      openMeteoIcon.getForecast({ ...SHADMOT_MEHOLA, id: 'paris', lat: 48.86, lon: 2.35, timezone: 'Europe/Paris' }),
+    ])
+    const time = '2026-11-17T16:00'
+    const i = live.hourly.time.indexOf(time)
+    const icon = live.hourly.cloud_cover_icon_seamless[i]
+    const ecmwf = live.hourly.cloud_cover_ecmwf_ifs025[i]
+    expect(local.hours.find((h) => h.time === time)?.cloudCover).toBeCloseTo(0.4 * icon + 0.6 * ecmwf)
+    expect(abroad.hours.find((h) => h.time === time)?.cloudCover).toBeCloseTo(0.6 * icon + 0.4 * ecmwf)
+    expect(abroad.current.cloudCover).toBe(live.current.cloud_cover)
+  })
+
   it('sends both requests to the Worker when VITE_WEATHER_API_BASE is set', async () => {
     vi.stubEnv('VITE_WEATHER_API_BASE', 'https://w.test')
     const fetchMock = stubFetch({})

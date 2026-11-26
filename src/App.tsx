@@ -13,6 +13,7 @@ import { openMeteoIcon } from './data/openMeteo/provider'
 import { usePlace } from './data/usePlace'
 import { useForecast } from './data/useForecast'
 import { useTerrain } from './data/terrain/terrain'
+import { conditionOf } from './domain/conditions'
 import { rollForward, sameLocalHour } from './domain/now'
 import { withObservedCloud } from './domain/observedCloud'
 import { entryHeadline, rainIsNear } from './domain/rainVerdict'
@@ -96,13 +97,15 @@ export default function App() {
   const selected = sceneTime.at
   const selectedSlot = hourly.find((s) => s.type === 'hour' && s.time.slice(0, 13) === selected?.slice(0, 13))
   const sceneHasForecast = hasCurrent || Boolean(selectedSlot)
-  const readout = selectedSlot?.type === 'hour' ? describeHour(selectedSlot, selected ?? undefined) : null
   const weather = useMemo(() => {
     if (!timeline || !sceneHasForecast) return null
     const forced = forcedWeather()
     const options = { arrivalMs, observedCloud }
     return airInput(timeline, now, place, selected, forced, options)
   }, [timeline, sceneHasForecast, now, place, selected, arrivalMs, observedCloud])
+  const readout = selectedSlot?.type === 'hour' && weather
+    ? describeHour({ ...selectedSlot, kind: conditionOf(weather.weatherCode, weather.cloudCover) }, selected ?? undefined)
+    : null
   const { seenClouds, cloudsSeen } = useSceneSightings(weather, observedCloud, now, arrivalMs)
   const shown = useMemo(() => weather ? { ...weather, cloudsSeen } : null, [weather, cloudsSeen])
   const air = useMemo(() => (shown ? mapAir(shown) : null), [shown])

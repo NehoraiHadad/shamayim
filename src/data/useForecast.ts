@@ -3,7 +3,7 @@ import type { Place } from '../config/place'
 import { withForecastRefresh } from '../domain/forecastRefresh'
 import { nowIn } from '../domain/now'
 import type { Forecast } from '../domain/types'
-import { freshnessOf, readCache, writeCache, type Freshness } from './cache'
+import { FRESH_MS, freshnessOf, readCache, writeCache, type Freshness } from './cache'
 import { toFetchFailure, type FetchFailure } from './fetchFailure'
 import type { WeatherProvider } from './WeatherProvider'
 
@@ -88,6 +88,17 @@ export function useForecast(place: Place, provider: WeatherProvider, receiptTime
   }, [load])
 
   const visible = forecast?.placeId === place.id ? forecast : null
+  const fetchedAt = visible?.fetchedAt
+  useEffect(() => {
+    const untilRefresh = fetchedAt === undefined ? FRESH_MS : fetchedAt + FRESH_MS - Date.now()
+    const poll = () => {
+      if (document.visibilityState === 'visible') load(false)
+      timer = setTimeout(poll, FRESH_MS)
+    }
+    let timer = setTimeout(poll, untilRefresh > 0 ? untilRefresh : FRESH_MS)
+    return () => clearTimeout(timer)
+  }, [load, fetchedAt])
+
   const active = activePlaceId === place.id
   return {
     forecast: visible,

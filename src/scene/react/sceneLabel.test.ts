@@ -44,7 +44,7 @@ const thunderForecast = (precipitation: number) => {
 
 describe('sceneLabel', () => {
   it('prepends the place name, current condition and isolated temperature', () => {
-    const forecast = makeForecast([{ max: 20, min: 10 }, { max: 20, min: 10, code: 2 }])
+    const forecast = makeForecast([{ max: 20, min: 10 }, { max: 20, min: 10, hour: () => ({ cloudCover: 50 }) }])
     forecast.elevation = 790
     forecast.current = { ...forecast.current, weatherCode: 2, temperature: 14, isDay: true }
 

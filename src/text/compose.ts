@@ -47,7 +47,7 @@ function composeDay(f: Forecast, today: DayPoint, now: LocalTime, rain: RainCont
   const risk = rain.hazard(w, 'היום')
   const sky = w.rainProb >= T.rain.possible ? 'rain' : dominantSky(w.hours, today.weatherCode)
   const tempWord = heat ? 'שרב' : dayTempWord(today.tempMax)
-  const lead = risk ? '' : `${conditionOf(f.current.weatherCode) === sky ? 'היום' : 'בהמשך היום'} `
+  const lead = risk ? '' : `${conditionOf(f.current.weatherCode, f.current.cloudCover) === sky ? 'היום' : 'בהמשך היום'} `
   const body = sky === 'rain' ? tempWord : skyWith(sky, tempWord)
   const anomaly = normalClause(today, normal)
   const contrast = contradictsNormal(tempWord, today.tempMax, normal)

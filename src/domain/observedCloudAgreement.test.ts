@@ -91,3 +91,28 @@ describe('time and receipt', () => {
     expect(card(clear)).toMatchObject({ cloudCover: 0, weatherCode: 0 })
   })
 })
+
+describe('short-range satellite persistence', () => {
+  const sample: CloudObservation = { at: AT, cover: 0, before: [0, 0], daylight: 0, calibratedPersistence: true }
+  const at = '2026-11-24T17:30'
+
+  it('keeps a repeatedly clear sky closer to the observed sky at an hour of lead', () => {
+    const model = () => 53
+    const previous = correctCloudCover({ ...sample, calibratedPersistence: false }, at, undefined, 53, model)
+    const corrected = correctCloudCover(sample, at, undefined, 53, model)
+    expect(corrected).toBeLessThan(previous / 2)
+    expect(correctCloudCover(sample, '2026-11-24T16:29', undefined, 53, model)).toBe(53)
+    expect(correctCloudCover(sample, '2026-11-24T18:15', undefined, 53, model))
+      .toBe(correctCloudCover({ ...sample, calibratedPersistence: false }, '2026-11-24T18:15', undefined, 53, model))
+  })
+
+  it('needs both prior frames and respects the limits of a dark or rapidly changing sky', () => {
+    const model = () => 53
+    const oneGap = { ...sample, before: [0] }
+    expect(correctCloudCover(oneGap, at, undefined, 53, model))
+      .toBe(correctCloudCover({ ...oneGap, calibratedPersistence: false }, at, undefined, 53, model))
+    expect(correctCloudCover(sample, at, undefined, 97, () => 97))
+      .toBe(correctCloudCover({ ...sample, calibratedPersistence: false }, at, undefined, 97, () => 97))
+    expect(correctCloudCover({ ...sample, daylight: 1 }, at, undefined, 90, () => 0)).toBe(90)
+  })
+})

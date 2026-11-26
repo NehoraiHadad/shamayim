@@ -15,7 +15,7 @@ export interface MappedForecast {
   utcOffsetSeconds: number
 }
 
-export function mapForecast(input: unknown): MappedForecast {
+export function mapForecast(input: unknown, { calibrateClouds = true } = {}): MappedForecast {
   const raw = obj(input, 'forecast')
   const elevation = num(raw.elevation, 'elevation')
   const time = str(obj(raw.current, 'current').time, 'current.time')
@@ -27,8 +27,9 @@ export function mapForecast(input: unknown): MappedForecast {
 
   // Israel: +2 h in winter, +3 h in summer. Absent (an older cached copy), assume standard time.
   const utcOffsetSeconds = numOrNull(raw.utc_offset_seconds) ?? 7200
-  const { hours, observedDirections } = mapHours(raw, today, time, utcOffsetSeconds)
-  const current = mapCurrent(raw, observedDirections)
+  const { hours, observedDirections, ecmwfCloud, adjustmentAtCurrent } =
+    mapHours(raw, today, time, utcOffsetSeconds, calibrateClouds)
+  const current = mapCurrent(raw, observedDirections, ecmwfCloud, adjustmentAtCurrent)
   return {
     elevation, current, hours, days: mapDays(raw, today), nowcast: mapNowcast(raw),
     utcOffsetSeconds,

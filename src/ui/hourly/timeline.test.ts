@@ -40,6 +40,16 @@ describe('next24h', () => {
     expect(at(`${TODAY}T12:00`)).toMatchObject({ isDay: true })
   })
 
+  it('uses the displayed cover for dry icons even in a saved forecast with conflicting weather codes', () => {
+    const saved = makeForecast([{ max: 30, min: 20 }, { max: 30, min: 20, hour: (h) => ({
+      cloudCover: h === 11 ? 86 : 28,
+      weatherCode: h === 12 ? 45 : h === 13 ? 61 : 2,
+    }) }])
+    saved.current.weatherCode = 2
+    const hours = next24h(saved, `${TODAY}T09:20`).filter((slot) => slot.type === 'hour')
+    expect(hours.slice(0, 5).map((hour) => hour.kind)).toEqual(['clear', 'clear', 'cloudy', 'fog', 'rain'])
+  })
+
   it('excludes later days outside the 24-hour window when the saved hours have a gap', () => {
     const gap = { ...f, hours: f.hours.filter(h => h.time >= '2026-07-17T00:00') }
     expect(next24h(gap, `${TODAY}T09:20`)).toEqual([])

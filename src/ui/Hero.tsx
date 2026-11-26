@@ -23,7 +23,7 @@ function secondLine(c: CurrentWeather): string | null {
  */
 export function Hero({ current, now }: { current: CurrentWeather; now: LocalTime }) {
   const temp = useCountUp(Math.round(current.temperature))
-  const kind = conditionOf(current.weatherCode)
+  const kind = conditionOf(current.weatherCode, current.cloudCover)
   const line = secondLine(current)
   const isNow = sameLocalHour(current.time, now)
   const date = datePart(current.time)

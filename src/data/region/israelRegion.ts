@@ -16,7 +16,7 @@ const ISRAEL_TIMEZONE = 'Asia/Jerusalem'
 const NIQQUD = /[֑-ֽֿ-ׂׄ-ׇ]/g
 const FOREIGN_NAMES: Record<string, string> = { 'הגדה המערבית': 'יהודה ושומרון', 'الأراضي الفلسطينية': 'יהודה ושומרון' }
 
-function inside(lat: number, lon: number): boolean {
+export function isInIsrael(lat: number, lon: number): boolean {
   let hit = false
   for (let i = 0, j = LAND.length - 1; i < LAND.length; j = i++) {
     const [xi, yi] = LAND[i]
@@ -33,7 +33,7 @@ function km(lat: number, lon: number, [aLat, aLon]: readonly [number, number]): 
 
 /** The local region name (גולן, שומרון, הר חברון…) or null outside the land. */
 export function israelRegionHe(lat: number, lon: number): string | null {
-  if (!inside(lat, lon)) return null
+  if (!isInIsrael(lat, lon)) return null
   let best: string | null = null
   let bestKm = MAX_ANCHOR_KM
   for (const [region, anchors] of Object.entries(REGION_ANCHORS)) {
@@ -57,6 +57,6 @@ export function cleanRegionHe(region: string): string {
  */
 export function withLocalRegion(place: Place): Place {
   const region = israelRegionHe(place.lat, place.lon) ?? cleanRegionHe(place.regionHe)
-  const timezone = inside(place.lat, place.lon) ? ISRAEL_TIMEZONE : place.timezone
+  const timezone = isInIsrael(place.lat, place.lon) ? ISRAEL_TIMEZONE : place.timezone
   return { ...place, regionHe: region === place.nameHe ? '' : region, timezone }
 }

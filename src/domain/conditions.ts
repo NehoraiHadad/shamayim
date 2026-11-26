@@ -9,8 +9,15 @@ export type ConditionKind =
   | 'thunder'
   | 'snow'
 
+/** Classify a dry sky by the same cover used to draw it. Keep codes for fog and precipitation. */
+export function skyCodeForCover(code: number, cover: number): number {
+  if (code < 0 || code > 3 || !Number.isFinite(cover)) return code
+  return cover < 20 ? 0 : cover < 30 ? 1 : cover < 80 ? 2 : 3
+}
+
 /** Map a WMO weather code to one of nine visual/semantic kinds. */
-export function conditionOf(code: number): ConditionKind {
+export function conditionOf(code: number, cloudCover?: number): ConditionKind {
+  if (cloudCover !== undefined) code = skyCodeForCover(code, cloudCover)
   if (code <= 1) return 'clear'
   if (code === 2) return 'partly'
   if (code === 3) return 'cloudy'

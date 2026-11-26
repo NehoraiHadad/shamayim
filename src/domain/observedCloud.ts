@@ -1,4 +1,5 @@
 import { bracketAt } from './bracket'
+import { skyCodeForCover } from './conditions'
 import { arrivalWeight, forecastObservation, readingWeight } from './forecastRefresh'
 import { minutesBetweenLocal } from './minutes'
 import { smoothstep } from './smoothstep'
@@ -13,6 +14,8 @@ export interface CloudObservation {
   previous?: CloudObservation
   /** The covers of the slots right before it, newest first, as far as they are known without a gap. */
   before?: readonly number[]
+  /** The place is within the region where the short-range persistence forecast was verified. */
+  calibratedPersistence?: boolean
   /** 0–1: how much daylight the satellite saw by; without it the mask misses fog and takes cold ground for cloud. */
   daylight?: number
   /** The single cloud patches near the place, biggest-looking first (see `cloudSightings`). */
@@ -45,12 +48,6 @@ export function observationWeight(obs: CloudObservation, now: LocalTime): number
   return clamp(1 - (age - FRESH_MIN) / (STALE_MIN - FRESH_MIN), 0, 1)
 }
 
-/** Open-Meteo's sky codes 0–3 follow cloud cover; keep them in step with a corrected cover. */
-function skyCode(code: number, cover: number): number {
-  if (code > 3) return code
-  return cover < 20 ? 0 : cover < 50 ? 1 : cover < 85 ? 2 : 3
-}
-
 /** Apply receipt weights from newest to oldest, including the first arrival from a model-only sky. */
 export function blendObservations<T>(obs: CloudObservation, nowMs: number | undefined, empty: T,
   sample: (obs: CloudObservation) => T, mix: (before: T, after: T, weight: number) => T): T {
@@ -61,8 +58,7 @@ export function blendObservations<T>(obs: CloudObservation, nowMs: number | unde
 }
 
 /** 0–1 trust in what an observation says of the cover at a minute: from its own time on, till the documented horizon. */
-function coverTrust(obs: CloudObservation, at: LocalTime): number {
-  const age = minutesBetweenLocal(obs.at, at)
+function coverTrust(age: number): number {
   return age < 0 ? 0 : clamp((COVER_FADE_MIN - age) / (COVER_FADE_MIN - FRESH_MIN), 0, 1)
 }
 
@@ -76,20 +72,41 @@ function agreement({ cover, before = [] }: CloudObservation): number {
   return Math.max(on(0), on(100))
 }
 
-/** The model's error an observation shows, as far as it is trusted to. */
-function shownError(obs: CloudObservation, modelCover: number): number {
-  const error = obs.cover - modelCover
+/** Maximum departure from the model supported by the mask. */
+function correctionLimit(obs: CloudObservation, error: number): number {
   const doubt = (1 - (obs.daylight ?? 0)) * smoothstep(...NIGHT_DOUBT, Math.abs(error))
-  const cap = lerp(MAX_SHIFT, 100, agreement(obs) * (1 - doubt))
-  return clamp(error, -cap, cap)
+  return lerp(MAX_SHIFT, 100, agreement(obs) * (1 - doubt))
 }
 
-/** Correct the viewed minute with the model error measured at each satellite observation. */
+/**
+ * A short forecast that the latest cover persists. Give it less weight if the three masks disagree,
+ * the model expects a rapid change, or a large discrepancy in low light could be a mask error.
+ * The lead-time blend was replayed against later masks (research/verification).
+ */
+function persistenceWeight(obs: CloudObservation, age: number, error: number, modelChange: number): number {
+  const [previous, oldest] = obs.before ?? []
+  if (!obs.calibratedPersistence || previous === undefined || oldest === undefined || age >= 105) return 0
+  const spread = Math.max(obs.cover, previous, oldest) - Math.min(obs.cover, previous, oldest)
+  const stability = 1 - smoothstep(10, 30, spread)
+  const doubt = (1 - (obs.daylight ?? 0)) * smoothstep(55, 85, Math.abs(error))
+  const tendency = 1 - smoothstep(25, 60, Math.abs(modelChange))
+  const lead = smoothstep(0, 30, age) * (1 - smoothstep(45, 105, age))
+  return 0.8 * (0.5 + 0.5 * stability) * (1 - doubt) * tendency * lead
+}
+
+/** Combine cloud persistence and the observation-corrected model at the viewed minute. */
 export function correctCloudCover(obs: CloudObservation, at: LocalTime, nowMs: number | undefined, modelAt: number,
   modelCoverAt: (minute: LocalTime) => number): number {
   return blendObservations(obs, nowMs, modelAt, (sample) => {
-    const trust = coverTrust(sample, at)
-    return trust === 0 ? modelAt : clamp(modelAt + shownError(sample, modelCoverAt(sample.at)) * trust, 0, 100)
+    const age = minutesBetweenLocal(sample.at, at)
+    const trust = coverTrust(age)
+    if (trust === 0) return modelAt
+    const observedModel = modelCoverAt(sample.at)
+    const error = sample.cover - observedModel
+    const limit = correctionLimit(sample, error)
+    const correctedModel = clamp(modelAt + clamp(error, -limit, limit) * trust, 0, 100)
+    const persistence = clamp(sample.cover, modelAt - limit, modelAt + limit)
+    return lerp(correctedModel, persistence, persistenceWeight(sample, age, error, modelAt - observedModel))
   }, lerp)
 }
 
@@ -115,7 +132,7 @@ export function withObservedCloud(forecast: Forecast, obs: CloudObservation | nu
   }
   const adjust = (at: LocalTime, cover: number) => correctCloudCover(obs, at, nowMs, cover, modelCoverAt)
   // The card stands on the scene's corrected minute as far as an observation is trusted, and on its own reading otherwise.
-  const trust = blendObservations(obs, nowMs, 0, (sample) => coverTrust(sample, now), lerp)
+  const trust = blendObservations(obs, nowMs, 0, (sample) => coverTrust(minutesBetweenLocal(sample.at, now)), lerp)
   const modelNow = modelCoverAt(now)
   const coverNow = trust === 0 ? forecast.current.cloudCover
     : clamp(adjust(now, modelNow) + (forecast.current.cloudCover - modelNow) * (1 - trust), 0, 100)
@@ -124,12 +141,12 @@ export function withObservedCloud(forecast: Forecast, obs: CloudObservation | nu
     const cover = adjust(h.time, h.cloudCover)
     if (cover === h.cloudCover) return h
     changed = true
-    return { ...h, cloudCover: cover, weatherCode: skyCode(h.weatherCode, cover) }
+    return { ...h, cloudCover: cover, weatherCode: skyCodeForCover(h.weatherCode, cover) }
   })
   return changed ? {
     ...forecast,
     hours,
     current: coverNow === forecast.current.cloudCover ? forecast.current
-      : { ...forecast.current, cloudCover: coverNow, weatherCode: skyCode(forecast.current.weatherCode, coverNow) },
+      : { ...forecast.current, cloudCover: coverNow, weatherCode: skyCodeForCover(forecast.current.weatherCode, coverNow) },
   } : forecast
 }

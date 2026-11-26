@@ -4,6 +4,7 @@ import { HttpError } from '../fetchFailure'
 import { applyLive } from '../../domain/correction/live'
 import { fetchLive } from '../live'
 import { fetchNormals, normalsFor } from '../normals'
+import { isInIsrael } from '../region/israelRegion'
 import type { WeatherProvider } from '../WeatherProvider'
 import { fetchedAtOf } from '../weatherApi'
 import { mapAir } from './mapAir'
@@ -58,7 +59,9 @@ export const openMeteoIcon: WeatherProvider = {
       fetchLive(place, signal),
     ])
     if (forecastRes.status === 'rejected') throw forecastRes.reason
-    const { utcOffsetSeconds, ...base } = mapForecast(forecastRes.value.body)
+    const { utcOffsetSeconds, ...base } = mapForecast(forecastRes.value.body, {
+      calibrateClouds: isInIsrael(place.lat, place.lon),
+    })
     // The IMS stations' current anomaly around the place, on "now" and the next hours (domain/correction/live).
     const live = liveRes.status === 'fulfilled' ? liveRes.value : null
     const mapped = { ...base, ...applyLive(base.current, base.hours, live, utcOffsetSeconds) }

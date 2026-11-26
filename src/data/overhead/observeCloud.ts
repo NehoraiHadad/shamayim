@@ -1,6 +1,7 @@
 import { cloudSightings, stoodBefore } from '../../domain/cloudSightings'
 import { AGREEING_SLOTS, type CloudObservation } from '../../domain/observedCloud'
 import { smoothstep } from '../../domain/smoothstep'
+import { isInIsrael } from '../region/israelRegion'
 import { SAMPLE_KM, SAMPLE_PX, type MaskReading } from './cloudMask'
 import { slotBeforeLowSun, STEP_MS, sunAt } from './maskSlots'
 
@@ -41,6 +42,7 @@ export async function observeCloud(read: ReadSlot, slots: readonly number[], lat
       .flatMap(({ time, reading }) => reading ? [{ mask: reading.mask, minutes: (slot - time) / 60_000 }] : [])
     sightings = steady ? cloudSightings(newest.mask, SAMPLE_PX, SAMPLE_KM, stoodBefore(past, SAMPLE_PX, SAMPLE_KM)) : []
   }
-  const seen: Omit<CloudObservation, 'at'> = { cover: newest.cover, before, daylight: daylight(sunAt(slot, lat, lon)), sightings }
+  const seen: Omit<CloudObservation, 'at'> = { cover: newest.cover, before, daylight: daylight(sunAt(slot, lat, lon)), sightings,
+    calibratedPersistence: isInIsrael(lat, lon) }
   return { slot, seen }
 }

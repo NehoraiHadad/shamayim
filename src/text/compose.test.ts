@@ -20,7 +20,7 @@ describe('composeSummary — daytime', () => {
 
   it('says "בהמשך היום" when it is cloudy now but the day is clear', () => {
     const f = makeForecast([{ max: 19, min: 12 }, { max: 23, min: 13 }, { max: 24, min: 14 }])
-    f.current.weatherCode = 3
+    f.current.cloudCover = 90
     expect(composeSummary(f, at('09:00'))[0]).toBe('בהמשך היום בהיר ונעים, עד\u00A0\u206623°\u2069.')
   })
 

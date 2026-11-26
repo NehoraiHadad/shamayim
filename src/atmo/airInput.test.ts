@@ -123,6 +123,21 @@ describe('airInput satellite cover', () => {
     expect(airInput(forecast, now, SITE, at, null, { observedCloud }).cloudCover).toBeCloseTo(76.25)
     expect(sample.mock.calls.map(([, minute]) => minute)).toEqual([at])
   })
+
+  it('clears every drawn layer when a satellite correction clears an overlapping model sky', () => {
+    const layers = { cloudCover: 40, thickCloud: 40, cloudLow: 40, cloudMid: 0, cloudHigh: 80 }
+    const layered = {
+      ...forecast,
+      current: { ...forecast.current, ...layers, time: at },
+      hours: forecast.hours.map((hour) => ({ ...hour, ...layers })),
+    }
+    const model = airInput(layered, now, SITE, at)
+    expect(model.covers.low).toBeCloseTo(0.4)
+    expect(model.covers.high).toBeGreaterThan(0.2)
+    const clear = airInput(layered, now, SITE, at, null, { observedCloud: { at, cover: 0 } })
+    expect(clear.cloudCover).toBe(0)
+    expect(Object.values(clear.covers).every((cover) => cover === 0)).toBe(true)
+  })
 })
 
 describe('sunElevation', () => {

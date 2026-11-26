@@ -5,7 +5,7 @@ import type { LocalTime } from '../../domain/types'
 import { isolateText, ltr } from '../../text/isolate'
 import { SCRUBBER_HINT } from '../../text/scrub'
 import { keyStep } from '../../ui/scrub/keyStep'
-import { sceneDragTime, type SceneDrag } from '../../ui/scrub/sceneDragTime'
+import { sceneDragIntent, sceneDragTime, type SceneDrag } from '../../ui/scrub/sceneDragTime'
 import styles from './Scene.module.css'
 
 interface Props {
@@ -28,29 +28,32 @@ interface Props {
  */
 export function SceneScrubber({ at: selected, now, first, last, readout, onScrub, onRelease, onNow }: Props) {
   const hintId = useId()
-  const drag = useRef<(SceneDrag & { id: number }) | null>(null)
+  const drag = useRef<(SceneDrag & { id: number; y: number; intent?: ReturnType<typeof sceneDragIntent> }) | null>(null)
   const at = selected ?? now
 
   const down = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return
-    drag.current = { id: e.pointerId, x: e.clientX, at: selected, moved: false }
+    if (e.button !== 0 || !e.isPrimary) return
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, at: selected, moved: false }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   const move = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current
     if (d?.id !== e.pointerId) return
+    d.intent ??= sceneDragIntent(e.clientX - d.x, e.clientY - d.y)
+    if (d.intent !== 'horizontal') return
     const time = sceneDragTime(d, e.clientX, now, first, last)
     if (time === undefined) return
     d.moved = true
     onScrub(time)
   }
-  // Lifting the finger, or the browser taking over for a vertical scroll, starts the hold before the way back to now.
+  // Only a gesture that moved the time starts the preview hold.
   const up = (e: PointerEvent<HTMLDivElement>) => {
-    if (drag.current?.id !== e.pointerId) return
+    const d = drag.current
+    if (d?.id !== e.pointerId) return
     drag.current = null
     // After a pointercancel the capture is already gone and releasing it would throw before onRelease.
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
-    onRelease()
+    if (d.moved) onRelease()
   }
   const key = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Escape') { e.preventDefault(); onNow(); return }

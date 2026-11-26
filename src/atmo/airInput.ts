@@ -32,7 +32,11 @@ function correctedWeather(weather: Weather, cover: number): Weather {
   const { low, mid, high } = weather.covers
   const thickCloud = weather.thickCloud == null ? null : Math.min(cover, weather.thickCloud)
   const union = unionOf(weather.covers)
-  const correctedUnion = Math.max(0, Math.min(100, union * 100 + cover - weather.cloudCover))
+  // Layer overlap can give a different union from the reported total. Thin it proportionally
+  // so that the drawn layers reach zero when the corrected total does.
+  const correctedUnion = cover < weather.cloudCover
+    ? 100 * union * (cover / weather.cloudCover)
+    : Math.min(100, union * 100 + cover - weather.cloudCover)
   const { covers } = layerCovers({ cloudCover: correctedUnion, thickCloud, hour: union > 0
     ? { cloudLow: low * 100, cloudMid: mid * 100, cloudHigh: high * 100 } : undefined })
   return { ...weather, cloudCover: cover, thickCloud, covers,

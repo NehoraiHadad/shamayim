@@ -43,7 +43,7 @@ describe('withObservedCloud', () => {
   it('adds the clouds the satellite saw now and fades the correction over the next hours', () => {
     const out = withObservedCloud(forecast, seen, '2026-11-18T09:00')
     expect(out.current.cloudCover).toBe(30)
-    expect(out.current.weatherCode).toBe(1)
+    expect(out.current.weatherCode).toBe(2)
     // At 10:00 the observation is 85 minutes old: 30 points times (150 - 85) / (150 - 40).
     expect(out.hours[1].cloudCover).toBeCloseTo(30 * 65 / 110)
     expect(out.hours[2].cloudCover).toBe(0)

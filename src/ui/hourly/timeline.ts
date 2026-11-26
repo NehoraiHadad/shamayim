@@ -50,15 +50,17 @@ export function buildTimeline(
   )
   const slots: TimelineSlot[] = hours.map((h) => {
     const prob = h.precipProb ?? 0
+    const isNow = h.time === nowKey
+    const weather = isNow ? f.current : h
     return {
       type: 'hour',
       time: h.time,
-      temp: h.time === nowKey ? f.current.temperature : h.temperature,
-      kind: conditionOf(h.time === nowKey ? f.current.weatherCode : h.weatherCode),
+      temp: weather.temperature,
+      kind: conditionOf(weather.weatherCode, weather.cloudCover),
       isDay: isDaylight(h.time, f.days),
       prob: prob >= T.showRainProb ? prob : null,
-      wind: h.time === nowKey ? f.current.windSpeed : h.windSpeed,
-      isNow: h.time === nowKey,
+      wind: weather.windSpeed,
+      isNow,
     }
   })
   for (const d of f.days) {

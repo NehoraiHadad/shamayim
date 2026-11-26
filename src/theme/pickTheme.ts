@@ -14,7 +14,7 @@ function currentPm10(f: Forecast, now: LocalTime): number | null {
 
 /** Priority: dust → rain → (twilight) → night → heat → cloudy → clear. */
 export function pickTheme(f: Forecast, today: DayPoint | undefined, now: LocalTime): ThemeId {
-  const kind = conditionOf(f.current.weatherCode)
+  const kind = conditionOf(f.current.weatherCode, f.current.cloudCover)
   const pm10 = currentPm10(f, now)
   const isDay = today ? now >= today.sunrise && now < today.sunset : f.current.isDay
 

@@ -10,12 +10,6 @@ import type { WorldState } from '../../world/types'
 
 type LabelWorld = Pick<WorldState, 'place' | 'bodies'> & Partial<Pick<WorldState, 'rain' | 'snowfall' | 'clouds'>>
 
-function skyCondition(cloudCover: number): ConditionKind {
-  if (cloudCover >= 80) return 'cloudy'
-  if (cloudCover >= 30) return 'partly'
-  return 'clear'
-}
-
 /** Derive the spoken condition from the same precip, snow and cloud values the scene renders. */
 function renderedCondition(shown: AirInput, world: LabelWorld, hasLightning: boolean): ConditionKind {
   if (hasLightning) return 'thunder'
@@ -32,13 +26,11 @@ function renderedCondition(shown: AirInput, world: LabelWorld, hasLightning: boo
   }
   if (codeKind === 'fog') return 'fog'
 
-  if (shown.preview || codeKind === 'thunder') {
-    const cover = world.clouds
-      ? (1 - world.clouds.reduce((clear, layer) => clear * (1 - layer.cover), 1)) * 100
-      : shown.cloudCover
-    return skyCondition(cover)
-  }
-  return codeKind
+  if (!shown.preview && (codeKind === 'snow' || (isWet(codeKind) && codeKind !== 'thunder'))) return codeKind
+  const cover = world.clouds
+    ? (1 - world.clouds.reduce((clear, layer) => clear * (1 - layer.cover), 1)) * 100
+    : shown.cloudCover
+  return conditionOf(0, cover)
 }
 
 /** The figure's spoken description: place, shown condition and temperature, sun state, and elevation. */

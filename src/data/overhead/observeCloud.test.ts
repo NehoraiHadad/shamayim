@@ -30,7 +30,7 @@ async function observe(masks: ReadonlyMap<number, MaskReading>, slots: readonly 
 describe('the sky over Shadmot Mehola, 24 Nov 2026', () => {
   it('is clear: no cover is left of the model’s 53 at 16:50, and no patch of the mask is a cloud', async () => {
     const { seen, read } = await observe(shadmot)
-    expect(seen).toEqual({ cover: 0, before: [0, 0], daylight: 0, sightings: [] })
+    expect(seen).toEqual({ cover: 0, before: [0, 0], daylight: 0, sightings: [], calibratedPersistence: true })
     expect(read).toEqual([at(14, 30), at(14, 15), at(14), at(13)])
     const coverNow = (obs: Omit<CloudObservation, 'at'>) =>
       correctCloudCover({ ...obs, at: '2026-11-24T16:30' }, '2026-11-24T16:50', undefined, 53, () => 53)

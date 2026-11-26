@@ -1,4 +1,7 @@
-import { blendDirection, blendNumber, blendWeatherCode, iconWeight, roundTemperature } from '../../domain/blend'
+import { blendDirection, blendNumber, blendWeatherCode, CLOUD_ICON_WEIGHT, iconWeight, roundTemperature } from '../../domain/blend'
+import { bracketAt } from '../../domain/bracket'
+import { skyCodeForCover } from '../../domain/conditions'
+import { applyCloudAdjustment, cloudAdjustment, cloudCalibrationWeight } from '../../domain/correction/cloud'
 import { hourlyTemperatureAdd, temperatureIconWeight } from '../../domain/correction/temperature'
 import { correctGust, correctHumidity, humidityIconWeight } from '../../domain/correction/windHumidity'
 import { minutesBetweenLocal } from '../../domain/minutes'
@@ -28,7 +31,7 @@ function fillNeighbours(stamps: readonly LocalTime[], values: readonly (number |
  * `now` (the response's current time) and `utcOffsetSeconds` place each hour's lead and standard-time hour for the
  * national temperature correction (domain/correction/temperature).
  */
-export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds: number) {
+export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds: number, calibrateClouds: boolean) {
   const hourly = obj(raw.hourly, 'hourly')
   const time = hourly.time
   if (!Array.isArray(time)) throw new DataError('hourly.time: missing')
@@ -63,12 +66,20 @@ export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds
   const offsets = stamps.map(stamp => dates.indexOf(stamp.slice(0, 10)) - todayIndex)
   const weights = offsets.map(iconWeight)
   const fill = (read: (i: number) => number | null) => fillNeighbours(stamps, stamps.map((_, i) => read(i)))
-  const numeric = (column: Pair[], weight = weights) => fill(i => blendNumber(column[i], weight[i]))
+  const numeric = (column: Pair[], weight: number | number[] = weights) =>
+    fill(i => blendNumber(column[i], typeof weight === 'number' ? weight : weight[i]))
   const temperatures = numeric(temp, offsets.map(temperatureIconWeight)), modelTemperatures = numeric(temp)
   const probabilities = numeric(precipProb), rain = numeric(precipitation)
   const codes = fill(i => blendWeatherCode(weatherCode[i], precipProb[i], weights[i]))
-  const cover = numeric(cloudCover)
-  const low = numeric(cloudLow), mid = numeric(cloudMid), high = numeric(cloudHigh)
+  const cloudWeight = calibrateClouds ? CLOUD_ICON_WEIGHT : weights
+  const cover = numeric(cloudCover, cloudWeight)
+  const low = numeric(cloudLow, cloudWeight), mid = numeric(cloudMid, cloudWeight), high = numeric(cloudHigh, cloudWeight)
+  const adjustments = stamps.map((stamp, i) => {
+    if (!calibrateClouds || offsets[i] !== 0) return null
+    const weight = cloudCalibrationWeight(minutesBetweenLocal(now, stamp))
+    return weight === 0 ? null : cloudAdjustment({ cover: cloudCover[i], low: cloudLow[i], mid: cloudMid[i],
+      high: cloudHigh[i], rain: precipitation[i] }, Number(stamp.slice(11, 13)), utcOffsetSeconds, weight)
+  })
   const rawDirection = stamps.map((_, i) => blendDirection(windDirection[i], weights[i]))
   const directions = fillNeighbours(stamps, rawDirection)
   const observedDirections = stamps.map((time, i) => ({ time, windDirection: rawDirection[i] }))
@@ -86,6 +97,10 @@ export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds
     const gust = gusts[index]
     const rh = humidities[index]
     const modelRh = modelHumidities[index]
+    const code = codes[index] ?? 0
+    const clouds = applyCloudAdjustment(cover[index], low[index], adjustments[index])
+    // Preserve the reported dry-sky category when neither model supplies a numeric cover.
+    const cloud = clouds.cover ?? (code === 3 ? 100 : code === 2 ? 65 : code === 1 ? 25 : 0)
 
     return [{
       time: stamp,
@@ -93,15 +108,15 @@ export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds
       modelTemperature: roundTemperature(modelTemperatures[index] ?? blendedTemp),
       precipProb: probabilities[index],
       precipitation: rain[index] ?? 0,
-      weatherCode: codes[index] ?? 0,
-      cloudCover: cover[index] ?? 0,
-      thickCloud: thickCloud(low[index], mid[index]),
+      weatherCode: skyCodeForCover(code, cloud),
+      cloudCover: cloud,
+      thickCloud: thickCloud(clouds.low, mid[index]),
       windSpeed,
       windGusts: gust === null ? 0 : correctGust(gust, windSpeed, stamp, now, utcOffsetSeconds),
       humidity: rh === null ? null : correctHumidity(rh, stamp, now, utcOffsetSeconds),
       ...(modelRh === null ? {} : { modelHumidity: modelRh }),
       snowDepth: depth[index] ?? 0,
-      cloudLow: low[index],
+      cloudLow: clouds.low,
       cloudMid: mid[index],
       cloudHigh: high[index],
       windDirection: directions[index],
@@ -112,7 +127,28 @@ export function mapHours(raw: Json, today: string, now: string, utcOffsetSeconds
       freezingLevel: freezing[index],
     }]
   })
-  return { hours, observedDirections }
+  if (!calibrateClouds) return { hours, observedDirections, ecmwfCloud: undefined, adjustmentAtCurrent: undefined }
+  const { before, after, fraction } = bracketAt(stamps.map((time, index) => ({ time, index })), now)
+  // The multi-model response gives one current reading (ICON). Sample the IFS cloud values around that time.
+  const ecmwfAtCurrent = (column: Pair[]) => {
+    const a = before ? column[before.index].ecmwf : null
+    const b = after && fraction > 0 ? column[after.index].ecmwf : null
+    return a === null || b === null ? a ?? b : a + (b - a) * fraction
+  }
+  const ecmwfCloud = {
+    cloudCover: ecmwfAtCurrent(cloudCover),
+    cloudLow: ecmwfAtCurrent(cloudLow),
+    cloudMid: ecmwfAtCurrent(cloudMid),
+    cloudHigh: ecmwfAtCurrent(cloudHigh),
+  }
+  // Interpolate the hourly adjustment separately so the provider's native current ICON reading is preserved.
+  const a = before ? adjustments[before.index] : null
+  const b = after && fraction > 0 ? adjustments[after.index] : null
+  const adjustmentAtCurrent = a || b ? {
+    cover: (a?.cover ?? 0) * (1 - fraction) + (b?.cover ?? 0) * fraction,
+    low: (a?.low ?? 0) * (1 - fraction) + (b?.low ?? 0) * fraction,
+  } : undefined
+  return { hours, observedDirections, ecmwfCloud, adjustmentAtCurrent }
 }
 
 const vector = (speed: number | null, fromDeg: number | null): WindVector | null =>

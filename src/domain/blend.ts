@@ -1,4 +1,6 @@
 export const HIGH_RES_DAYS = 5
+/** Cloud blend, calibrated on total cover from the MSG mask in research/verification. */
+export const CLOUD_ICON_WEIGHT = 0.4
 
 export interface ModelPair<T> { icon: T | null; ecmwf: T | null }
 
