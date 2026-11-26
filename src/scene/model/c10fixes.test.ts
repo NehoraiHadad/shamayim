@@ -91,12 +91,14 @@ describe('C10 fix: the 22° halo is a circle round the sun', () => {
     expect(seen).toBeGreaterThan(6)
   })
 
-  it('hides the ring under the land and the horizon (its clip never dips below either)', () => {
+  it('hides the ring under the land as drawn (its clip never dips below it, but goes on under eye level where the land does)', () => {
     const { world, model } = at('jerusalem', '2026-11-17T07:15', CIRRUS, true)
     const halo = ofKind(model.layers, 'bow').find((b) => b.look === 'halo')!
     const geom = skyGeom(world, BOX)
     const crest = crestOf(world, BOX, geom)
-    for (const [x, y] of halo.clip) expect(y).toBeLessThanOrEqual(Math.min(crest(x), geom.horizon) + 1e-6)
+    for (const [x, y] of halo.clip) expect(y).toBeLessThanOrEqual(crest(x) + 1e-6)
+    // From a height the far land's horizon lies under eye level: the ring is not cut straight at eye level over it.
+    expect(Math.max(...halo.clip.map(([, y]) => y))).toBeGreaterThan(geom.horizon)
   })
 
   it('sets the sun dogs level with the sun, just outside the ring, moving out as the sun climbs', () => {
@@ -240,7 +242,7 @@ describe('C10 fix: the rainbow', () => {
       expect(bow.cy - BOW.primary[1] * bow.k).toBeLessThan(geom.horizon)
       // Hidden under the land.
       const crest = crestOf(world, BOX, geom)
-      for (const [x, y] of bow.clip) expect(y).toBeLessThanOrEqual(Math.min(crest(x), geom.horizon) + 1e-6)
+      for (const [x, y] of bow.clip) expect(y).toBeLessThanOrEqual(crest(x) + 1e-6)
     }
     expect(seen).toBeGreaterThan(1)
   })
