@@ -32,6 +32,10 @@ const PASSES = {
     'relative_humidity_2m_previous_day1', 'precipitation_previous_day1'],
   3: ['wind_speed_10m', 'wind_speed_10m_previous_day1', 'wind_speed_10m_previous_day2',
     'precipitation', 'precipitation_previous_day2'],
+  // Added 2026-11-26 for the scorecard. Open-Meteo keeps precipitation_probability (and the cloud layers) for the latest
+  // run only: its previous_dayN columns come back empty, so the probability shown for tomorrow cannot be replayed here.
+  4: ['precipitation_probability', 'precipitation_previous_day4', 'relative_humidity_2m_previous_day2',
+    'wind_speed_10m_previous_day4', 'cloud_cover'],
 }
 
 const HOURLY_BUDGET = 4000 // stay under Open-Meteo's 5,000/hour
@@ -124,8 +128,6 @@ async function main() {
     stations.push(...mine)
     log(`shard ${k}/${n}: ${stations.length} stations`)
   }
-  const shard = process.argv.includes('--shard') ? process.argv[process.argv.indexOf('--shard') + 1] : null
-  const branch = shard ? `verification-data-${shard.split('/')[0]}` : 'verification-data'
   const failures = []
   for (const [pass, vars] of Object.entries(PASSES)) {
     if (only && Number(pass) !== only) continue
@@ -154,12 +156,8 @@ async function main() {
   if (failures.length) {
     console.log(`\n${failures.length} pieces failed (rerun to retry them):\n${failures.join('\n')}`)
   } else {
-    console.log(`\nAll done. Send the data back (from the repository root):
-  git switch --orphan ${branch}
-  git add research/verification/om-archive
-  git commit -m "Open-Meteo previous-runs archive at IMS stations"
-  git push -u origin ${branch}
-  git switch -`)
+    console.log('\nAll done. The archive is data, not code: copy it to the private data repository (shamayim-data),'
+      + ' never commit it here (this repository is public and the redistribution terms are unchecked).')
   }
 }
 

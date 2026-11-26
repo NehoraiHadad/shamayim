@@ -28,4 +28,5 @@ test-results
 
 # Forecast-verification study: downloaded/processed data is not committed
 research/verification/data/
+research/verification/om-archive/
 __pycache__/
