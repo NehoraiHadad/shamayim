@@ -510,7 +510,7 @@ def live(df, meta):
 def md_cont(title, res, unit, leads):
     lines = [f"### {title}", "", f"Mean absolute error ({unit}), held-out period and stations; bias in brackets "
              "(positive = forecast too high).", ""]
-    names = list(next(iter(res.values()))["all"].keys())
+    names = list(dict.fromkeys(k for r in res.values() for k in r["all"]))
     lines.append("| lead | n | " + " | ".join(names) + " |")
     lines.append("|---|---:|" + "---:|" * len(names))
     for l in leads:
@@ -519,7 +519,7 @@ def md_cont(title, res, unit, leads):
         a = res[l]["all"]
         n = next(iter(a.values()))["n"]
         lines.append(f"| {l} ({LEAD_GROUP.get(l, l)}) | {n:,} | " + " | ".join(
-            f"{a[k]['mae']:.2f} ({a[k]['bias']:+.2f})" for k in names) + " |")
+            (f"{a[k]['mae']:.2f} ({a[k]['bias']:+.2f})" if k in a else "–") for k in names) + " |")
     return lines + [""]
 
 

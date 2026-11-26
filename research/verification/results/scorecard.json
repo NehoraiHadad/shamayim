@@ -1,0 +1,8711 @@
+{
+ "info": {
+  "split": "2025-11-01",
+  "stations": 86,
+  "train_hours": 1311308,
+  "test_hours": 779852,
+  "first": "2024-01-01 00:00:00",
+  "last": "2026-11-24 23:00:00"
+ },
+ "temperature": {
+  "l0": {
+   "all": {
+    "ICON alone": {
+     "n": 768939,
+     "mae": 1.074,
+     "bias": 0.037
+    },
+    "ECMWF alone": {
+     "n": 768939,
+     "mae": 1.311,
+     "bias": -0.169
+    },
+    "plain blend": {
+     "n": 768939,
+     "mae": 1.071,
+     "bias": -0.045
+    },
+    "app": {
+     "n": 768939,
+     "mae": 1.049,
+     "bias": 0.011
+    },
+    "app without ICON-weight change": {
+     "n": 768939,
+     "mae": 1.064,
+     "bias": -0.03
+    },
+    "app without hourly table": {
+     "n": 768939,
+     "mae": 1.054,
+     "bias": -0.004
+    },
+    "app with shipped table (in-sample)": {
+     "n": 768939,
+     "mae": 1.042,
+     "bias": 0.013
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 223444,
+      "mae": 1.131,
+      "bias": 0.044
+     },
+     "ECMWF alone": {
+      "n": 223444,
+      "mae": 1.381,
+      "bias": -0.115
+     },
+     "plain blend": {
+      "n": 223444,
+      "mae": 1.128,
+      "bias": -0.019
+     },
+     "app": {
+      "n": 223444,
+      "mae": 1.109,
+      "bias": 0.055
+     },
+     "app without ICON-weight change": {
+      "n": 223444,
+      "mae": 1.123,
+      "bias": 0.023
+     },
+     "app without hourly table": {
+      "n": 223444,
+      "mae": 1.11,
+      "bias": 0.012
+     },
+     "app with shipped table (in-sample)": {
+      "n": 223444,
+      "mae": 1.102,
+      "bias": 0.039
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 180090,
+      "mae": 1.118,
+      "bias": 0.034
+     },
+     "ECMWF alone": {
+      "n": 180090,
+      "mae": 1.368,
+      "bias": -0.33
+     },
+     "plain blend": {
+      "n": 180090,
+      "mae": 1.114,
+      "bias": -0.111
+     },
+     "app": {
+      "n": 180090,
+      "mae": 1.099,
+      "bias": -0.038
+     },
+     "app without ICON-weight change": {
+      "n": 180090,
+      "mae": 1.115,
+      "bias": -0.111
+     },
+     "app without hourly table": {
+      "n": 180090,
+      "mae": 1.096,
+      "bias": -0.039
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180090,
+      "mae": 1.092,
+      "bias": -0.011
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 183884,
+      "mae": 1.07,
+      "bias": 0.049
+     },
+     "ECMWF alone": {
+      "n": 183884,
+      "mae": 1.317,
+      "bias": -0.187
+     },
+     "plain blend": {
+      "n": 183884,
+      "mae": 1.076,
+      "bias": -0.045
+     },
+     "app": {
+      "n": 183884,
+      "mae": 1.053,
+      "bias": -0.024
+     },
+     "app without ICON-weight change": {
+      "n": 183884,
+      "mae": 1.074,
+      "bias": -0.071
+     },
+     "app without hourly table": {
+      "n": 183884,
+      "mae": 1.055,
+      "bias": 0.002
+     },
+     "app with shipped table (in-sample)": {
+      "n": 183884,
+      "mae": 1.046,
+      "bias": -0.011
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 181521,
+      "mae": 0.964,
+      "bias": 0.019
+     },
+     "ECMWF alone": {
+      "n": 181521,
+      "mae": 1.164,
+      "bias": -0.057
+     },
+     "plain blend": {
+      "n": 181521,
+      "mae": 0.952,
+      "bias": -0.012
+     },
+     "app": {
+      "n": 181521,
+      "mae": 0.922,
+      "bias": 0.041
+     },
+     "app without ICON-weight change": {
+      "n": 181521,
+      "mae": 0.932,
+      "bias": 0.025
+     },
+     "app without hourly table": {
+      "n": 181521,
+      "mae": 0.942,
+      "bias": 0.004
+     },
+     "app with shipped table (in-sample)": {
+      "n": 181521,
+      "mae": 0.915,
+      "bias": 0.026
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27656,
+      "mae": 0.994,
+      "bias": 0.612
+     },
+     "ECMWF alone": {
+      "n": 27656,
+      "mae": 1.267,
+      "bias": 0.018
+     },
+     "plain blend": {
+      "n": 27656,
+      "mae": 0.976,
+      "bias": 0.374
+     },
+     "app": {
+      "n": 27656,
+      "mae": 0.963,
+      "bias": 0.516
+     },
+     "app without ICON-weight change": {
+      "n": 27656,
+      "mae": 0.973,
+      "bias": 0.397
+     },
+     "app without hourly table": {
+      "n": 27656,
+      "mae": 0.957,
+      "bias": 0.493
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27656,
+      "mae": 0.957,
+      "bias": 0.51
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 82517,
+      "mae": 1.337,
+      "bias": 0.254
+     },
+     "ECMWF alone": {
+      "n": 82517,
+      "mae": 1.471,
+      "bias": 0.009
+     },
+     "plain blend": {
+      "n": 82517,
+      "mae": 1.282,
+      "bias": 0.156
+     },
+     "app": {
+      "n": 82517,
+      "mae": 1.279,
+      "bias": 0.222
+     },
+     "app without ICON-weight change": {
+      "n": 82517,
+      "mae": 1.266,
+      "bias": 0.173
+     },
+     "app without hourly table": {
+      "n": 82517,
+      "mae": 1.29,
+      "bias": 0.205
+     },
+     "app with shipped table (in-sample)": {
+      "n": 82517,
+      "mae": 1.272,
+      "bias": 0.222
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 234561,
+      "mae": 1.01,
+      "bias": -0.106
+     },
+     "ECMWF alone": {
+      "n": 234561,
+      "mae": 1.292,
+      "bias": -0.21
+     },
+     "plain blend": {
+      "n": 234561,
+      "mae": 1.03,
+      "bias": -0.147
+     },
+     "app": {
+      "n": 234561,
+      "mae": 0.993,
+      "bias": -0.114
+     },
+     "app without ICON-weight change": {
+      "n": 234561,
+      "mae": 1.021,
+      "bias": -0.135
+     },
+     "app without hourly table": {
+      "n": 234561,
+      "mae": 1.001,
+      "bias": -0.127
+     },
+     "app with shipped table (in-sample)": {
+      "n": 234561,
+      "mae": 0.987,
+      "bias": -0.11
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 128818,
+      "mae": 0.969,
+      "bias": -0.096
+     },
+     "ECMWF alone": {
+      "n": 128818,
+      "mae": 1.277,
+      "bias": -0.506
+     },
+     "plain blend": {
+      "n": 128818,
+      "mae": 0.996,
+      "bias": -0.26
+     },
+     "app": {
+      "n": 128818,
+      "mae": 0.962,
+      "bias": -0.165
+     },
+     "app without ICON-weight change": {
+      "n": 128818,
+      "mae": 0.99,
+      "bias": -0.247
+     },
+     "app without hourly table": {
+      "n": 128818,
+      "mae": 0.964,
+      "bias": -0.178
+     },
+     "app with shipped table (in-sample)": {
+      "n": 128818,
+      "mae": 0.958,
+      "bias": -0.162
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101408,
+      "mae": 0.851,
+      "bias": 0.258
+     },
+     "ECMWF alone": {
+      "n": 101408,
+      "mae": 1.038,
+      "bias": 0.143
+     },
+     "plain blend": {
+      "n": 101408,
+      "mae": 0.851,
+      "bias": 0.212
+     },
+     "app": {
+      "n": 101408,
+      "mae": 0.833,
+      "bias": 0.254
+     },
+     "app without ICON-weight change": {
+      "n": 101408,
+      "mae": 0.846,
+      "bias": 0.231
+     },
+     "app without hourly table": {
+      "n": 101408,
+      "mae": 0.837,
+      "bias": 0.235
+     },
+     "app with shipped table (in-sample)": {
+      "n": 101408,
+      "mae": 0.827,
+      "bias": 0.252
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 36815,
+      "mae": 0.97,
+      "bias": 0.258
+     },
+     "ECMWF alone": {
+      "n": 36815,
+      "mae": 1.2,
+      "bias": -0.393
+     },
+     "plain blend": {
+      "n": 36815,
+      "mae": 0.933,
+      "bias": -0.003
+     },
+     "app": {
+      "n": 36815,
+      "mae": 0.918,
+      "bias": 0.145
+     },
+     "app without ICON-weight change": {
+      "n": 36815,
+      "mae": 0.923,
+      "bias": 0.015
+     },
+     "app without hourly table": {
+      "n": 36815,
+      "mae": 0.926,
+      "bias": 0.128
+     },
+     "app with shipped table (in-sample)": {
+      "n": 36815,
+      "mae": 0.913,
+      "bias": 0.144
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 129569,
+      "mae": 1.314,
+      "bias": -0.129
+     },
+     "ECMWF alone": {
+      "n": 129569,
+      "mae": 1.556,
+      "bias": 0.009
+     },
+     "plain blend": {
+      "n": 129569,
+      "mae": 1.336,
+      "bias": -0.074
+     },
+     "app": {
+      "n": 129569,
+      "mae": 1.308,
+      "bias": -0.087
+     },
+     "app without ICON-weight change": {
+      "n": 129569,
+      "mae": 1.334,
+      "bias": -0.06
+     },
+     "app without hourly table": {
+      "n": 129569,
+      "mae": 1.311,
+      "bias": -0.101
+     },
+     "app with shipped table (in-sample)": {
+      "n": 129569,
+      "mae": 1.296,
+      "bias": -0.084
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27595,
+      "mae": 1.234,
+      "bias": 0.321
+     },
+     "ECMWF alone": {
+      "n": 27595,
+      "mae": 1.208,
+      "bias": -0.644
+     },
+     "plain blend": {
+      "n": 27595,
+      "mae": 0.985,
+      "bias": -0.065
+     },
+     "app": {
+      "n": 27595,
+      "mae": 1.085,
+      "bias": 0.145
+     },
+     "app without ICON-weight change": {
+      "n": 27595,
+      "mae": 0.99,
+      "bias": -0.048
+     },
+     "app without hourly table": {
+      "n": 27595,
+      "mae": 1.08,
+      "bias": 0.128
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27595,
+      "mae": 1.077,
+      "bias": 0.145
+     }
+    }
+   }
+  },
+  "l1": {
+   "all": {
+    "ICON alone": {
+     "n": 768939,
+     "mae": 1.21,
+     "bias": -0.274
+    },
+    "ECMWF alone": {
+     "n": 768939,
+     "mae": 1.451,
+     "bias": -0.561
+    },
+    "plain blend": {
+     "n": 768939,
+     "mae": 1.211,
+     "bias": -0.389
+    },
+    "app": {
+     "n": 768939,
+     "mae": 1.137,
+     "bias": -0.033
+    },
+    "app without ICON-weight change": {
+     "n": 768939,
+     "mae": 1.142,
+     "bias": -0.09
+    },
+    "app without hourly table": {
+     "n": 768939,
+     "mae": 1.193,
+     "bias": -0.332
+    },
+    "app with shipped table (in-sample)": {
+     "n": 768939,
+     "mae": 1.129,
+     "bias": -0.013
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 223444,
+      "mae": 1.26,
+      "bias": -0.292
+     },
+     "ECMWF alone": {
+      "n": 223444,
+      "mae": 1.53,
+      "bias": -0.598
+     },
+     "plain blend": {
+      "n": 223444,
+      "mae": 1.273,
+      "bias": -0.414
+     },
+     "app": {
+      "n": 223444,
+      "mae": 1.185,
+      "bias": -0.026
+     },
+     "app without ICON-weight change": {
+      "n": 223444,
+      "mae": 1.191,
+      "bias": -0.087
+     },
+     "app without hourly table": {
+      "n": 223444,
+      "mae": 1.249,
+      "bias": -0.353
+     },
+     "app with shipped table (in-sample)": {
+      "n": 223444,
+      "mae": 1.177,
+      "bias": -0.012
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 180090,
+      "mae": 1.273,
+      "bias": -0.276
+     },
+     "ECMWF alone": {
+      "n": 180090,
+      "mae": 1.545,
+      "bias": -0.714
+     },
+     "plain blend": {
+      "n": 180090,
+      "mae": 1.278,
+      "bias": -0.451
+     },
+     "app": {
+      "n": 180090,
+      "mae": 1.218,
+      "bias": -0.092
+     },
+     "app without ICON-weight change": {
+      "n": 180090,
+      "mae": 1.223,
+      "bias": -0.18
+     },
+     "app without hourly table": {
+      "n": 180090,
+      "mae": 1.256,
+      "bias": -0.364
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180090,
+      "mae": 1.209,
+      "bias": -0.037
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 183884,
+      "mae": 1.233,
+      "bias": -0.258
+     },
+     "ECMWF alone": {
+      "n": 183884,
+      "mae": 1.466,
+      "bias": -0.529
+     },
+     "plain blend": {
+      "n": 183884,
+      "mae": 1.234,
+      "bias": -0.367
+     },
+     "app": {
+      "n": 183884,
+      "mae": 1.173,
+      "bias": -0.053
+     },
+     "app without ICON-weight change": {
+      "n": 183884,
+      "mae": 1.181,
+      "bias": -0.107
+     },
+     "app without hourly table": {
+      "n": 183884,
+      "mae": 1.217,
+      "bias": -0.312
+     },
+     "app with shipped table (in-sample)": {
+      "n": 183884,
+      "mae": 1.166,
+      "bias": -0.03
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 181521,
+      "mae": 1.062,
+      "bias": -0.266
+     },
+     "ECMWF alone": {
+      "n": 181521,
+      "mae": 1.244,
+      "bias": -0.396
+     },
+     "plain blend": {
+      "n": 181521,
+      "mae": 1.046,
+      "bias": -0.318
+     },
+     "app": {
+      "n": 181521,
+      "mae": 0.961,
+      "bias": 0.037
+     },
+     "app without ICON-weight change": {
+      "n": 181521,
+      "mae": 0.963,
+      "bias": 0.011
+     },
+     "app without hourly table": {
+      "n": 181521,
+      "mae": 1.038,
+      "bias": -0.292
+     },
+     "app with shipped table (in-sample)": {
+      "n": 181521,
+      "mae": 0.954,
+      "bias": 0.029
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27656,
+      "mae": 1.053,
+      "bias": 0.332
+     },
+     "ECMWF alone": {
+      "n": 27656,
+      "mae": 1.375,
+      "bias": -0.307
+     },
+     "plain blend": {
+      "n": 27656,
+      "mae": 1.065,
+      "bias": 0.076
+     },
+     "app": {
+      "n": 27656,
+      "mae": 1.075,
+      "bias": 0.51
+     },
+     "app without ICON-weight change": {
+      "n": 27656,
+      "mae": 1.07,
+      "bias": 0.383
+     },
+     "app without hourly table": {
+      "n": 27656,
+      "mae": 1.034,
+      "bias": 0.204
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27656,
+      "mae": 1.073,
+      "bias": 0.523
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 82517,
+      "mae": 1.425,
+      "bias": -0.029
+     },
+     "ECMWF alone": {
+      "n": 82517,
+      "mae": 1.57,
+      "bias": -0.389
+     },
+     "plain blend": {
+      "n": 82517,
+      "mae": 1.372,
+      "bias": -0.173
+     },
+     "app": {
+      "n": 82517,
+      "mae": 1.337,
+      "bias": 0.2
+     },
+     "app without ICON-weight change": {
+      "n": 82517,
+      "mae": 1.314,
+      "bias": 0.128
+     },
+     "app without hourly table": {
+      "n": 82517,
+      "mae": 1.38,
+      "bias": -0.101
+     },
+     "app with shipped table (in-sample)": {
+      "n": 82517,
+      "mae": 1.333,
+      "bias": 0.218
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 234561,
+      "mae": 1.174,
+      "bias": -0.399
+     },
+     "ECMWF alone": {
+      "n": 234561,
+      "mae": 1.44,
+      "bias": -0.615
+     },
+     "plain blend": {
+      "n": 234561,
+      "mae": 1.193,
+      "bias": -0.485
+     },
+     "app": {
+      "n": 234561,
+      "mae": 1.088,
+      "bias": -0.146
+     },
+     "app without ICON-weight change": {
+      "n": 234561,
+      "mae": 1.104,
+      "bias": -0.189
+     },
+     "app without hourly table": {
+      "n": 234561,
+      "mae": 1.167,
+      "bias": -0.442
+     },
+     "app with shipped table (in-sample)": {
+      "n": 234561,
+      "mae": 1.081,
+      "bias": -0.123
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 128818,
+      "mae": 1.095,
+      "bias": -0.432
+     },
+     "ECMWF alone": {
+      "n": 128818,
+      "mae": 1.419,
+      "bias": -0.846
+     },
+     "plain blend": {
+      "n": 128818,
+      "mae": 1.131,
+      "bias": -0.598
+     },
+     "app": {
+      "n": 128818,
+      "mae": 1.054,
+      "bias": -0.218
+     },
+     "app without ICON-weight change": {
+      "n": 128818,
+      "mae": 1.075,
+      "bias": -0.301
+     },
+     "app without hourly table": {
+      "n": 128818,
+      "mae": 1.095,
+      "bias": -0.515
+     },
+     "app with shipped table (in-sample)": {
+      "n": 128818,
+      "mae": 1.044,
+      "bias": -0.196
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101408,
+      "mae": 1.014,
+      "bias": -0.111
+     },
+     "ECMWF alone": {
+      "n": 101408,
+      "mae": 1.146,
+      "bias": -0.19
+     },
+     "plain blend": {
+      "n": 101408,
+      "mae": 0.985,
+      "bias": -0.142
+     },
+     "app": {
+      "n": 101408,
+      "mae": 0.948,
+      "bias": 0.175
+     },
+     "app without ICON-weight change": {
+      "n": 101408,
+      "mae": 0.943,
+      "bias": 0.159
+     },
+     "app without hourly table": {
+      "n": 101408,
+      "mae": 0.985,
+      "bias": -0.127
+     },
+     "app with shipped table (in-sample)": {
+      "n": 101408,
+      "mae": 0.943,
+      "bias": 0.192
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 36815,
+      "mae": 1.061,
+      "bias": -0.122
+     },
+     "ECMWF alone": {
+      "n": 36815,
+      "mae": 1.442,
+      "bias": -0.847
+     },
+     "plain blend": {
+      "n": 36815,
+      "mae": 1.103,
+      "bias": -0.412
+     },
+     "app": {
+      "n": 36815,
+      "mae": 0.982,
+      "bias": 0.033
+     },
+     "app without ICON-weight change": {
+      "n": 36815,
+      "mae": 0.997,
+      "bias": -0.112
+     },
+     "app without hourly table": {
+      "n": 36815,
+      "mae": 1.061,
+      "bias": -0.267
+     },
+     "app with shipped table (in-sample)": {
+      "n": 36815,
+      "mae": 0.978,
+      "bias": 0.052
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 129569,
+      "mae": 1.48,
+      "bias": -0.391
+     },
+     "ECMWF alone": {
+      "n": 129569,
+      "mae": 1.687,
+      "bias": -0.445
+     },
+     "plain blend": {
+      "n": 129569,
+      "mae": 1.495,
+      "bias": -0.413
+     },
+     "app": {
+      "n": 129569,
+      "mae": 1.391,
+      "bias": -0.104
+     },
+     "app without ICON-weight change": {
+      "n": 129569,
+      "mae": 1.408,
+      "bias": -0.115
+     },
+     "app without hourly table": {
+      "n": 129569,
+      "mae": 1.475,
+      "bias": -0.402
+     },
+     "app with shipped table (in-sample)": {
+      "n": 129569,
+      "mae": 1.378,
+      "bias": -0.083
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27595,
+      "mae": 1.21,
+      "bias": -0.068
+     },
+     "ECMWF alone": {
+      "n": 27595,
+      "mae": 1.427,
+      "bias": -1.066
+     },
+     "plain blend": {
+      "n": 27595,
+      "mae": 1.051,
+      "bias": -0.467
+     },
+     "app": {
+      "n": 27595,
+      "mae": 1.111,
+      "bias": 0.032
+     },
+     "app without ICON-weight change": {
+      "n": 27595,
+      "mae": 1.025,
+      "bias": -0.167
+     },
+     "app without hourly table": {
+      "n": 27595,
+      "mae": 1.093,
+      "bias": -0.267
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27595,
+      "mae": 1.103,
+      "bias": 0.052
+     }
+    }
+   }
+  },
+  "l2": {
+   "all": {
+    "ICON alone": {
+     "n": 768939,
+     "mae": 1.261,
+     "bias": -0.286
+    },
+    "ECMWF alone": {
+     "n": 768939,
+     "mae": 1.51,
+     "bias": -0.638
+    },
+    "plain blend": {
+     "n": 768939,
+     "mae": 1.26,
+     "bias": -0.427
+    },
+    "app": {
+     "n": 768939,
+     "mae": 1.182,
+     "bias": -0.02
+    },
+    "app without ICON-weight change": {
+     "n": 768939,
+     "mae": 1.184,
+     "bias": -0.09
+    },
+    "app without hourly table": {
+     "n": 768939,
+     "mae": 1.242,
+     "bias": -0.357
+    },
+    "app with shipped table (in-sample)": {
+     "n": 768939,
+     "mae": 1.175,
+     "bias": -0.005
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 223444,
+      "mae": 1.318,
+      "bias": -0.373
+     },
+     "ECMWF alone": {
+      "n": 223444,
+      "mae": 1.59,
+      "bias": -0.714
+     },
+     "plain blend": {
+      "n": 223444,
+      "mae": 1.328,
+      "bias": -0.509
+     },
+     "app": {
+      "n": 223444,
+      "mae": 1.222,
+      "bias": -0.028
+     },
+     "app without ICON-weight change": {
+      "n": 223444,
+      "mae": 1.225,
+      "bias": -0.096
+     },
+     "app without hourly table": {
+      "n": 223444,
+      "mae": 1.304,
+      "bias": -0.441
+     },
+     "app with shipped table (in-sample)": {
+      "n": 223444,
+      "mae": 1.215,
+      "bias": -0.019
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 180090,
+      "mae": 1.325,
+      "bias": -0.268
+     },
+     "ECMWF alone": {
+      "n": 180090,
+      "mae": 1.622,
+      "bias": -0.804
+     },
+     "plain blend": {
+      "n": 180090,
+      "mae": 1.334,
+      "bias": -0.482
+     },
+     "app": {
+      "n": 180090,
+      "mae": 1.267,
+      "bias": -0.059
+     },
+     "app without ICON-weight change": {
+      "n": 180090,
+      "mae": 1.27,
+      "bias": -0.166
+     },
+     "app without hourly table": {
+      "n": 180090,
+      "mae": 1.309,
+      "bias": -0.375
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180090,
+      "mae": 1.26,
+      "bias": -0.018
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 183884,
+      "mae": 1.3,
+      "bias": -0.187
+     },
+     "ECMWF alone": {
+      "n": 183884,
+      "mae": 1.534,
+      "bias": -0.56
+     },
+     "plain blend": {
+      "n": 183884,
+      "mae": 1.288,
+      "bias": -0.336
+     },
+     "app": {
+      "n": 183884,
+      "mae": 1.244,
+      "bias": -0.028
+     },
+     "app without ICON-weight change": {
+      "n": 183884,
+      "mae": 1.245,
+      "bias": -0.102
+     },
+     "app without hourly table": {
+      "n": 183884,
+      "mae": 1.275,
+      "bias": -0.262
+     },
+     "app with shipped table (in-sample)": {
+      "n": 183884,
+      "mae": 1.237,
+      "bias": -0.006
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 181521,
+      "mae": 1.09,
+      "bias": -0.299
+     },
+     "ECMWF alone": {
+      "n": 181521,
+      "mae": 1.274,
+      "bias": -0.458
+     },
+     "plain blend": {
+      "n": 181521,
+      "mae": 1.073,
+      "bias": -0.363
+     },
+     "app": {
+      "n": 181521,
+      "mae": 0.984,
+      "bias": 0.037
+     },
+     "app without ICON-weight change": {
+      "n": 181521,
+      "mae": 0.984,
+      "bias": 0.005
+     },
+     "app without hourly table": {
+      "n": 181521,
+      "mae": 1.065,
+      "bias": -0.331
+     },
+     "app with shipped table (in-sample)": {
+      "n": 181521,
+      "mae": 0.978,
+      "bias": 0.027
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27656,
+      "mae": 1.111,
+      "bias": 0.328
+     },
+     "ECMWF alone": {
+      "n": 27656,
+      "mae": 1.401,
+      "bias": -0.35
+     },
+     "plain blend": {
+      "n": 27656,
+      "mae": 1.101,
+      "bias": 0.057
+     },
+     "app": {
+      "n": 27656,
+      "mae": 1.13,
+      "bias": 0.538
+     },
+     "app without ICON-weight change": {
+      "n": 27656,
+      "mae": 1.111,
+      "bias": 0.402
+     },
+     "app without hourly table": {
+      "n": 27656,
+      "mae": 1.08,
+      "bias": 0.193
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27656,
+      "mae": 1.126,
+      "bias": 0.545
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 82517,
+      "mae": 1.458,
+      "bias": -0.047
+     },
+     "ECMWF alone": {
+      "n": 82517,
+      "mae": 1.602,
+      "bias": -0.459
+     },
+     "plain blend": {
+      "n": 82517,
+      "mae": 1.398,
+      "bias": -0.212
+     },
+     "app": {
+      "n": 82517,
+      "mae": 1.367,
+      "bias": 0.21
+     },
+     "app without ICON-weight change": {
+      "n": 82517,
+      "mae": 1.338,
+      "bias": 0.128
+     },
+     "app without hourly table": {
+      "n": 82517,
+      "mae": 1.409,
+      "bias": -0.129
+     },
+     "app with shipped table (in-sample)": {
+      "n": 82517,
+      "mae": 1.362,
+      "bias": 0.223
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 234561,
+      "mae": 1.231,
+      "bias": -0.414
+     },
+     "ECMWF alone": {
+      "n": 234561,
+      "mae": 1.504,
+      "bias": -0.697
+     },
+     "plain blend": {
+      "n": 234561,
+      "mae": 1.247,
+      "bias": -0.527
+     },
+     "app": {
+      "n": 234561,
+      "mae": 1.136,
+      "bias": -0.137
+     },
+     "app without ICON-weight change": {
+      "n": 234561,
+      "mae": 1.148,
+      "bias": -0.193
+     },
+     "app without hourly table": {
+      "n": 234561,
+      "mae": 1.222,
+      "bias": -0.471
+     },
+     "app with shipped table (in-sample)": {
+      "n": 234561,
+      "mae": 1.13,
+      "bias": -0.119
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 128818,
+      "mae": 1.159,
+      "bias": -0.418
+     },
+     "ECMWF alone": {
+      "n": 128818,
+      "mae": 1.502,
+      "bias": -0.91
+     },
+     "plain blend": {
+      "n": 128818,
+      "mae": 1.192,
+      "bias": -0.615
+     },
+     "app": {
+      "n": 128818,
+      "mae": 1.108,
+      "bias": -0.182
+     },
+     "app without ICON-weight change": {
+      "n": 128818,
+      "mae": 1.125,
+      "bias": -0.28
+     },
+     "app without hourly table": {
+      "n": 128818,
+      "mae": 1.156,
+      "bias": -0.517
+     },
+     "app with shipped table (in-sample)": {
+      "n": 128818,
+      "mae": 1.1,
+      "bias": -0.165
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101408,
+      "mae": 1.077,
+      "bias": -0.11
+     },
+     "ECMWF alone": {
+      "n": 101408,
+      "mae": 1.212,
+      "bias": -0.259
+     },
+     "plain blend": {
+      "n": 101408,
+      "mae": 1.044,
+      "bias": -0.17
+     },
+     "app": {
+      "n": 101408,
+      "mae": 1.011,
+      "bias": 0.2
+     },
+     "app without ICON-weight change": {
+      "n": 101408,
+      "mae": 1.001,
+      "bias": 0.17
+     },
+     "app without hourly table": {
+      "n": 101408,
+      "mae": 1.046,
+      "bias": -0.14
+     },
+     "app with shipped table (in-sample)": {
+      "n": 101408,
+      "mae": 1.006,
+      "bias": 0.212
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 36815,
+      "mae": 1.098,
+      "bias": -0.169
+     },
+     "ECMWF alone": {
+      "n": 36815,
+      "mae": 1.496,
+      "bias": -0.935
+     },
+     "plain blend": {
+      "n": 36815,
+      "mae": 1.145,
+      "bias": -0.475
+     },
+     "app": {
+      "n": 36815,
+      "mae": 1.015,
+      "bias": 0.016
+     },
+     "app without ICON-weight change": {
+      "n": 36815,
+      "mae": 1.031,
+      "bias": -0.137
+     },
+     "app without hourly table": {
+      "n": 36815,
+      "mae": 1.099,
+      "bias": -0.322
+     },
+     "app with shipped table (in-sample)": {
+      "n": 36815,
+      "mae": 1.01,
+      "bias": 0.03
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 129569,
+      "mae": 1.52,
+      "bias": -0.418
+     },
+     "ECMWF alone": {
+      "n": 129569,
+      "mae": 1.734,
+      "bias": -0.539
+     },
+     "plain blend": {
+      "n": 129569,
+      "mae": 1.533,
+      "bias": -0.466
+     },
+     "app": {
+      "n": 129569,
+      "mae": 1.423,
+      "bias": -0.106
+     },
+     "app without ICON-weight change": {
+      "n": 129569,
+      "mae": 1.438,
+      "bias": -0.13
+     },
+     "app without hourly table": {
+      "n": 129569,
+      "mae": 1.513,
+      "bias": -0.442
+     },
+     "app with shipped table (in-sample)": {
+      "n": 129569,
+      "mae": 1.411,
+      "bias": -0.09
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27595,
+      "mae": 1.234,
+      "bias": -0.1
+     },
+     "ECMWF alone": {
+      "n": 27595,
+      "mae": 1.486,
+      "bias": -1.143
+     },
+     "plain blend": {
+      "n": 27595,
+      "mae": 1.087,
+      "bias": -0.517
+     },
+     "app": {
+      "n": 27595,
+      "mae": 1.132,
+      "bias": 0.029
+     },
+     "app without ICON-weight change": {
+      "n": 27595,
+      "mae": 1.051,
+      "bias": -0.179
+     },
+     "app without hourly table": {
+      "n": 27595,
+      "mae": 1.122,
+      "bias": -0.309
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27595,
+      "mae": 1.125,
+      "bias": 0.043
+     }
+    }
+   }
+  },
+  "l4": {
+   "all": {
+    "ICON alone": {
+     "n": 766039,
+     "mae": 1.396,
+     "bias": -0.223
+    },
+    "ECMWF alone": {
+     "n": 766039,
+     "mae": 1.602,
+     "bias": -0.659
+    },
+    "plain blend": {
+     "n": 766039,
+     "mae": 1.362,
+     "bias": -0.398
+    },
+    "app": {
+     "n": 766039,
+     "mae": 1.29,
+     "bias": -0.048
+    },
+    "app without ICON-weight change": {
+     "n": 766039,
+     "mae": 1.29,
+     "bias": -0.048
+    },
+    "app without hourly table": {
+     "n": 766039,
+     "mae": 1.362,
+     "bias": -0.398
+    },
+    "app with shipped table (in-sample)": {
+     "n": 766039,
+     "mae": 1.282,
+     "bias": -0.021
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 223444,
+      "mae": 1.401,
+      "bias": -0.264
+     },
+     "ECMWF alone": {
+      "n": 223444,
+      "mae": 1.66,
+      "bias": -0.745
+     },
+     "plain blend": {
+      "n": 223444,
+      "mae": 1.388,
+      "bias": -0.456
+     },
+     "app": {
+      "n": 223444,
+      "mae": 1.288,
+      "bias": -0.017
+     },
+     "app without ICON-weight change": {
+      "n": 223444,
+      "mae": 1.288,
+      "bias": -0.017
+     },
+     "app without hourly table": {
+      "n": 223444,
+      "mae": 1.388,
+      "bias": -0.456
+     },
+     "app with shipped table (in-sample)": {
+      "n": 223444,
+      "mae": 1.281,
+      "bias": -0.004
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 180090,
+      "mae": 1.539,
+      "bias": -0.254
+     },
+     "ECMWF alone": {
+      "n": 180090,
+      "mae": 1.759,
+      "bias": -0.926
+     },
+     "plain blend": {
+      "n": 180090,
+      "mae": 1.498,
+      "bias": -0.523
+     },
+     "app": {
+      "n": 180090,
+      "mae": 1.417,
+      "bias": -0.118
+     },
+     "app without ICON-weight change": {
+      "n": 180090,
+      "mae": 1.417,
+      "bias": -0.118
+     },
+     "app without hourly table": {
+      "n": 180090,
+      "mae": 1.498,
+      "bias": -0.523
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180090,
+      "mae": 1.408,
+      "bias": -0.063
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 180984,
+      "mae": 1.488,
+      "bias": -0.145
+     },
+     "ECMWF alone": {
+      "n": 180984,
+      "mae": 1.637,
+      "bias": -0.457
+     },
+     "plain blend": {
+      "n": 180984,
+      "mae": 1.425,
+      "bias": -0.27
+     },
+     "app": {
+      "n": 180984,
+      "mae": 1.398,
+      "bias": -0.075
+     },
+     "app without ICON-weight change": {
+      "n": 180984,
+      "mae": 1.398,
+      "bias": -0.075
+     },
+     "app without hourly table": {
+      "n": 180984,
+      "mae": 1.425,
+      "bias": -0.27
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180984,
+      "mae": 1.39,
+      "bias": -0.032
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 181521,
+      "mae": 1.156,
+      "bias": -0.22
+     },
+     "ECMWF alone": {
+      "n": 181521,
+      "mae": 1.342,
+      "bias": -0.491
+     },
+     "plain blend": {
+      "n": 181521,
+      "mae": 1.13,
+      "bias": -0.328
+     },
+     "app": {
+      "n": 181521,
+      "mae": 1.059,
+      "bias": 0.01
+     },
+     "app without ICON-weight change": {
+      "n": 181521,
+      "mae": 1.059,
+      "bias": 0.01
+     },
+     "app without hourly table": {
+      "n": 181521,
+      "mae": 1.13,
+      "bias": -0.328
+     },
+     "app with shipped table (in-sample)": {
+      "n": 181521,
+      "mae": 1.052,
+      "bias": 0.01
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27556,
+      "mae": 1.33,
+      "bias": 0.413
+     },
+     "ECMWF alone": {
+      "n": 27556,
+      "mae": 1.486,
+      "bias": -0.277
+     },
+     "plain blend": {
+      "n": 27556,
+      "mae": 1.251,
+      "bias": 0.137
+     },
+     "app": {
+      "n": 27556,
+      "mae": 1.271,
+      "bias": 0.494
+     },
+     "app without ICON-weight change": {
+      "n": 27556,
+      "mae": 1.271,
+      "bias": 0.494
+     },
+     "app without hourly table": {
+      "n": 27556,
+      "mae": 1.251,
+      "bias": 0.137
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27556,
+      "mae": 1.27,
+      "bias": 0.513
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 82237,
+      "mae": 1.539,
+      "bias": 0.021
+     },
+     "ECMWF alone": {
+      "n": 82237,
+      "mae": 1.665,
+      "bias": -0.467
+     },
+     "plain blend": {
+      "n": 82237,
+      "mae": 1.457,
+      "bias": -0.174
+     },
+     "app": {
+      "n": 82237,
+      "mae": 1.409,
+      "bias": 0.178
+     },
+     "app without ICON-weight change": {
+      "n": 82237,
+      "mae": 1.409,
+      "bias": 0.178
+     },
+     "app without hourly table": {
+      "n": 82237,
+      "mae": 1.457,
+      "bias": -0.174
+     },
+     "app with shipped table (in-sample)": {
+      "n": 82237,
+      "mae": 1.405,
+      "bias": 0.202
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 233651,
+      "mae": 1.358,
+      "bias": -0.348
+     },
+     "ECMWF alone": {
+      "n": 233651,
+      "mae": 1.591,
+      "bias": -0.717
+     },
+     "plain blend": {
+      "n": 233651,
+      "mae": 1.342,
+      "bias": -0.496
+     },
+     "app": {
+      "n": 233651,
+      "mae": 1.244,
+      "bias": -0.148
+     },
+     "app without ICON-weight change": {
+      "n": 233651,
+      "mae": 1.244,
+      "bias": -0.148
+     },
+     "app without hourly table": {
+      "n": 233651,
+      "mae": 1.342,
+      "bias": -0.496
+     },
+     "app with shipped table (in-sample)": {
+      "n": 233651,
+      "mae": 1.237,
+      "bias": -0.119
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 128328,
+      "mae": 1.324,
+      "bias": -0.338
+     },
+     "ECMWF alone": {
+      "n": 128328,
+      "mae": 1.624,
+      "bias": -0.899
+     },
+     "plain blend": {
+      "n": 128328,
+      "mae": 1.321,
+      "bias": -0.563
+     },
+     "app": {
+      "n": 128328,
+      "mae": 1.248,
+      "bias": -0.215
+     },
+     "app without ICON-weight change": {
+      "n": 128328,
+      "mae": 1.248,
+      "bias": -0.215
+     },
+     "app without hourly table": {
+      "n": 128328,
+      "mae": 1.321,
+      "bias": -0.563
+     },
+     "app with shipped table (in-sample)": {
+      "n": 128328,
+      "mae": 1.242,
+      "bias": -0.187
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101023,
+      "mae": 1.269,
+      "bias": -0.052
+     },
+     "ECMWF alone": {
+      "n": 101023,
+      "mae": 1.343,
+      "bias": -0.328
+     },
+     "plain blend": {
+      "n": 101023,
+      "mae": 1.198,
+      "bias": -0.163
+     },
+     "app": {
+      "n": 101023,
+      "mae": 1.168,
+      "bias": 0.19
+     },
+     "app without ICON-weight change": {
+      "n": 101023,
+      "mae": 1.168,
+      "bias": 0.19
+     },
+     "app without hourly table": {
+      "n": 101023,
+      "mae": 1.198,
+      "bias": -0.163
+     },
+     "app with shipped table (in-sample)": {
+      "n": 101023,
+      "mae": 1.163,
+      "bias": 0.213
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 36675,
+      "mae": 1.221,
+      "bias": -0.118
+     },
+     "ECMWF alone": {
+      "n": 36675,
+      "mae": 1.573,
+      "bias": -1.018
+     },
+     "plain blend": {
+      "n": 36675,
+      "mae": 1.223,
+      "bias": -0.478
+     },
+     "app": {
+      "n": 36675,
+      "mae": 1.128,
+      "bias": -0.129
+     },
+     "app without ICON-weight change": {
+      "n": 36675,
+      "mae": 1.128,
+      "bias": -0.129
+     },
+     "app without hourly table": {
+      "n": 36675,
+      "mae": 1.223,
+      "bias": -0.478
+     },
+     "app with shipped table (in-sample)": {
+      "n": 36675,
+      "mae": 1.118,
+      "bias": -0.102
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 129079,
+      "mae": 1.612,
+      "bias": -0.366
+     },
+     "ECMWF alone": {
+      "n": 129079,
+      "mae": 1.806,
+      "bias": -0.57
+     },
+     "plain blend": {
+      "n": 129079,
+      "mae": 1.6,
+      "bias": -0.448
+     },
+     "app": {
+      "n": 129079,
+      "mae": 1.512,
+      "bias": -0.099
+     },
+     "app without ICON-weight change": {
+      "n": 129079,
+      "mae": 1.512,
+      "bias": -0.099
+     },
+     "app without hourly table": {
+      "n": 129079,
+      "mae": 1.6,
+      "bias": -0.448
+     },
+     "app with shipped table (in-sample)": {
+      "n": 129079,
+      "mae": 1.498,
+      "bias": -0.072
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27490,
+      "mae": 1.377,
+      "bias": -0.081
+     },
+     "ECMWF alone": {
+      "n": 27490,
+      "mae": 1.562,
+      "bias": -1.168
+     },
+     "plain blend": {
+      "n": 27490,
+      "mae": 1.208,
+      "bias": -0.516
+     },
+     "app": {
+      "n": 27490,
+      "mae": 1.163,
+      "bias": -0.167
+     },
+     "app without ICON-weight change": {
+      "n": 27490,
+      "mae": 1.163,
+      "bias": -0.167
+     },
+     "app without hourly table": {
+      "n": 27490,
+      "mae": 1.208,
+      "bias": -0.516
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27490,
+      "mae": 1.154,
+      "bias": -0.14
+     }
+    }
+   }
+  },
+  "l6": {
+   "all": {
+    "ICON alone": {
+     "n": 762560,
+     "mae": 1.924,
+     "bias": -0.086
+    },
+    "ECMWF alone": {
+     "n": 762560,
+     "mae": 1.84,
+     "bias": -0.649
+    },
+    "plain blend": {
+     "n": 762560,
+     "mae": 1.656,
+     "bias": -0.424
+    },
+    "app": {
+     "n": 762560,
+     "mae": 1.559,
+     "bias": 0.026
+    },
+    "app without ICON-weight change": {
+     "n": 762560,
+     "mae": 1.559,
+     "bias": 0.026
+    },
+    "app without hourly table": {
+     "n": 762560,
+     "mae": 1.656,
+     "bias": -0.424
+    },
+    "app with shipped table (in-sample)": {
+     "n": 762560,
+     "mae": 1.549,
+     "bias": 0.018
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 223444,
+      "mae": 1.829,
+      "bias": -0.37
+     },
+     "ECMWF alone": {
+      "n": 223444,
+      "mae": 1.893,
+      "bias": -0.696
+     },
+     "plain blend": {
+      "n": 223444,
+      "mae": 1.69,
+      "bias": -0.566
+     },
+     "app": {
+      "n": 223444,
+      "mae": 1.548,
+      "bias": -0.105
+     },
+     "app without ICON-weight change": {
+      "n": 223444,
+      "mae": 1.548,
+      "bias": -0.105
+     },
+     "app without hourly table": {
+      "n": 223444,
+      "mae": 1.69,
+      "bias": -0.566
+     },
+     "app with shipped table (in-sample)": {
+      "n": 223444,
+      "mae": 1.539,
+      "bias": -0.077
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 180090,
+      "mae": 2.25,
+      "bias": 0.387
+     },
+     "ECMWF alone": {
+      "n": 180090,
+      "mae": 1.954,
+      "bias": -0.93
+     },
+     "plain blend": {
+      "n": 180090,
+      "mae": 1.801,
+      "bias": -0.403
+     },
+     "app": {
+      "n": 180090,
+      "mae": 1.743,
+      "bias": 0.194
+     },
+     "app without ICON-weight change": {
+      "n": 180090,
+      "mae": 1.743,
+      "bias": 0.194
+     },
+     "app without hourly table": {
+      "n": 180090,
+      "mae": 1.801,
+      "bias": -0.403
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180090,
+      "mae": 1.735,
+      "bias": 0.128
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 177505,
+      "mae": 2.292,
+      "bias": -0.113
+     },
+     "ECMWF alone": {
+      "n": 177505,
+      "mae": 1.973,
+      "bias": -0.569
+     },
+     "plain blend": {
+      "n": 177505,
+      "mae": 1.84,
+      "bias": -0.387
+     },
+     "app": {
+      "n": 177505,
+      "mae": 1.76,
+      "bias": -0.111
+     },
+     "app without ICON-weight change": {
+      "n": 177505,
+      "mae": 1.76,
+      "bias": -0.111
+     },
+     "app without hourly table": {
+      "n": 177505,
+      "mae": 1.84,
+      "bias": -0.387
+     },
+     "app with shipped table (in-sample)": {
+      "n": 177505,
+      "mae": 1.745,
+      "bias": -0.078
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 181521,
+      "mae": 1.36,
+      "bias": -0.178
+     },
+     "ECMWF alone": {
+      "n": 181521,
+      "mae": 1.533,
+      "bias": -0.388
+     },
+     "plain blend": {
+      "n": 181521,
+      "mae": 1.29,
+      "bias": -0.304
+     },
+     "app": {
+      "n": 181521,
+      "mae": 1.193,
+      "bias": 0.154
+     },
+     "app without ICON-weight change": {
+      "n": 181521,
+      "mae": 1.193,
+      "bias": 0.154
+     },
+     "app without hourly table": {
+      "n": 181521,
+      "mae": 1.29,
+      "bias": -0.304
+     },
+     "app with shipped table (in-sample)": {
+      "n": 181521,
+      "mae": 1.183,
+      "bias": 0.12
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27464,
+      "mae": 1.883,
+      "bias": 0.625
+     },
+     "ECMWF alone": {
+      "n": 27464,
+      "mae": 1.769,
+      "bias": -0.192
+     },
+     "plain blend": {
+      "n": 27464,
+      "mae": 1.561,
+      "bias": 0.135
+     },
+     "app": {
+      "n": 27464,
+      "mae": 1.583,
+      "bias": 0.592
+     },
+     "app without ICON-weight change": {
+      "n": 27464,
+      "mae": 1.583,
+      "bias": 0.592
+     },
+     "app without hourly table": {
+      "n": 27464,
+      "mae": 1.561,
+      "bias": 0.135
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27464,
+      "mae": 1.577,
+      "bias": 0.576
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 81874,
+      "mae": 2.03,
+      "bias": 0.031
+     },
+     "ECMWF alone": {
+      "n": 81874,
+      "mae": 1.823,
+      "bias": -0.445
+     },
+     "plain blend": {
+      "n": 81874,
+      "mae": 1.706,
+      "bias": -0.255
+     },
+     "app": {
+      "n": 81874,
+      "mae": 1.625,
+      "bias": 0.198
+     },
+     "app without ICON-weight change": {
+      "n": 81874,
+      "mae": 1.625,
+      "bias": 0.198
+     },
+     "app without hourly table": {
+      "n": 81874,
+      "mae": 1.706,
+      "bias": -0.255
+     },
+     "app with shipped table (in-sample)": {
+      "n": 81874,
+      "mae": 1.616,
+      "bias": 0.187
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 232559,
+      "mae": 1.986,
+      "bias": 0.003
+     },
+     "ECMWF alone": {
+      "n": 232559,
+      "mae": 1.856,
+      "bias": -0.711
+     },
+     "plain blend": {
+      "n": 232559,
+      "mae": 1.646,
+      "bias": -0.425
+     },
+     "app": {
+      "n": 232559,
+      "mae": 1.531,
+      "bias": 0.023
+     },
+     "app without ICON-weight change": {
+      "n": 232559,
+      "mae": 1.531,
+      "bias": 0.023
+     },
+     "app without hourly table": {
+      "n": 232559,
+      "mae": 1.646,
+      "bias": -0.425
+     },
+     "app with shipped table (in-sample)": {
+      "n": 232559,
+      "mae": 1.519,
+      "bias": 0.016
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 127740,
+      "mae": 1.841,
+      "bias": -0.403
+     },
+     "ECMWF alone": {
+      "n": 127740,
+      "mae": 1.832,
+      "bias": -0.85
+     },
+     "plain blend": {
+      "n": 127740,
+      "mae": 1.63,
+      "bias": -0.671
+     },
+     "app": {
+      "n": 127740,
+      "mae": 1.557,
+      "bias": -0.225
+     },
+     "app without ICON-weight change": {
+      "n": 127740,
+      "mae": 1.557,
+      "bias": -0.225
+     },
+     "app without hourly table": {
+      "n": 127740,
+      "mae": 1.63,
+      "bias": -0.671
+     },
+     "app with shipped table (in-sample)": {
+      "n": 127740,
+      "mae": 1.556,
+      "bias": -0.23
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 100561,
+      "mae": 1.604,
+      "bias": -0.138
+     },
+     "ECMWF alone": {
+      "n": 100561,
+      "mae": 1.67,
+      "bias": -0.349
+     },
+     "plain blend": {
+      "n": 100561,
+      "mae": 1.488,
+      "bias": -0.265
+     },
+     "app": {
+      "n": 100561,
+      "mae": 1.417,
+      "bias": 0.187
+     },
+     "app without ICON-weight change": {
+      "n": 100561,
+      "mae": 1.417,
+      "bias": 0.187
+     },
+     "app without hourly table": {
+      "n": 100561,
+      "mae": 1.488,
+      "bias": -0.265
+     },
+     "app with shipped table (in-sample)": {
+      "n": 100561,
+      "mae": 1.408,
+      "bias": 0.176
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 36507,
+      "mae": 1.689,
+      "bias": -0.313
+     },
+     "ECMWF alone": {
+      "n": 36507,
+      "mae": 1.819,
+      "bias": -1.007
+     },
+     "plain blend": {
+      "n": 36507,
+      "mae": 1.583,
+      "bias": -0.73
+     },
+     "app": {
+      "n": 36507,
+      "mae": 1.399,
+      "bias": -0.283
+     },
+     "app without ICON-weight change": {
+      "n": 36507,
+      "mae": 1.399,
+      "bias": -0.283
+     },
+     "app without hourly table": {
+      "n": 36507,
+      "mae": 1.583,
+      "bias": -0.73
+     },
+     "app with shipped table (in-sample)": {
+      "n": 36507,
+      "mae": 1.389,
+      "bias": -0.288
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 128491,
+      "mae": 2.034,
+      "bias": 0.314
+     },
+     "ECMWF alone": {
+      "n": 128491,
+      "mae": 2.013,
+      "bias": -0.578
+     },
+     "plain blend": {
+      "n": 128491,
+      "mae": 1.803,
+      "bias": -0.222
+     },
+     "app": {
+      "n": 128491,
+      "mae": 1.705,
+      "bias": 0.228
+     },
+     "app without ICON-weight change": {
+      "n": 128491,
+      "mae": 1.705,
+      "bias": 0.228
+     },
+     "app without hourly table": {
+      "n": 128491,
+      "mae": 1.803,
+      "bias": -0.222
+     },
+     "app with shipped table (in-sample)": {
+      "n": 128491,
+      "mae": 1.685,
+      "bias": 0.22
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27364,
+      "mae": 2.496,
+      "bias": -1.806
+     },
+     "ECMWF alone": {
+      "n": 27364,
+      "mae": 1.719,
+      "bias": -1.199
+     },
+     "plain blend": {
+      "n": 27364,
+      "mae": 1.837,
+      "bias": -1.442
+     },
+     "app": {
+      "n": 27364,
+      "mae": 1.635,
+      "bias": -1.0
+     },
+     "app without ICON-weight change": {
+      "n": 27364,
+      "mae": 1.635,
+      "bias": -1.0
+     },
+     "app without hourly table": {
+      "n": 27364,
+      "mae": 1.837,
+      "bias": -1.442
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27364,
+      "mae": 1.63,
+      "bias": -1.0
+     }
+    }
+   }
+  }
+ },
+ "temperature_daily_max": {
+  "l0": {
+   "all": {
+    "ICON alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "ECMWF alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "plain blend": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without ICON-weight change": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without daily-max offset": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app with shipped offset (in-sample)": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    }
+   },
+   "season": {},
+   "region": {}
+  },
+  "l1": {
+   "all": {
+    "ICON alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "ECMWF alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "plain blend": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without ICON-weight change": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without daily-max offset": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app with shipped offset (in-sample)": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    }
+   },
+   "season": {},
+   "region": {}
+  },
+  "l2": {
+   "all": {
+    "ICON alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "ECMWF alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "plain blend": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without ICON-weight change": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without daily-max offset": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app with shipped offset (in-sample)": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    }
+   },
+   "season": {},
+   "region": {}
+  },
+  "l4": {
+   "all": {
+    "ICON alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "ECMWF alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "plain blend": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without ICON-weight change": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without daily-max offset": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app with shipped offset (in-sample)": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    }
+   },
+   "season": {},
+   "region": {}
+  },
+  "l6": {
+   "all": {
+    "ICON alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "ECMWF alone": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "plain blend": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without ICON-weight change": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app without daily-max offset": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    },
+    "app with shipped offset (in-sample)": {
+     "n": 0,
+     "mae": NaN,
+     "bias": NaN
+    }
+   },
+   "season": {},
+   "region": {}
+  }
+ },
+ "temperature_live": {
+  "+0h": {
+   "all": {
+    "app without live": {
+     "n": 768807,
+     "mae": 1.049,
+     "bias": 0.011
+    },
+    "app": {
+     "n": 768807,
+     "mae": 0.997,
+     "bias": -0.001
+    }
+   },
+   "season": {
+    "autumn": {
+     "app without live": {
+      "n": 223398,
+      "mae": 1.109,
+      "bias": 0.054
+     },
+     "app": {
+      "n": 223398,
+      "mae": 1.057,
+      "bias": 0.016
+     }
+    },
+    "winter": {
+     "app without live": {
+      "n": 180088,
+      "mae": 1.099,
+      "bias": -0.038
+     },
+     "app": {
+      "n": 180088,
+      "mae": 1.025,
+      "bias": -0.025
+     }
+    },
+    "spring": {
+     "app without live": {
+      "n": 183877,
+      "mae": 1.053,
+      "bias": -0.024
+     },
+     "app": {
+      "n": 183877,
+      "mae": 0.992,
+      "bias": -0.011
+     }
+    },
+    "summer": {
+     "app without live": {
+      "n": 181444,
+      "mae": 0.922,
+      "bias": 0.041
+     },
+     "app": {
+      "n": 181444,
+      "mae": 0.901,
+      "bias": 0.01
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "app without live": {
+      "n": 27656,
+      "mae": 0.963,
+      "bias": 0.516
+     },
+     "app": {
+      "n": 27656,
+      "mae": 0.96,
+      "bias": 0.501
+     }
+    },
+    "Jordan Valley": {
+     "app without live": {
+      "n": 82516,
+      "mae": 1.279,
+      "bias": 0.222
+     },
+     "app": {
+      "n": 82516,
+      "mae": 1.187,
+      "bias": 0.21
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "app without live": {
+      "n": 234558,
+      "mae": 0.993,
+      "bias": -0.114
+     },
+     "app": {
+      "n": 234558,
+      "mae": 0.929,
+      "bias": -0.147
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "app without live": {
+      "n": 128814,
+      "mae": 0.962,
+      "bias": -0.165
+     },
+     "app": {
+      "n": 128814,
+      "mae": 0.912,
+      "bias": -0.154
+     }
+    },
+    "Negev": {
+     "app without live": {
+      "n": 101406,
+      "mae": 0.833,
+      "bias": 0.254
+     },
+     "app": {
+      "n": 101406,
+      "mae": 0.783,
+      "bias": 0.26
+     }
+    },
+    "Arava and Eilat": {
+     "app without live": {
+      "n": 36695,
+      "mae": 0.918,
+      "bias": 0.147
+     },
+     "app": {
+      "n": 36695,
+      "mae": 0.865,
+      "bias": 0.183
+     }
+    },
+    "Coastal plain": {
+     "app without live": {
+      "n": 129567,
+      "mae": 1.308,
+      "bias": -0.087
+     },
+     "app": {
+      "n": 129567,
+      "mae": 1.273,
+      "bias": -0.133
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "app without live": {
+      "n": 27595,
+      "mae": 1.085,
+      "bias": 0.145
+     },
+     "app": {
+      "n": 27595,
+      "mae": 1.105,
+      "bias": 0.221
+     }
+    }
+   }
+  },
+  "+1h": {
+   "all": {
+    "app without live": {
+     "n": 768682,
+     "mae": 1.049,
+     "bias": 0.011
+    },
+    "app": {
+     "n": 768682,
+     "mae": 1.017,
+     "bias": -0.0
+    }
+   },
+   "season": {
+    "autumn": {
+     "app without live": {
+      "n": 223350,
+      "mae": 1.109,
+      "bias": 0.054
+     },
+     "app": {
+      "n": 223350,
+      "mae": 1.075,
+      "bias": 0.02
+     }
+    },
+    "winter": {
+     "app without live": {
+      "n": 180088,
+      "mae": 1.099,
+      "bias": -0.038
+     },
+     "app": {
+      "n": 180088,
+      "mae": 1.049,
+      "bias": -0.026
+     }
+    },
+    "spring": {
+     "app without live": {
+      "n": 183851,
+      "mae": 1.053,
+      "bias": -0.024
+     },
+     "app": {
+      "n": 183851,
+      "mae": 1.019,
+      "bias": -0.013
+     }
+    },
+    "summer": {
+     "app without live": {
+      "n": 181393,
+      "mae": 0.922,
+      "bias": 0.041
+     },
+     "app": {
+      "n": 181393,
+      "mae": 0.91,
+      "bias": 0.013
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "app without live": {
+      "n": 27653,
+      "mae": 0.963,
+      "bias": 0.516
+     },
+     "app": {
+      "n": 27653,
+      "mae": 0.971,
+      "bias": 0.502
+     }
+    },
+    "Jordan Valley": {
+     "app without live": {
+      "n": 82504,
+      "mae": 1.279,
+      "bias": 0.222
+     },
+     "app": {
+      "n": 82504,
+      "mae": 1.207,
+      "bias": 0.212
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "app without live": {
+      "n": 234547,
+      "mae": 0.993,
+      "bias": -0.114
+     },
+     "app": {
+      "n": 234547,
+      "mae": 0.954,
+      "bias": -0.144
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "app without live": {
+      "n": 128809,
+      "mae": 0.962,
+      "bias": -0.165
+     },
+     "app": {
+      "n": 128809,
+      "mae": 0.934,
+      "bias": -0.155
+     }
+    },
+    "Negev": {
+     "app without live": {
+      "n": 101358,
+      "mae": 0.833,
+      "bias": 0.254
+     },
+     "app": {
+      "n": 101358,
+      "mae": 0.804,
+      "bias": 0.26
+     }
+    },
+    "Arava and Eilat": {
+     "app without live": {
+      "n": 36667,
+      "mae": 0.918,
+      "bias": 0.146
+     },
+     "app": {
+      "n": 36667,
+      "mae": 0.865,
+      "bias": 0.179
+     }
+    },
+    "Coastal plain": {
+     "app without live": {
+      "n": 129556,
+      "mae": 1.308,
+      "bias": -0.087
+     },
+     "app": {
+      "n": 129556,
+      "mae": 1.292,
+      "bias": -0.128
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "app without live": {
+      "n": 27588,
+      "mae": 1.085,
+      "bias": 0.145
+     },
+     "app": {
+      "n": 27588,
+      "mae": 1.102,
+      "bias": 0.213
+     }
+    }
+   }
+  },
+  "+2h": {
+   "all": {
+    "app without live": {
+     "n": 768682,
+     "mae": 1.049,
+     "bias": 0.011
+    },
+    "app": {
+     "n": 768682,
+     "mae": 1.035,
+     "bias": 0.002
+    }
+   },
+   "season": {
+    "autumn": {
+     "app without live": {
+      "n": 223350,
+      "mae": 1.109,
+      "bias": 0.054
+     },
+     "app": {
+      "n": 223350,
+      "mae": 1.094,
+      "bias": 0.026
+     }
+    },
+    "winter": {
+     "app without live": {
+      "n": 180088,
+      "mae": 1.099,
+      "bias": -0.038
+     },
+     "app": {
+      "n": 180088,
+      "mae": 1.07,
+      "bias": -0.028
+     }
+    },
+    "spring": {
+     "app without live": {
+      "n": 183851,
+      "mae": 1.053,
+      "bias": -0.024
+     },
+     "app": {
+      "n": 183851,
+      "mae": 1.043,
+      "bias": -0.015
+     }
+    },
+    "summer": {
+     "app without live": {
+      "n": 181393,
+      "mae": 0.922,
+      "bias": 0.041
+     },
+     "app": {
+      "n": 181393,
+      "mae": 0.92,
+      "bias": 0.018
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "app without live": {
+      "n": 27653,
+      "mae": 0.963,
+      "bias": 0.516
+     },
+     "app": {
+      "n": 27653,
+      "mae": 0.983,
+      "bias": 0.505
+     }
+    },
+    "Jordan Valley": {
+     "app without live": {
+      "n": 82504,
+      "mae": 1.279,
+      "bias": 0.222
+     },
+     "app": {
+      "n": 82504,
+      "mae": 1.233,
+      "bias": 0.214
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "app without live": {
+      "n": 234547,
+      "mae": 0.993,
+      "bias": -0.114
+     },
+     "app": {
+      "n": 234547,
+      "mae": 0.975,
+      "bias": -0.138
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "app without live": {
+      "n": 128809,
+      "mae": 0.962,
+      "bias": -0.165
+     },
+     "app": {
+      "n": 128809,
+      "mae": 0.952,
+      "bias": -0.157
+     }
+    },
+    "Negev": {
+     "app without live": {
+      "n": 101358,
+      "mae": 0.833,
+      "bias": 0.254
+     },
+     "app": {
+      "n": 101358,
+      "mae": 0.826,
+      "bias": 0.259
+     }
+    },
+    "Arava and Eilat": {
+     "app without live": {
+      "n": 36667,
+      "mae": 0.918,
+      "bias": 0.146
+     },
+     "app": {
+      "n": 36667,
+      "mae": 0.876,
+      "bias": 0.173
+     }
+    },
+    "Coastal plain": {
+     "app without live": {
+      "n": 129556,
+      "mae": 1.308,
+      "bias": -0.087
+     },
+     "app": {
+      "n": 129556,
+      "mae": 1.305,
+      "bias": -0.121
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "app without live": {
+      "n": 27588,
+      "mae": 1.085,
+      "bias": 0.145
+     },
+     "app": {
+      "n": 27588,
+      "mae": 1.1,
+      "bias": 0.201
+     }
+    }
+   }
+  },
+  "+3h": {
+   "all": {
+    "app without live": {
+     "n": 768682,
+     "mae": 1.049,
+     "bias": 0.011
+    },
+    "app": {
+     "n": 768682,
+     "mae": 1.043,
+     "bias": 0.004
+    }
+   },
+   "season": {
+    "autumn": {
+     "app without live": {
+      "n": 223350,
+      "mae": 1.109,
+      "bias": 0.054
+     },
+     "app": {
+      "n": 223350,
+      "mae": 1.103,
+      "bias": 0.032
+     }
+    },
+    "winter": {
+     "app without live": {
+      "n": 180088,
+      "mae": 1.099,
+      "bias": -0.038
+     },
+     "app": {
+      "n": 180088,
+      "mae": 1.08,
+      "bias": -0.03
+     }
+    },
+    "spring": {
+     "app without live": {
+      "n": 183851,
+      "mae": 1.053,
+      "bias": -0.024
+     },
+     "app": {
+      "n": 183851,
+      "mae": 1.052,
+      "bias": -0.016
+     }
+    },
+    "summer": {
+     "app without live": {
+      "n": 181393,
+      "mae": 0.922,
+      "bias": 0.041
+     },
+     "app": {
+      "n": 181393,
+      "mae": 0.925,
+      "bias": 0.023
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "app without live": {
+      "n": 27653,
+      "mae": 0.963,
+      "bias": 0.516
+     },
+     "app": {
+      "n": 27653,
+      "mae": 0.985,
+      "bias": 0.507
+     }
+    },
+    "Jordan Valley": {
+     "app without live": {
+      "n": 82504,
+      "mae": 1.279,
+      "bias": 0.222
+     },
+     "app": {
+      "n": 82504,
+      "mae": 1.249,
+      "bias": 0.215
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "app without live": {
+      "n": 234547,
+      "mae": 0.993,
+      "bias": -0.114
+     },
+     "app": {
+      "n": 234547,
+      "mae": 0.985,
+      "bias": -0.134
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "app without live": {
+      "n": 128809,
+      "mae": 0.962,
+      "bias": -0.165
+     },
+     "app": {
+      "n": 128809,
+      "mae": 0.959,
+      "bias": -0.158
+     }
+    },
+    "Negev": {
+     "app without live": {
+      "n": 101358,
+      "mae": 0.833,
+      "bias": 0.254
+     },
+     "app": {
+      "n": 101358,
+      "mae": 0.836,
+      "bias": 0.258
+     }
+    },
+    "Arava and Eilat": {
+     "app without live": {
+      "n": 36667,
+      "mae": 0.918,
+      "bias": 0.146
+     },
+     "app": {
+      "n": 36667,
+      "mae": 0.887,
+      "bias": 0.168
+     }
+    },
+    "Coastal plain": {
+     "app without live": {
+      "n": 129556,
+      "mae": 1.308,
+      "bias": -0.087
+     },
+     "app": {
+      "n": 129556,
+      "mae": 1.309,
+      "bias": -0.114
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "app without live": {
+      "n": 27588,
+      "mae": 1.085,
+      "bias": 0.145
+     },
+     "app": {
+      "n": 27588,
+      "mae": 1.097,
+      "bias": 0.19
+     }
+    }
+   }
+  },
+  "+6h": {
+   "all": {
+    "app without live": {
+     "n": 768682,
+     "mae": 1.049,
+     "bias": 0.011
+    },
+    "app": {
+     "n": 768682,
+     "mae": 1.049,
+     "bias": 0.007
+    }
+   },
+   "season": {
+    "autumn": {
+     "app without live": {
+      "n": 223350,
+      "mae": 1.109,
+      "bias": 0.054
+     },
+     "app": {
+      "n": 223350,
+      "mae": 1.11,
+      "bias": 0.041
+     }
+    },
+    "winter": {
+     "app without live": {
+      "n": 180088,
+      "mae": 1.099,
+      "bias": -0.038
+     },
+     "app": {
+      "n": 180088,
+      "mae": 1.09,
+      "bias": -0.033
+     }
+    },
+    "spring": {
+     "app without live": {
+      "n": 183851,
+      "mae": 1.053,
+      "bias": -0.024
+     },
+     "app": {
+      "n": 183851,
+      "mae": 1.056,
+      "bias": -0.019
+     }
+    },
+    "summer": {
+     "app without live": {
+      "n": 181393,
+      "mae": 0.922,
+      "bias": 0.041
+     },
+     "app": {
+      "n": 181393,
+      "mae": 0.926,
+      "bias": 0.03
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "app without live": {
+      "n": 27653,
+      "mae": 0.963,
+      "bias": 0.516
+     },
+     "app": {
+      "n": 27653,
+      "mae": 0.976,
+      "bias": 0.511
+     }
+    },
+    "Jordan Valley": {
+     "app without live": {
+      "n": 82504,
+      "mae": 1.279,
+      "bias": 0.222
+     },
+     "app": {
+      "n": 82504,
+      "mae": 1.27,
+      "bias": 0.218
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "app without live": {
+      "n": 234547,
+      "mae": 0.993,
+      "bias": -0.114
+     },
+     "app": {
+      "n": 234547,
+      "mae": 0.992,
+      "bias": -0.126
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "app without live": {
+      "n": 128809,
+      "mae": 0.962,
+      "bias": -0.165
+     },
+     "app": {
+      "n": 128809,
+      "mae": 0.959,
+      "bias": -0.161
+     }
+    },
+    "Negev": {
+     "app without live": {
+      "n": 101358,
+      "mae": 0.833,
+      "bias": 0.254
+     },
+     "app": {
+      "n": 101358,
+      "mae": 0.838,
+      "bias": 0.256
+     }
+    },
+    "Arava and Eilat": {
+     "app without live": {
+      "n": 36667,
+      "mae": 0.918,
+      "bias": 0.146
+     },
+     "app": {
+      "n": 36667,
+      "mae": 0.904,
+      "bias": 0.159
+     }
+    },
+    "Coastal plain": {
+     "app without live": {
+      "n": 129556,
+      "mae": 1.308,
+      "bias": -0.087
+     },
+     "app": {
+      "n": 129556,
+      "mae": 1.311,
+      "bias": -0.103
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "app without live": {
+      "n": 27588,
+      "mae": 1.085,
+      "bias": 0.145
+     },
+     "app": {
+      "n": 27588,
+      "mae": 1.092,
+      "bias": 0.172
+     }
+    }
+   }
+  },
+  "+12h": {
+   "all": {
+    "app without live": {
+     "n": 768682,
+     "mae": 1.049,
+     "bias": 0.011
+    },
+    "app": {
+     "n": 768682,
+     "mae": 1.049,
+     "bias": 0.009
+    }
+   },
+   "season": {
+    "autumn": {
+     "app without live": {
+      "n": 223350,
+      "mae": 1.109,
+      "bias": 0.054
+     },
+     "app": {
+      "n": 223350,
+      "mae": 1.109,
+      "bias": 0.048
+     }
+    },
+    "winter": {
+     "app without live": {
+      "n": 180088,
+      "mae": 1.099,
+      "bias": -0.038
+     },
+     "app": {
+      "n": 180088,
+      "mae": 1.096,
+      "bias": -0.036
+     }
+    },
+    "spring": {
+     "app without live": {
+      "n": 183851,
+      "mae": 1.053,
+      "bias": -0.024
+     },
+     "app": {
+      "n": 183851,
+      "mae": 1.054,
+      "bias": -0.022
+     }
+    },
+    "summer": {
+     "app without live": {
+      "n": 181393,
+      "mae": 0.922,
+      "bias": 0.041
+     },
+     "app": {
+      "n": 181393,
+      "mae": 0.922,
+      "bias": 0.036
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "app without live": {
+      "n": 27653,
+      "mae": 0.963,
+      "bias": 0.516
+     },
+     "app": {
+      "n": 27653,
+      "mae": 0.963,
+      "bias": 0.513
+     }
+    },
+    "Jordan Valley": {
+     "app without live": {
+      "n": 82504,
+      "mae": 1.279,
+      "bias": 0.222
+     },
+     "app": {
+      "n": 82504,
+      "mae": 1.277,
+      "bias": 0.22
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "app without live": {
+      "n": 234547,
+      "mae": 0.993,
+      "bias": -0.114
+     },
+     "app": {
+      "n": 234547,
+      "mae": 0.993,
+      "bias": -0.12
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "app without live": {
+      "n": 128809,
+      "mae": 0.962,
+      "bias": -0.165
+     },
+     "app": {
+      "n": 128809,
+      "mae": 0.958,
+      "bias": -0.163
+     }
+    },
+    "Negev": {
+     "app without live": {
+      "n": 101358,
+      "mae": 0.833,
+      "bias": 0.254
+     },
+     "app": {
+      "n": 101358,
+      "mae": 0.834,
+      "bias": 0.255
+     }
+    },
+    "Arava and Eilat": {
+     "app without live": {
+      "n": 36667,
+      "mae": 0.918,
+      "bias": 0.146
+     },
+     "app": {
+      "n": 36667,
+      "mae": 0.912,
+      "bias": 0.152
+     }
+    },
+    "Coastal plain": {
+     "app without live": {
+      "n": 129556,
+      "mae": 1.308,
+      "bias": -0.087
+     },
+     "app": {
+      "n": 129556,
+      "mae": 1.311,
+      "bias": -0.095
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "app without live": {
+      "n": 27588,
+      "mae": 1.085,
+      "bias": 0.145
+     },
+     "app": {
+      "n": 27588,
+      "mae": 1.09,
+      "bias": 0.158
+     }
+    }
+   }
+  }
+ },
+ "humidity": {
+  "l0": {
+   "all": {
+    "ICON alone": {
+     "n": 769205,
+     "mae": 6.164,
+     "bias": -0.988
+    },
+    "ECMWF alone": {
+     "n": 769205,
+     "mae": 8.128,
+     "bias": -0.11
+    },
+    "plain blend": {
+     "n": 769205,
+     "mae": 6.117,
+     "bias": -0.637
+    },
+    "app": {
+     "n": 769205,
+     "mae": 5.987,
+     "bias": 0.372
+    },
+    "app without ICON-weight change": {
+     "n": 769205,
+     "mae": 6.121,
+     "bias": 0.548
+    },
+    "app without humidity table": {
+     "n": 769205,
+     "mae": 5.976,
+     "bias": -0.812
+    },
+    "app with shipped table (in-sample)": {
+     "n": 769205,
+     "mae": 5.95,
+     "bias": 0.207
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 223421,
+      "mae": 6.072,
+      "bias": -0.856
+     },
+     "ECMWF alone": {
+      "n": 223421,
+      "mae": 8.027,
+      "bias": -0.316
+     },
+     "plain blend": {
+      "n": 223421,
+      "mae": 6.009,
+      "bias": -0.64
+     },
+     "app": {
+      "n": 223421,
+      "mae": 5.876,
+      "bias": 0.241
+     },
+     "app without ICON-weight change": {
+      "n": 223421,
+      "mae": 5.997,
+      "bias": 0.349
+     },
+     "app without humidity table": {
+      "n": 223421,
+      "mae": 5.872,
+      "bias": -0.748
+     },
+     "app with shipped table (in-sample)": {
+      "n": 223421,
+      "mae": 5.843,
+      "bias": 0.178
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 180093,
+      "mae": 6.606,
+      "bias": -1.1
+     },
+     "ECMWF alone": {
+      "n": 180093,
+      "mae": 8.463,
+      "bias": 0.282
+     },
+     "plain blend": {
+      "n": 180093,
+      "mae": 6.539,
+      "bias": -0.547
+     },
+     "app": {
+      "n": 180093,
+      "mae": 6.452,
+      "bias": 0.575
+     },
+     "app without ICON-weight change": {
+      "n": 180093,
+      "mae": 6.597,
+      "bias": 0.852
+     },
+     "app without humidity table": {
+      "n": 180093,
+      "mae": 6.415,
+      "bias": -0.824
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180093,
+      "mae": 6.387,
+      "bias": 0.06
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 183884,
+      "mae": 6.265,
+      "bias": -1.097
+     },
+     "ECMWF alone": {
+      "n": 183884,
+      "mae": 8.149,
+      "bias": -0.148
+     },
+     "plain blend": {
+      "n": 183884,
+      "mae": 6.168,
+      "bias": -0.717
+     },
+     "app": {
+      "n": 183884,
+      "mae": 6.071,
+      "bias": 0.436
+     },
+     "app without ICON-weight change": {
+      "n": 183884,
+      "mae": 6.193,
+      "bias": 0.625
+     },
+     "app without humidity table": {
+      "n": 183884,
+      "mae": 6.049,
+      "bias": -0.907
+     },
+     "app with shipped table (in-sample)": {
+      "n": 183884,
+      "mae": 6.039,
+      "bias": 0.285
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 181807,
+      "mae": 5.736,
+      "bias": -0.929
+     },
+     "ECMWF alone": {
+      "n": 181807,
+      "mae": 7.9,
+      "bias": -0.206
+     },
+     "plain blend": {
+      "n": 181807,
+      "mae": 5.782,
+      "bias": -0.64
+     },
+     "app": {
+      "n": 181807,
+      "mae": 5.579,
+      "bias": 0.267
+     },
+     "app without ICON-weight change": {
+      "n": 181807,
+      "mae": 5.73,
+      "bias": 0.412
+     },
+     "app without humidity table": {
+      "n": 181807,
+      "mae": 5.595,
+      "bias": -0.784
+     },
+     "app with shipped table (in-sample)": {
+      "n": 181807,
+      "mae": 5.556,
+      "bias": 0.309
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27662,
+      "mae": 5.898,
+      "bias": -2.808
+     },
+     "ECMWF alone": {
+      "n": 27662,
+      "mae": 8.592,
+      "bias": -3.625
+     },
+     "plain blend": {
+      "n": 27662,
+      "mae": 6.166,
+      "bias": -3.135
+     },
+     "app": {
+      "n": 27662,
+      "mae": 5.602,
+      "bias": -1.817
+     },
+     "app without ICON-weight change": {
+      "n": 27662,
+      "mae": 5.865,
+      "bias": -1.98
+     },
+     "app without humidity table": {
+      "n": 27662,
+      "mae": 5.858,
+      "bias": -2.972
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27662,
+      "mae": 5.592,
+      "bias": -1.954
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 82504,
+      "mae": 7.263,
+      "bias": -2.954
+     },
+     "ECMWF alone": {
+      "n": 82504,
+      "mae": 8.989,
+      "bias": 1.148
+     },
+     "plain blend": {
+      "n": 82504,
+      "mae": 6.927,
+      "bias": -1.313
+     },
+     "app": {
+      "n": 82504,
+      "mae": 6.754,
+      "bias": -0.974
+     },
+     "app without ICON-weight change": {
+      "n": 82504,
+      "mae": 6.799,
+      "bias": -0.154
+     },
+     "app without humidity table": {
+      "n": 82504,
+      "mae": 6.905,
+      "bias": -2.133
+     },
+     "app with shipped table (in-sample)": {
+      "n": 82504,
+      "mae": 6.747,
+      "bias": -1.115
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 234815,
+      "mae": 5.998,
+      "bias": -0.438
+     },
+     "ECMWF alone": {
+      "n": 234815,
+      "mae": 7.726,
+      "bias": -0.107
+     },
+     "plain blend": {
+      "n": 234815,
+      "mae": 5.863,
+      "bias": -0.305
+     },
+     "app": {
+      "n": 234815,
+      "mae": 5.783,
+      "bias": 0.822
+     },
+     "app without ICON-weight change": {
+      "n": 234815,
+      "mae": 5.849,
+      "bias": 0.889
+     },
+     "app without humidity table": {
+      "n": 234815,
+      "mae": 5.769,
+      "bias": -0.372
+     },
+     "app with shipped table (in-sample)": {
+      "n": 234815,
+      "mae": 5.744,
+      "bias": 0.646
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 128803,
+      "mae": 6.805,
+      "bias": -1.7
+     },
+     "ECMWF alone": {
+      "n": 128803,
+      "mae": 9.21,
+      "bias": -0.742
+     },
+     "plain blend": {
+      "n": 128803,
+      "mae": 6.965,
+      "bias": -1.317
+     },
+     "app": {
+      "n": 128803,
+      "mae": 6.561,
+      "bias": -0.337
+     },
+     "app without ICON-weight change": {
+      "n": 128803,
+      "mae": 6.772,
+      "bias": -0.145
+     },
+     "app without humidity table": {
+      "n": 128803,
+      "mae": 6.716,
+      "bias": -1.509
+     },
+     "app with shipped table (in-sample)": {
+      "n": 128803,
+      "mae": 6.546,
+      "bias": -0.488
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101408,
+      "mae": 4.837,
+      "bias": -0.566
+     },
+     "ECMWF alone": {
+      "n": 101408,
+      "mae": 6.571,
+      "bias": -1.629
+     },
+     "plain blend": {
+      "n": 101408,
+      "mae": 4.846,
+      "bias": -0.991
+     },
+     "app": {
+      "n": 101408,
+      "mae": 4.807,
+      "bias": 0.407
+     },
+     "app without ICON-weight change": {
+      "n": 101408,
+      "mae": 4.915,
+      "bias": 0.194
+     },
+     "app without humidity table": {
+      "n": 101408,
+      "mae": 4.707,
+      "bias": -0.779
+     },
+     "app with shipped table (in-sample)": {
+      "n": 101408,
+      "mae": 4.777,
+      "bias": 0.241
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 36821,
+      "mae": 5.157,
+      "bias": 0.61
+     },
+     "ECMWF alone": {
+      "n": 36821,
+      "mae": 7.206,
+      "bias": 4.495
+     },
+     "plain blend": {
+      "n": 36821,
+      "mae": 5.044,
+      "bias": 2.164
+     },
+     "app": {
+      "n": 36821,
+      "mae": 5.364,
+      "bias": 2.602
+     },
+     "app without ICON-weight change": {
+      "n": 36821,
+      "mae": 5.598,
+      "bias": 3.379
+     },
+     "app without humidity table": {
+      "n": 36821,
+      "mae": 4.912,
+      "bias": 1.387
+     },
+     "app with shipped table (in-sample)": {
+      "n": 36821,
+      "mae": 5.272,
+      "bias": 2.406
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 129578,
+      "mae": 6.561,
+      "bias": -0.56
+     },
+     "ECMWF alone": {
+      "n": 129578,
+      "mae": 8.574,
+      "bias": -0.847
+     },
+     "plain blend": {
+      "n": 129578,
+      "mae": 6.613,
+      "bias": -0.675
+     },
+     "app": {
+      "n": 129578,
+      "mae": 6.533,
+      "bias": 0.573
+     },
+     "app without ICON-weight change": {
+      "n": 129578,
+      "mae": 6.707,
+      "bias": 0.516
+     },
+     "app without humidity table": {
+      "n": 129578,
+      "mae": 6.444,
+      "bias": -0.617
+     },
+     "app with shipped table (in-sample)": {
+      "n": 129578,
+      "mae": 6.47,
+      "bias": 0.402
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27614,
+      "mae": 5.919,
+      "bias": -0.335
+     },
+     "ECMWF alone": {
+      "n": 27614,
+      "mae": 8.314,
+      "bias": 5.475
+     },
+     "plain blend": {
+      "n": 27614,
+      "mae": 5.629,
+      "bias": 1.989
+     },
+     "app": {
+      "n": 27614,
+      "mae": 5.734,
+      "bias": 2.018
+     },
+     "app without ICON-weight change": {
+      "n": 27614,
+      "mae": 6.01,
+      "bias": 3.181
+     },
+     "app without humidity table": {
+      "n": 27614,
+      "mae": 5.512,
+      "bias": 0.827
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27614,
+      "mae": 5.658,
+      "bias": 1.847
+     }
+    }
+   }
+  },
+  "l1": {
+   "all": {
+    "ICON alone": {
+     "n": 758580,
+     "mae": 7.347,
+     "bias": 0.81
+    },
+    "ECMWF alone": {
+     "n": 758580,
+     "mae": 9.042,
+     "bias": 0.836
+    },
+    "plain blend": {
+     "n": 758580,
+     "mae": 7.138,
+     "bias": 0.82
+    },
+    "app": {
+     "n": 758580,
+     "mae": 7.002,
+     "bias": 0.627
+    },
+    "app without ICON-weight change": {
+     "n": 758580,
+     "mae": 7.032,
+     "bias": 0.632
+    },
+    "app without humidity table": {
+     "n": 758580,
+     "mae": 7.073,
+     "bias": 0.815
+    },
+    "app with shipped table (in-sample)": {
+     "n": 758580,
+     "mae": 6.954,
+     "bias": 0.331
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 223421,
+      "mae": 7.376,
+      "bias": 1.632
+     },
+     "ECMWF alone": {
+      "n": 223421,
+      "mae": 8.727,
+      "bias": 1.786
+     },
+     "plain blend": {
+      "n": 223421,
+      "mae": 7.06,
+      "bias": 1.694
+     },
+     "app": {
+      "n": 223421,
+      "mae": 6.899,
+      "bias": 1.066
+     },
+     "app without ICON-weight change": {
+      "n": 223421,
+      "mae": 6.856,
+      "bias": 1.096
+     },
+     "app without humidity table": {
+      "n": 223421,
+      "mae": 7.063,
+      "bias": 1.663
+     },
+     "app with shipped table (in-sample)": {
+      "n": 223421,
+      "mae": 6.835,
+      "bias": 0.75
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 180093,
+      "mae": 7.938,
+      "bias": 0.482
+     },
+     "ECMWF alone": {
+      "n": 180093,
+      "mae": 9.12,
+      "bias": 1.393
+     },
+     "plain blend": {
+      "n": 180093,
+      "mae": 7.606,
+      "bias": 0.847
+     },
+     "app": {
+      "n": 180093,
+      "mae": 7.649,
+      "bias": 0.689
+     },
+     "app without ICON-weight change": {
+      "n": 180093,
+      "mae": 7.604,
+      "bias": 0.871
+     },
+     "app without humidity table": {
+      "n": 180093,
+      "mae": 7.631,
+      "bias": 0.664
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180093,
+      "mae": 7.588,
+      "bias": -0.005
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 173259,
+      "mae": 7.598,
+      "bias": 0.703
+     },
+     "ECMWF alone": {
+      "n": 173259,
+      "mae": 9.987,
+      "bias": 0.591
+     },
+     "plain blend": {
+      "n": 173259,
+      "mae": 7.565,
+      "bias": 0.658
+     },
+     "app": {
+      "n": 173259,
+      "mae": 7.355,
+      "bias": 0.836
+     },
+     "app without ICON-weight change": {
+      "n": 173259,
+      "mae": 7.52,
+      "bias": 0.814
+     },
+     "app without humidity table": {
+      "n": 173259,
+      "mae": 7.371,
+      "bias": 0.681
+     },
+     "app with shipped table (in-sample)": {
+      "n": 173259,
+      "mae": 7.315,
+      "bias": 0.581
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 181807,
+      "mae": 6.489,
+      "bias": 0.227
+     },
+     "ECMWF alone": {
+      "n": 181807,
+      "mae": 8.449,
+      "bias": -0.652
+     },
+     "plain blend": {
+      "n": 181807,
+      "mae": 6.362,
+      "bias": -0.124
+     },
+     "app": {
+      "n": 181807,
+      "mae": 6.151,
+      "bias": -0.172
+     },
+     "app without ICON-weight change": {
+      "n": 181807,
+      "mae": 6.217,
+      "bias": -0.347
+     },
+     "app without humidity table": {
+      "n": 181807,
+      "mae": 6.247,
+      "bias": 0.051
+     },
+     "app with shipped table (in-sample)": {
+      "n": 181807,
+      "mae": 6.13,
+      "bias": -0.089
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27275,
+      "mae": 6.747,
+      "bias": -0.458
+     },
+     "ECMWF alone": {
+      "n": 27275,
+      "mae": 9.199,
+      "bias": -2.538
+     },
+     "plain blend": {
+      "n": 27275,
+      "mae": 6.831,
+      "bias": -1.29
+     },
+     "app": {
+      "n": 27275,
+      "mae": 6.617,
+      "bias": -1.086
+     },
+     "app without ICON-weight change": {
+      "n": 27275,
+      "mae": 6.808,
+      "bias": -1.502
+     },
+     "app without humidity table": {
+      "n": 27275,
+      "mae": 6.595,
+      "bias": -0.874
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27275,
+      "mae": 6.608,
+      "bias": -1.362
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 81410,
+      "mae": 7.742,
+      "bias": -1.191
+     },
+     "ECMWF alone": {
+      "n": 81410,
+      "mae": 9.803,
+      "bias": 2.5
+     },
+     "plain blend": {
+      "n": 81410,
+      "mae": 7.594,
+      "bias": 0.286
+     },
+     "app": {
+      "n": 81410,
+      "mae": 7.365,
+      "bias": -0.664
+     },
+     "app without ICON-weight change": {
+      "n": 81410,
+      "mae": 7.379,
+      "bias": 0.074
+     },
+     "app without humidity table": {
+      "n": 81410,
+      "mae": 7.487,
+      "bias": -0.453
+     },
+     "app with shipped table (in-sample)": {
+      "n": 81410,
+      "mae": 7.363,
+      "bias": -0.938
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 231590,
+      "mae": 7.306,
+      "bias": 1.526
+     },
+     "ECMWF alone": {
+      "n": 231590,
+      "mae": 8.773,
+      "bias": 1.219
+     },
+     "plain blend": {
+      "n": 231590,
+      "mae": 7.025,
+      "bias": 1.404
+     },
+     "app": {
+      "n": 231590,
+      "mae": 6.855,
+      "bias": 1.289
+     },
+     "app without ICON-weight change": {
+      "n": 231590,
+      "mae": 6.847,
+      "bias": 1.227
+     },
+     "app without humidity table": {
+      "n": 231590,
+      "mae": 7.002,
+      "bias": 1.465
+     },
+     "app with shipped table (in-sample)": {
+      "n": 231590,
+      "mae": 6.801,
+      "bias": 0.978
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 126997,
+      "mae": 7.991,
+      "bias": 0.186
+     },
+     "ECMWF alone": {
+      "n": 126997,
+      "mae": 9.689,
+      "bias": -0.471
+     },
+     "plain blend": {
+      "n": 126997,
+      "mae": 7.76,
+      "bias": -0.077
+     },
+     "app": {
+      "n": 126997,
+      "mae": 7.671,
+      "bias": -0.145
+     },
+     "app without ICON-weight change": {
+      "n": 126997,
+      "mae": 7.682,
+      "bias": -0.276
+     },
+     "app without humidity table": {
+      "n": 126997,
+      "mae": 7.698,
+      "bias": 0.055
+     },
+     "app with shipped table (in-sample)": {
+      "n": 126997,
+      "mae": 7.65,
+      "bias": -0.426
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 100003,
+      "mae": 6.596,
+      "bias": 1.08
+     },
+     "ECMWF alone": {
+      "n": 100003,
+      "mae": 7.914,
+      "bias": -1.853
+     },
+     "plain blend": {
+      "n": 100003,
+      "mae": 6.217,
+      "bias": -0.093
+     },
+     "app": {
+      "n": 100003,
+      "mae": 6.296,
+      "bias": 0.303
+     },
+     "app without ICON-weight change": {
+      "n": 100003,
+      "mae": 6.274,
+      "bias": -0.284
+     },
+     "app without humidity table": {
+      "n": 100003,
+      "mae": 6.228,
+      "bias": 0.493
+     },
+     "app with shipped table (in-sample)": {
+      "n": 100003,
+      "mae": 6.255,
+      "bias": 0.011
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 36305,
+      "mae": 6.184,
+      "bias": 2.114
+     },
+     "ECMWF alone": {
+      "n": 36305,
+      "mae": 8.106,
+      "bias": 4.79
+     },
+     "plain blend": {
+      "n": 36305,
+      "mae": 6.141,
+      "bias": 3.184
+     },
+     "app": {
+      "n": 36305,
+      "mae": 6.049,
+      "bias": 2.49
+     },
+     "app without ICON-weight change": {
+      "n": 36305,
+      "mae": 6.147,
+      "bias": 3.025
+     },
+     "app without humidity table": {
+      "n": 36305,
+      "mae": 5.997,
+      "bias": 2.649
+     },
+     "app with shipped table (in-sample)": {
+      "n": 36305,
+      "mae": 5.917,
+      "bias": 2.165
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 127773,
+      "mae": 7.742,
+      "bias": 0.948
+     },
+     "ECMWF alone": {
+      "n": 127773,
+      "mae": 9.515,
+      "bias": 0.935
+     },
+     "plain blend": {
+      "n": 127773,
+      "mae": 7.637,
+      "bias": 0.943
+     },
+     "app": {
+      "n": 127773,
+      "mae": 7.431,
+      "bias": 0.759
+     },
+     "app without ICON-weight change": {
+      "n": 127773,
+      "mae": 7.521,
+      "bias": 0.757
+     },
+     "app without humidity table": {
+      "n": 127773,
+      "mae": 7.544,
+      "bias": 0.945
+     },
+     "app with shipped table (in-sample)": {
+      "n": 127773,
+      "mae": 7.364,
+      "bias": 0.462
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27227,
+      "mae": 6.59,
+      "bias": 1.511
+     },
+     "ECMWF alone": {
+      "n": 27227,
+      "mae": 9.04,
+      "bias": 6.201
+     },
+     "plain blend": {
+      "n": 27227,
+      "mae": 6.506,
+      "bias": 3.387
+     },
+     "app": {
+      "n": 27227,
+      "mae": 6.278,
+      "bias": 2.27
+     },
+     "app without ICON-weight change": {
+      "n": 27227,
+      "mae": 6.429,
+      "bias": 3.208
+     },
+     "app without humidity table": {
+      "n": 27227,
+      "mae": 6.319,
+      "bias": 2.449
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27227,
+      "mae": 6.165,
+      "bias": 1.966
+     }
+    }
+   }
+  }
+ },
+ "wind": {
+  "l0": {
+   "all": {
+    "ICON alone": {
+     "n": 625572,
+     "mae": 4.353,
+     "bias": -0.967
+    },
+    "ECMWF alone": {
+     "n": 625572,
+     "mae": 4.85,
+     "bias": -1.379
+    },
+    "plain blend = app": {
+     "n": 625572,
+     "mae": 4.216,
+     "bias": -1.132
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 183368,
+      "mae": 4.049,
+      "bias": -0.909
+     },
+     "ECMWF alone": {
+      "n": 183368,
+      "mae": 4.54,
+      "bias": -1.471
+     },
+     "plain blend = app": {
+      "n": 183368,
+      "mae": 3.925,
+      "bias": -1.134
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 145957,
+      "mae": 4.76,
+      "bias": -1.285
+     },
+     "ECMWF alone": {
+      "n": 145957,
+      "mae": 5.207,
+      "bias": -1.025
+     },
+     "plain blend = app": {
+      "n": 145957,
+      "mae": 4.568,
+      "bias": -1.181
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 149198,
+      "mae": 4.515,
+      "bias": -0.846
+     },
+     "ECMWF alone": {
+      "n": 149198,
+      "mae": 4.993,
+      "bias": -1.301
+     },
+     "plain blend = app": {
+      "n": 149198,
+      "mae": 4.34,
+      "bias": -1.028
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 147049,
+      "mae": 4.167,
+      "bias": -0.846
+     },
+     "ECMWF alone": {
+      "n": 147049,
+      "mae": 4.737,
+      "bias": -1.694
+     },
+     "plain blend = app": {
+      "n": 147049,
+      "mae": 4.106,
+      "bias": -1.185
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27664,
+      "mae": 3.863,
+      "bias": -0.12
+     },
+     "ECMWF alone": {
+      "n": 27664,
+      "mae": 5.566,
+      "bias": -3.925
+     },
+     "plain blend = app": {
+      "n": 27664,
+      "mae": 4.012,
+      "bias": -1.642
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 63427,
+      "mae": 3.989,
+      "bias": -0.317
+     },
+     "ECMWF alone": {
+      "n": 63427,
+      "mae": 4.249,
+      "bias": -1.281
+     },
+     "plain blend = app": {
+      "n": 63427,
+      "mae": 3.791,
+      "bias": -0.702
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 180363,
+      "mae": 3.896,
+      "bias": 0.007
+     },
+     "ECMWF alone": {
+      "n": 180363,
+      "mae": 4.195,
+      "bias": -0.825
+     },
+     "plain blend = app": {
+      "n": 180363,
+      "mae": 3.695,
+      "bias": -0.326
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 106066,
+      "mae": 5.98,
+      "bias": -2.918
+     },
+     "ECMWF alone": {
+      "n": 106066,
+      "mae": 6.408,
+      "bias": -4.682
+     },
+     "plain blend = app": {
+      "n": 106066,
+      "mae": 5.792,
+      "bias": -3.624
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101199,
+      "mae": 3.34,
+      "bias": -0.083
+     },
+     "ECMWF alone": {
+      "n": 101199,
+      "mae": 4.149,
+      "bias": 1.958
+     },
+     "plain blend = app": {
+      "n": 101199,
+      "mae": 3.287,
+      "bias": 0.734
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 27501,
+      "mae": 3.396,
+      "bias": -0.47
+     },
+     "ECMWF alone": {
+      "n": 27501,
+      "mae": 4.008,
+      "bias": 1.313
+     },
+     "plain blend = app": {
+      "n": 27501,
+      "mae": 3.186,
+      "bias": 0.243
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 91746,
+      "mae": 4.707,
+      "bias": -1.382
+     },
+     "ECMWF alone": {
+      "n": 91746,
+      "mae": 4.697,
+      "bias": -0.831
+     },
+     "plain blend = app": {
+      "n": 91746,
+      "mae": 4.456,
+      "bias": -1.162
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27606,
+      "mae": 5.911,
+      "bias": -4.529
+     },
+     "ECMWF alone": {
+      "n": 27606,
+      "mae": 7.727,
+      "bias": -6.71
+     },
+     "plain blend = app": {
+      "n": 27606,
+      "mae": 6.391,
+      "bias": -5.401
+     }
+    }
+   }
+  },
+  "l1": {
+   "all": {
+    "ICON alone": {
+     "n": 625572,
+     "mae": 4.533,
+     "bias": -1.053
+    },
+    "ECMWF alone": {
+     "n": 625572,
+     "mae": 4.899,
+     "bias": -1.557
+    },
+    "plain blend = app": {
+     "n": 625572,
+     "mae": 4.336,
+     "bias": -1.254
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 183368,
+      "mae": 4.211,
+      "bias": -1.074
+     },
+     "ECMWF alone": {
+      "n": 183368,
+      "mae": 4.579,
+      "bias": -1.718
+     },
+     "plain blend = app": {
+      "n": 183368,
+      "mae": 4.035,
+      "bias": -1.332
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 145957,
+      "mae": 4.921,
+      "bias": -1.444
+     },
+     "ECMWF alone": {
+      "n": 145957,
+      "mae": 5.308,
+      "bias": -1.185
+     },
+     "plain blend = app": {
+      "n": 145957,
+      "mae": 4.698,
+      "bias": -1.34
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 149198,
+      "mae": 4.748,
+      "bias": -0.916
+     },
+     "ECMWF alone": {
+      "n": 149198,
+      "mae": 5.047,
+      "bias": -1.517
+     },
+     "plain blend = app": {
+      "n": 149198,
+      "mae": 4.483,
+      "bias": -1.156
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 147049,
+      "mae": 4.332,
+      "bias": -0.777
+     },
+     "ECMWF alone": {
+      "n": 147049,
+      "mae": 4.743,
+      "bias": -1.765
+     },
+     "plain blend = app": {
+      "n": 147049,
+      "mae": 4.204,
+      "bias": -1.172
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27664,
+      "mae": 4.128,
+      "bias": -0.436
+     },
+     "ECMWF alone": {
+      "n": 27664,
+      "mae": 5.683,
+      "bias": -4.059
+     },
+     "plain blend = app": {
+      "n": 27664,
+      "mae": 4.227,
+      "bias": -1.886
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 63427,
+      "mae": 4.037,
+      "bias": -0.436
+     },
+     "ECMWF alone": {
+      "n": 63427,
+      "mae": 4.29,
+      "bias": -1.357
+     },
+     "plain blend = app": {
+      "n": 63427,
+      "mae": 3.843,
+      "bias": -0.804
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 180363,
+      "mae": 4.0,
+      "bias": -0.094
+     },
+     "ECMWF alone": {
+      "n": 180363,
+      "mae": 4.22,
+      "bias": -0.927
+     },
+     "plain blend = app": {
+      "n": 180363,
+      "mae": 3.757,
+      "bias": -0.427
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 106066,
+      "mae": 6.277,
+      "bias": -3.024
+     },
+     "ECMWF alone": {
+      "n": 106066,
+      "mae": 6.578,
+      "bias": -4.931
+     },
+     "plain blend = app": {
+      "n": 106066,
+      "mae": 6.021,
+      "bias": -3.787
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101199,
+      "mae": 3.614,
+      "bias": -0.046
+     },
+     "ECMWF alone": {
+      "n": 101199,
+      "mae": 4.119,
+      "bias": 1.685
+     },
+     "plain blend = app": {
+      "n": 101199,
+      "mae": 3.423,
+      "bias": 0.646
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 27501,
+      "mae": 3.64,
+      "bias": -0.637
+     },
+     "ECMWF alone": {
+      "n": 27501,
+      "mae": 3.879,
+      "bias": 0.791
+     },
+     "plain blend = app": {
+      "n": 27501,
+      "mae": 3.292,
+      "bias": -0.066
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 91746,
+      "mae": 4.823,
+      "bias": -1.436
+     },
+     "ECMWF alone": {
+      "n": 91746,
+      "mae": 4.781,
+      "bias": -1.011
+     },
+     "plain blend = app": {
+      "n": 91746,
+      "mae": 4.559,
+      "bias": -1.266
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27606,
+      "mae": 6.154,
+      "bias": -4.61
+     },
+     "ECMWF alone": {
+      "n": 27606,
+      "mae": 7.767,
+      "bias": -6.694
+     },
+     "plain blend = app": {
+      "n": 27606,
+      "mae": 6.54,
+      "bias": -5.443
+     }
+    }
+   }
+  },
+  "l2": {
+   "all": {
+    "ICON alone": {
+     "n": 625572,
+     "mae": 4.604,
+     "bias": -1.201
+    },
+    "ECMWF alone": {
+     "n": 625572,
+     "mae": 4.957,
+     "bias": -1.642
+    },
+    "plain blend = app": {
+     "n": 625572,
+     "mae": 4.402,
+     "bias": -1.377
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 183368,
+      "mae": 4.254,
+      "bias": -1.168
+     },
+     "ECMWF alone": {
+      "n": 183368,
+      "mae": 4.637,
+      "bias": -1.793
+     },
+     "plain blend = app": {
+      "n": 183368,
+      "mae": 4.083,
+      "bias": -1.418
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 145957,
+      "mae": 5.011,
+      "bias": -1.534
+     },
+     "ECMWF alone": {
+      "n": 145957,
+      "mae": 5.368,
+      "bias": -1.316
+     },
+     "plain blend = app": {
+      "n": 145957,
+      "mae": 4.77,
+      "bias": -1.446
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 149198,
+      "mae": 4.851,
+      "bias": -1.208
+     },
+     "ECMWF alone": {
+      "n": 149198,
+      "mae": 5.1,
+      "bias": -1.597
+     },
+     "plain blend = app": {
+      "n": 149198,
+      "mae": 4.576,
+      "bias": -1.364
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 147049,
+      "mae": 4.383,
+      "bias": -0.906
+     },
+     "ECMWF alone": {
+      "n": 147049,
+      "mae": 4.802,
+      "bias": -1.822
+     },
+     "plain blend = app": {
+      "n": 147049,
+      "mae": 4.259,
+      "bias": -1.272
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27664,
+      "mae": 4.24,
+      "bias": -0.637
+     },
+     "ECMWF alone": {
+      "n": 27664,
+      "mae": 5.798,
+      "bias": -4.197
+     },
+     "plain blend = app": {
+      "n": 27664,
+      "mae": 4.357,
+      "bias": -2.061
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 63427,
+      "mae": 4.022,
+      "bias": -0.535
+     },
+     "ECMWF alone": {
+      "n": 63427,
+      "mae": 4.28,
+      "bias": -1.437
+     },
+     "plain blend = app": {
+      "n": 63427,
+      "mae": 3.836,
+      "bias": -0.896
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 180363,
+      "mae": 4.041,
+      "bias": -0.24
+     },
+     "ECMWF alone": {
+      "n": 180363,
+      "mae": 4.263,
+      "bias": -1.012
+     },
+     "plain blend = app": {
+      "n": 180363,
+      "mae": 3.801,
+      "bias": -0.549
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 106066,
+      "mae": 6.38,
+      "bias": -3.227
+     },
+     "ECMWF alone": {
+      "n": 106066,
+      "mae": 6.677,
+      "bias": -5.04
+     },
+     "plain blend = app": {
+      "n": 106066,
+      "mae": 6.127,
+      "bias": -3.952
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101199,
+      "mae": 3.72,
+      "bias": -0.195
+     },
+     "ECMWF alone": {
+      "n": 101199,
+      "mae": 4.185,
+      "bias": 1.611
+     },
+     "plain blend = app": {
+      "n": 101199,
+      "mae": 3.509,
+      "bias": 0.527
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 27501,
+      "mae": 3.726,
+      "bias": -0.691
+     },
+     "ECMWF alone": {
+      "n": 27501,
+      "mae": 3.947,
+      "bias": 0.822
+     },
+     "plain blend = app": {
+      "n": 27501,
+      "mae": 3.372,
+      "bias": -0.086
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 91746,
+      "mae": 4.901,
+      "bias": -1.585
+     },
+     "ECMWF alone": {
+      "n": 91746,
+      "mae": 4.824,
+      "bias": -1.093
+     },
+     "plain blend = app": {
+      "n": 91746,
+      "mae": 4.609,
+      "bias": -1.388
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27606,
+      "mae": 6.278,
+      "bias": -4.721
+     },
+     "ECMWF alone": {
+      "n": 27606,
+      "mae": 7.866,
+      "bias": -6.809
+     },
+     "plain blend = app": {
+      "n": 27606,
+      "mae": 6.663,
+      "bias": -5.556
+     }
+    }
+   }
+  }
+ },
+ "gust": {
+  "l0": {
+   "all": {
+    "ICON alone": {
+     "n": 625465,
+     "mae": 6.332,
+     "bias": 1.129
+    },
+    "plain blend": {
+     "n": 625465,
+     "mae": 5.712,
+     "bias": 1.163
+    },
+    "app": {
+     "n": 625465,
+     "mae": 5.327,
+     "bias": 0.31
+    },
+    "app with shipped table (in-sample)": {
+     "n": 625465,
+     "mae": 5.288,
+     "bias": 0.161
+    },
+    "ECMWF alone": {
+     "n": 625465,
+     "mae": 6.714,
+     "bias": 1.215
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 183142,
+      "mae": 5.752,
+      "bias": 0.703
+     },
+     "plain blend": {
+      "n": 183142,
+      "mae": 5.225,
+      "bias": 0.795
+     },
+     "app": {
+      "n": 183142,
+      "mae": 4.954,
+      "bias": 0.221
+     },
+     "app with shipped table (in-sample)": {
+      "n": 183142,
+      "mae": 4.915,
+      "bias": -0.003
+     },
+     "ECMWF alone": {
+      "n": 183142,
+      "mae": 6.23,
+      "bias": 0.933
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 145953,
+      "mae": 6.889,
+      "bias": 0.771
+     },
+     "plain blend": {
+      "n": 145953,
+      "mae": 6.107,
+      "bias": 0.914
+     },
+     "app": {
+      "n": 145953,
+      "mae": 5.934,
+      "bias": 0.345
+     },
+     "app with shipped table (in-sample)": {
+      "n": 145953,
+      "mae": 5.902,
+      "bias": 0.175
+     },
+     "ECMWF alone": {
+      "n": 145953,
+      "mae": 7.044,
+      "bias": 1.129
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 149214,
+      "mae": 6.791,
+      "bias": 1.523
+     },
+     "plain blend": {
+      "n": 149214,
+      "mae": 6.07,
+      "bias": 1.489
+     },
+     "app": {
+      "n": 149214,
+      "mae": 5.638,
+      "bias": 0.354
+     },
+     "app with shipped table (in-sample)": {
+      "n": 149214,
+      "mae": 5.61,
+      "bias": 0.303
+     },
+     "ECMWF alone": {
+      "n": 149214,
+      "mae": 6.984,
+      "bias": 1.437
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 147156,
+      "mae": 6.034,
+      "bias": 1.613
+     },
+     "plain blend": {
+      "n": 147156,
+      "mae": 5.561,
+      "bias": 1.538
+     },
+     "app": {
+      "n": 147156,
+      "mae": 4.872,
+      "bias": 0.342
+     },
+     "app with shipped table (in-sample)": {
+      "n": 147156,
+      "mae": 4.817,
+      "bias": 0.206
+     },
+     "ECMWF alone": {
+      "n": 147156,
+      "mae": 6.716,
+      "bias": 1.425
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27673,
+      "mae": 9.362,
+      "bias": 8.189
+     },
+     "plain blend": {
+      "n": 27673,
+      "mae": 6.66,
+      "bias": 4.475
+     },
+     "app": {
+      "n": 27673,
+      "mae": 5.972,
+      "bias": 3.702
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27673,
+      "mae": 5.845,
+      "bias": 3.475
+     },
+     "ECMWF alone": {
+      "n": 27673,
+      "mae": 6.726,
+      "bias": -1.097
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 63358,
+      "mae": 5.992,
+      "bias": -1.24
+     },
+     "plain blend": {
+      "n": 63358,
+      "mae": 5.814,
+      "bias": 0.167
+     },
+     "app": {
+      "n": 63358,
+      "mae": 5.419,
+      "bias": -0.702
+     },
+     "app with shipped table (in-sample)": {
+      "n": 63358,
+      "mae": 5.346,
+      "bias": -0.829
+     },
+     "ECMWF alone": {
+      "n": 63358,
+      "mae": 7.16,
+      "bias": 2.278
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 180178,
+      "mae": 6.668,
+      "bias": 2.926
+     },
+     "plain blend": {
+      "n": 180178,
+      "mae": 5.903,
+      "bias": 2.52
+     },
+     "app": {
+      "n": 180178,
+      "mae": 5.276,
+      "bias": 1.687
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180178,
+      "mae": 5.207,
+      "bias": 1.519
+     },
+     "ECMWF alone": {
+      "n": 180178,
+      "mae": 6.646,
+      "bias": 1.91
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 105998,
+      "mae": 7.446,
+      "bias": 2.952
+     },
+     "plain blend": {
+      "n": 105998,
+      "mae": 6.401,
+      "bias": 1.114
+     },
+     "app": {
+      "n": 105998,
+      "mae": 6.043,
+      "bias": 0.281
+     },
+     "app with shipped table (in-sample)": {
+      "n": 105998,
+      "mae": 6.027,
+      "bias": 0.111
+     },
+     "ECMWF alone": {
+      "n": 105998,
+      "mae": 7.377,
+      "bias": -1.643
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101173,
+      "mae": 4.141,
+      "bias": -0.441
+     },
+     "plain blend": {
+      "n": 101173,
+      "mae": 3.959,
+      "bias": 1.001
+     },
+     "app": {
+      "n": 101173,
+      "mae": 3.92,
+      "bias": 0.135
+     },
+     "app with shipped table (in-sample)": {
+      "n": 101173,
+      "mae": 3.946,
+      "bias": -0.005
+     },
+     "ECMWF alone": {
+      "n": 101173,
+      "mae": 5.308,
+      "bias": 3.164
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 27604,
+      "mae": 5.116,
+      "bias": -2.427
+     },
+     "plain blend": {
+      "n": 27604,
+      "mae": 4.233,
+      "bias": -0.602
+     },
+     "app": {
+      "n": 27604,
+      "mae": 4.551,
+      "bias": -1.494
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27604,
+      "mae": 4.625,
+      "bias": -1.605
+     },
+     "ECMWF alone": {
+      "n": 27604,
+      "mae": 5.297,
+      "bias": 2.136
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 91764,
+      "mae": 5.966,
+      "bias": 0.027
+     },
+     "plain blend": {
+      "n": 91764,
+      "mae": 5.973,
+      "bias": 1.117
+     },
+     "app": {
+      "n": 91764,
+      "mae": 5.341,
+      "bias": 0.25
+     },
+     "app with shipped table (in-sample)": {
+      "n": 91764,
+      "mae": 5.264,
+      "bias": 0.113
+     },
+     "ECMWF alone": {
+      "n": 91764,
+      "mae": 7.268,
+      "bias": 2.751
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27717,
+      "mae": 8.053,
+      "bias": -6.245
+     },
+     "plain blend": {
+      "n": 27717,
+      "mae": 7.659,
+      "bias": -5.995
+     },
+     "app": {
+      "n": 27717,
+      "mae": 7.929,
+      "bias": -6.961
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27717,
+      "mae": 7.938,
+      "bias": -7.0
+     },
+     "ECMWF alone": {
+      "n": 27717,
+      "mae": 8.302,
+      "bias": -5.62
+     }
+    }
+   }
+  },
+  "l1": {
+   "all": {
+    "ICON alone": {
+     "n": 625465,
+     "mae": 6.552,
+     "bias": 0.94
+    },
+    "plain blend": {
+     "n": 625465,
+     "mae": 6.552,
+     "bias": 0.94
+    },
+    "app": {
+     "n": 625465,
+     "mae": 6.222,
+     "bias": 0.246
+    },
+    "app with shipped table (in-sample)": {
+     "n": 625465,
+     "mae": 6.186,
+     "bias": 0.161
+    }
+   },
+   "season": {
+    "autumn": {
+     "ICON alone": {
+      "n": 183142,
+      "mae": 5.958,
+      "bias": 0.441
+     },
+     "plain blend": {
+      "n": 183142,
+      "mae": 5.958,
+      "bias": 0.441
+     },
+     "app": {
+      "n": 183142,
+      "mae": 5.744,
+      "bias": 0.099
+     },
+     "app with shipped table (in-sample)": {
+      "n": 183142,
+      "mae": 5.712,
+      "bias": 0.01
+     }
+    },
+    "winter": {
+     "ICON alone": {
+      "n": 145953,
+      "mae": 7.109,
+      "bias": 0.5
+     },
+     "plain blend": {
+      "n": 145953,
+      "mae": 7.109,
+      "bias": 0.5
+     },
+     "app": {
+      "n": 145953,
+      "mae": 6.979,
+      "bias": 0.154
+     },
+     "app with shipped table (in-sample)": {
+      "n": 145953,
+      "mae": 6.951,
+      "bias": 0.065
+     }
+    },
+    "spring": {
+     "ICON alone": {
+      "n": 149214,
+      "mae": 7.066,
+      "bias": 1.302
+     },
+     "plain blend": {
+      "n": 149214,
+      "mae": 7.066,
+      "bias": 1.302
+     },
+     "app": {
+      "n": 149214,
+      "mae": 6.695,
+      "bias": 0.315
+     },
+     "app with shipped table (in-sample)": {
+      "n": 149214,
+      "mae": 6.66,
+      "bias": 0.234
+     }
+    },
+    "summer": {
+     "ICON alone": {
+      "n": 147156,
+      "mae": 6.217,
+      "bias": 1.632
+     },
+     "plain blend": {
+      "n": 147156,
+      "mae": 6.217,
+      "bias": 1.632
+     },
+     "app": {
+      "n": 147156,
+      "mae": 5.584,
+      "bias": 0.452
+     },
+     "app with shipped table (in-sample)": {
+      "n": 147156,
+      "mae": 5.536,
+      "bias": 0.369
+     }
+    }
+   },
+   "region": {
+    "Golan and Hermon": {
+     "ICON alone": {
+      "n": 27673,
+      "mae": 9.256,
+      "bias": 7.547
+     },
+     "plain blend": {
+      "n": 27673,
+      "mae": 9.256,
+      "bias": 7.547
+     },
+     "app": {
+      "n": 27673,
+      "mae": 8.634,
+      "bias": 6.942
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27673,
+      "mae": 8.503,
+      "bias": 6.756
+     }
+    },
+    "Jordan Valley": {
+     "ICON alone": {
+      "n": 63358,
+      "mae": 6.163,
+      "bias": -1.492
+     },
+     "plain blend": {
+      "n": 63358,
+      "mae": 6.163,
+      "bias": -1.492
+     },
+     "app": {
+      "n": 63358,
+      "mae": 5.98,
+      "bias": -2.189
+     },
+     "app with shipped table (in-sample)": {
+      "n": 63358,
+      "mae": 5.97,
+      "bias": -2.239
+     }
+    },
+    "Lowlands, valleys and inland": {
+     "ICON alone": {
+      "n": 180178,
+      "mae": 6.763,
+      "bias": 2.69
+     },
+     "plain blend": {
+      "n": 180178,
+      "mae": 6.763,
+      "bias": 2.69
+     },
+     "app": {
+      "n": 180178,
+      "mae": 6.196,
+      "bias": 2.016
+     },
+     "app with shipped table (in-sample)": {
+      "n": 180178,
+      "mae": 6.148,
+      "bias": 1.908
+     }
+    },
+    "Mountains (Jerusalem, Samaria, Galilee)": {
+     "ICON alone": {
+      "n": 105998,
+      "mae": 7.796,
+      "bias": 2.701
+     },
+     "plain blend": {
+      "n": 105998,
+      "mae": 7.796,
+      "bias": 2.701
+     },
+     "app": {
+      "n": 105998,
+      "mae": 7.39,
+      "bias": 2.026
+     },
+     "app with shipped table (in-sample)": {
+      "n": 105998,
+      "mae": 7.336,
+      "bias": 1.909
+     }
+    },
+    "Negev": {
+     "ICON alone": {
+      "n": 101173,
+      "mae": 4.499,
+      "bias": -0.415
+     },
+     "plain blend": {
+      "n": 101173,
+      "mae": 4.499,
+      "bias": -0.415
+     },
+     "app": {
+      "n": 101173,
+      "mae": 4.56,
+      "bias": -1.128
+     },
+     "app with shipped table (in-sample)": {
+      "n": 101173,
+      "mae": 4.561,
+      "bias": -1.198
+     }
+    },
+    "Arava and Eilat": {
+     "ICON alone": {
+      "n": 27604,
+      "mae": 5.464,
+      "bias": -2.642
+     },
+     "plain blend": {
+      "n": 27604,
+      "mae": 5.464,
+      "bias": -2.642
+     },
+     "app": {
+      "n": 27604,
+      "mae": 5.694,
+      "bias": -3.355
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27604,
+      "mae": 5.695,
+      "bias": -3.39
+     }
+    },
+    "Coastal plain": {
+     "ICON alone": {
+      "n": 91764,
+      "mae": 6.186,
+      "bias": -0.052
+     },
+     "plain blend": {
+      "n": 91764,
+      "mae": 6.186,
+      "bias": -0.052
+     },
+     "app": {
+      "n": 91764,
+      "mae": 5.654,
+      "bias": -0.771
+     },
+     "app with shipped table (in-sample)": {
+      "n": 91764,
+      "mae": 5.621,
+      "bias": -0.837
+     }
+    },
+    "Dead Sea and Judean Desert": {
+     "ICON alone": {
+      "n": 27717,
+      "mae": 8.397,
+      "bias": -6.406
+     },
+     "plain blend": {
+      "n": 27717,
+      "mae": 8.397,
+      "bias": -6.406
+     },
+     "app": {
+      "n": 27717,
+      "mae": 8.537,
+      "bias": -7.208
+     },
+     "app with shipped table (in-sample)": {
+      "n": 27717,
+      "mae": 8.506,
+      "bias": -7.183
+     }
+    }
+   }
+  }
+ },
+ "rain": {
+  "hour": {
+   "l0": {
+    "all": {
+     "ICON alone": {
+      "n": 762389,
+      "observed": 20434,
+      "hits": 10938,
+      "false_alarms": 17639,
+      "misses": 9496,
+      "pod": 0.535,
+      "far": 0.617,
+      "csi": 0.287,
+      "freq_bias": 1.399
+     },
+     "ECMWF alone": {
+      "n": 762389,
+      "observed": 20434,
+      "hits": 14845,
+      "false_alarms": 36412,
+      "misses": 5589,
+      "pod": 0.726,
+      "far": 0.71,
+      "csi": 0.261,
+      "freq_bias": 2.508
+     },
+     "plain blend = app": {
+      "n": 762389,
+      "observed": 20434,
+      "hits": 13336,
+      "false_alarms": 22390,
+      "misses": 7098,
+      "pod": 0.653,
+      "far": 0.627,
+      "csi": 0.311,
+      "freq_bias": 1.748
+     }
+    },
+    "season": {
+     "autumn": {
+      "ICON alone": {
+       "n": 223667,
+       "observed": 3009,
+       "hits": 1472,
+       "false_alarms": 4049,
+       "misses": 1537,
+       "pod": 0.489,
+       "far": 0.733,
+       "csi": 0.209,
+       "freq_bias": 1.835
+      },
+      "ECMWF alone": {
+       "n": 223667,
+       "observed": 3009,
+       "hits": 1982,
+       "false_alarms": 8856,
+       "misses": 1027,
+       "pod": 0.659,
+       "far": 0.817,
+       "csi": 0.167,
+       "freq_bias": 3.602
+      },
+      "plain blend = app": {
+       "n": 223667,
+       "observed": 3009,
+       "hits": 1765,
+       "false_alarms": 5110,
+       "misses": 1244,
+       "pod": 0.587,
+       "far": 0.743,
+       "csi": 0.217,
+       "freq_bias": 2.285
+      }
+     },
+     "winter": {
+      "ICON alone": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 6619,
+       "false_alarms": 6446,
+       "misses": 5596,
+       "pod": 0.542,
+       "far": 0.493,
+       "csi": 0.355,
+       "freq_bias": 1.07
+      },
+      "ECMWF alone": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 9053,
+       "false_alarms": 12207,
+       "misses": 3162,
+       "pod": 0.741,
+       "far": 0.574,
+       "csi": 0.371,
+       "freq_bias": 1.74
+      },
+      "plain blend = app": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 8096,
+       "false_alarms": 8109,
+       "misses": 4119,
+       "pod": 0.663,
+       "far": 0.5,
+       "csi": 0.398,
+       "freq_bias": 1.327
+      }
+     },
+     "spring": {
+      "ICON alone": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 2846,
+       "false_alarms": 7126,
+       "misses": 2335,
+       "pod": 0.549,
+       "far": 0.715,
+       "csi": 0.231,
+       "freq_bias": 1.925
+      },
+      "ECMWF alone": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 3800,
+       "false_alarms": 14387,
+       "misses": 1381,
+       "pod": 0.733,
+       "far": 0.791,
+       "csi": 0.194,
+       "freq_bias": 3.51
+      },
+      "plain blend = app": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 3472,
+       "false_alarms": 9019,
+       "misses": 1709,
+       "pod": 0.67,
+       "far": 0.722,
+       "csi": 0.245,
+       "freq_bias": 2.411
+      }
+     },
+     "summer": {
+      "ICON alone": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 1,
+       "false_alarms": 18,
+       "misses": 28,
+       "pod": 0.034,
+       "far": 0.947,
+       "csi": 0.021,
+       "freq_bias": 0.655
+      },
+      "ECMWF alone": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 10,
+       "false_alarms": 962,
+       "misses": 19,
+       "pod": 0.345,
+       "far": 0.99,
+       "csi": 0.01,
+       "freq_bias": 33.517
+      },
+      "plain blend = app": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 3,
+       "false_alarms": 152,
+       "misses": 26,
+       "pod": 0.103,
+       "far": 0.981,
+       "csi": 0.017,
+       "freq_bias": 5.345
+      }
+     }
+    },
+    "region": {
+     "Golan and Hermon": {
+      "ICON alone": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 652,
+       "false_alarms": 870,
+       "misses": 373,
+       "pod": 0.636,
+       "far": 0.572,
+       "csi": 0.344,
+       "freq_bias": 1.485
+      },
+      "ECMWF alone": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 786,
+       "false_alarms": 1641,
+       "misses": 239,
+       "pod": 0.767,
+       "far": 0.676,
+       "csi": 0.295,
+       "freq_bias": 2.368
+      },
+      "plain blend = app": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 742,
+       "false_alarms": 1065,
+       "misses": 283,
+       "pod": 0.724,
+       "far": 0.589,
+       "csi": 0.355,
+       "freq_bias": 1.763
+      }
+     },
+     "Jordan Valley": {
+      "ICON alone": {
+       "n": 73441,
+       "observed": 1782,
+       "hits": 836,
+       "false_alarms": 1411,
+       "misses": 946,
+       "pod": 0.469,
+       "far": 0.628,
+       "csi": 0.262,
+       "freq_bias": 1.261
+      },
+      "ECMWF alone": {
+       "n": 73441,
+       "observed": 1782,
+       "hits": 1359,
+       "false_alarms": 4183,
+       "misses": 423,
+       "pod": 0.763,
+       "far": 0.755,
+       "csi": 0.228,
+       "freq_bias": 3.11
+      },
+      "plain blend = app": {
+       "n": 73441,
+       "observed": 1782,
+       "hits": 1212,
+       "false_alarms": 2285,
+       "misses": 570,
+       "pod": 0.68,
+       "far": 0.653,
+       "csi": 0.298,
+       "freq_bias": 1.962
+      }
+     },
+     "Lowlands, valleys and inland": {
+      "ICON alone": {
+       "n": 235786,
+       "observed": 8011,
+       "hits": 4564,
+       "false_alarms": 6951,
+       "misses": 3447,
+       "pod": 0.57,
+       "far": 0.604,
+       "csi": 0.305,
+       "freq_bias": 1.437
+      },
+      "ECMWF alone": {
+       "n": 235786,
+       "observed": 8011,
+       "hits": 5876,
+       "false_alarms": 13770,
+       "misses": 2135,
+       "pod": 0.733,
+       "far": 0.701,
+       "csi": 0.27,
+       "freq_bias": 2.452
+      },
+      "plain blend = app": {
+       "n": 235786,
+       "observed": 8011,
+       "hits": 5407,
+       "false_alarms": 8597,
+       "misses": 2604,
+       "pod": 0.675,
+       "far": 0.614,
+       "csi": 0.326,
+       "freq_bias": 1.748
+      }
+     },
+     "Mountains (Jerusalem, Samaria, Galilee)": {
+      "ICON alone": {
+       "n": 130567,
+       "observed": 4336,
+       "hits": 2055,
+       "false_alarms": 2546,
+       "misses": 2281,
+       "pod": 0.474,
+       "far": 0.553,
+       "csi": 0.299,
+       "freq_bias": 1.061
+      },
+      "ECMWF alone": {
+       "n": 130567,
+       "observed": 4336,
+       "hits": 3103,
+       "false_alarms": 6172,
+       "misses": 1233,
+       "pod": 0.716,
+       "far": 0.665,
+       "csi": 0.295,
+       "freq_bias": 2.139
+      },
+      "plain blend = app": {
+       "n": 130567,
+       "observed": 4336,
+       "hits": 2622,
+       "false_alarms": 3351,
+       "misses": 1714,
+       "pod": 0.605,
+       "far": 0.561,
+       "csi": 0.341,
+       "freq_bias": 1.378
+      }
+     },
+     "Negev": {
+      "ICON alone": {
+       "n": 99171,
+       "observed": 1220,
+       "hits": 605,
+       "false_alarms": 967,
+       "misses": 615,
+       "pod": 0.496,
+       "far": 0.615,
+       "csi": 0.277,
+       "freq_bias": 1.289
+      },
+      "ECMWF alone": {
+       "n": 99171,
+       "observed": 1220,
+       "hits": 790,
+       "false_alarms": 1970,
+       "misses": 430,
+       "pod": 0.648,
+       "far": 0.714,
+       "csi": 0.248,
+       "freq_bias": 2.262
+      },
+      "plain blend = app": {
+       "n": 99171,
+       "observed": 1220,
+       "hits": 715,
+       "false_alarms": 1162,
+       "misses": 505,
+       "pod": 0.586,
+       "far": 0.619,
+       "csi": 0.3,
+       "freq_bias": 1.539
+      }
+     },
+     "Arava and Eilat": {
+      "ICON alone": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 69,
+       "false_alarms": 177,
+       "misses": 98,
+       "pod": 0.413,
+       "far": 0.72,
+       "csi": 0.201,
+       "freq_bias": 1.473
+      },
+      "ECMWF alone": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 118,
+       "false_alarms": 638,
+       "misses": 49,
+       "pod": 0.707,
+       "far": 0.844,
+       "csi": 0.147,
+       "freq_bias": 4.527
+      },
+      "plain blend = app": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 103,
+       "false_alarms": 319,
+       "misses": 64,
+       "pod": 0.617,
+       "far": 0.756,
+       "csi": 0.212,
+       "freq_bias": 2.527
+      }
+     },
+     "Coastal plain": {
+      "ICON alone": {
+       "n": 127577,
+       "observed": 3566,
+       "hits": 2046,
+       "false_alarms": 4426,
+       "misses": 1520,
+       "pod": 0.574,
+       "far": 0.684,
+       "csi": 0.256,
+       "freq_bias": 1.815
+      },
+      "ECMWF alone": {
+       "n": 127577,
+       "observed": 3566,
+       "hits": 2600,
+       "false_alarms": 7204,
+       "misses": 966,
+       "pod": 0.729,
+       "far": 0.735,
+       "csi": 0.241,
+       "freq_bias": 2.749
+      },
+      "plain blend = app": {
+       "n": 127577,
+       "observed": 3566,
+       "hits": 2369,
+       "false_alarms": 5113,
+       "misses": 1197,
+       "pod": 0.664,
+       "far": 0.683,
+       "csi": 0.273,
+       "freq_bias": 2.098
+      }
+     },
+     "Dead Sea and Judean Desert": {
+      "ICON alone": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 111,
+       "false_alarms": 291,
+       "misses": 216,
+       "pod": 0.339,
+       "far": 0.724,
+       "csi": 0.18,
+       "freq_bias": 1.229
+      },
+      "ECMWF alone": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 213,
+       "false_alarms": 834,
+       "misses": 114,
+       "pod": 0.651,
+       "far": 0.797,
+       "csi": 0.183,
+       "freq_bias": 3.202
+      },
+      "plain blend = app": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 166,
+       "false_alarms": 498,
+       "misses": 161,
+       "pod": 0.508,
+       "far": 0.75,
+       "csi": 0.201,
+       "freq_bias": 2.031
+      }
+     }
+    }
+   },
+   "l1": {
+    "all": {
+     "ICON alone": {
+      "n": 761237,
+      "observed": 20434,
+      "hits": 10322,
+      "false_alarms": 18067,
+      "misses": 10112,
+      "pod": 0.505,
+      "far": 0.636,
+      "csi": 0.268,
+      "freq_bias": 1.389
+     },
+     "ECMWF alone": {
+      "n": 761237,
+      "observed": 20434,
+      "hits": 14389,
+      "false_alarms": 36774,
+      "misses": 6045,
+      "pod": 0.704,
+      "far": 0.719,
+      "csi": 0.252,
+      "freq_bias": 2.504
+     },
+     "plain blend = app": {
+      "n": 761237,
+      "observed": 20434,
+      "hits": 12788,
+      "false_alarms": 22723,
+      "misses": 7646,
+      "pod": 0.626,
+      "far": 0.64,
+      "csi": 0.296,
+      "freq_bias": 1.738
+     }
+    },
+    "season": {
+     "autumn": {
+      "ICON alone": {
+       "n": 222515,
+       "observed": 3009,
+       "hits": 1301,
+       "false_alarms": 3615,
+       "misses": 1708,
+       "pod": 0.432,
+       "far": 0.735,
+       "csi": 0.196,
+       "freq_bias": 1.634
+      },
+      "ECMWF alone": {
+       "n": 222515,
+       "observed": 3009,
+       "hits": 1981,
+       "false_alarms": 9394,
+       "misses": 1028,
+       "pod": 0.658,
+       "far": 0.826,
+       "csi": 0.16,
+       "freq_bias": 3.78
+      },
+      "plain blend = app": {
+       "n": 222515,
+       "observed": 3009,
+       "hits": 1594,
+       "false_alarms": 4897,
+       "misses": 1415,
+       "pod": 0.53,
+       "far": 0.754,
+       "csi": 0.202,
+       "freq_bias": 2.157
+      }
+     },
+     "winter": {
+      "ICON alone": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 6403,
+       "false_alarms": 6850,
+       "misses": 5812,
+       "pod": 0.524,
+       "far": 0.517,
+       "csi": 0.336,
+       "freq_bias": 1.085
+      },
+      "ECMWF alone": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 8748,
+       "false_alarms": 12507,
+       "misses": 3467,
+       "pod": 0.716,
+       "far": 0.588,
+       "csi": 0.354,
+       "freq_bias": 1.74
+      },
+      "plain blend = app": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 7851,
+       "false_alarms": 8499,
+       "misses": 4364,
+       "pod": 0.643,
+       "far": 0.52,
+       "csi": 0.379,
+       "freq_bias": 1.339
+      }
+     },
+     "spring": {
+      "ICON alone": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 2617,
+       "false_alarms": 7579,
+       "misses": 2564,
+       "pod": 0.505,
+       "far": 0.743,
+       "csi": 0.205,
+       "freq_bias": 1.968
+      },
+      "ECMWF alone": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 3644,
+       "false_alarms": 13695,
+       "misses": 1537,
+       "pod": 0.703,
+       "far": 0.79,
+       "csi": 0.193,
+       "freq_bias": 3.347
+      },
+      "plain blend = app": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 3340,
+       "false_alarms": 9170,
+       "misses": 1841,
+       "pod": 0.645,
+       "far": 0.733,
+       "csi": 0.233,
+       "freq_bias": 2.415
+      }
+     },
+     "summer": {
+      "ICON alone": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 1,
+       "false_alarms": 23,
+       "misses": 28,
+       "pod": 0.034,
+       "far": 0.958,
+       "csi": 0.019,
+       "freq_bias": 0.828
+      },
+      "ECMWF alone": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 16,
+       "false_alarms": 1178,
+       "misses": 13,
+       "pod": 0.552,
+       "far": 0.987,
+       "csi": 0.013,
+       "freq_bias": 41.172
+      },
+      "plain blend = app": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 3,
+       "false_alarms": 157,
+       "misses": 26,
+       "pod": 0.103,
+       "far": 0.981,
+       "csi": 0.016,
+       "freq_bias": 5.517
+      }
+     }
+    },
+    "region": {
+     "Golan and Hermon": {
+      "ICON alone": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 647,
+       "false_alarms": 882,
+       "misses": 378,
+       "pod": 0.631,
+       "far": 0.577,
+       "csi": 0.339,
+       "freq_bias": 1.492
+      },
+      "ECMWF alone": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 726,
+       "false_alarms": 1615,
+       "misses": 299,
+       "pod": 0.708,
+       "far": 0.69,
+       "csi": 0.275,
+       "freq_bias": 2.284
+      },
+      "plain blend = app": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 722,
+       "false_alarms": 1060,
+       "misses": 303,
+       "pod": 0.704,
+       "far": 0.595,
+       "csi": 0.346,
+       "freq_bias": 1.739
+      }
+     },
+     "Jordan Valley": {
+      "ICON alone": {
+       "n": 73345,
+       "observed": 1782,
+       "hits": 768,
+       "false_alarms": 1274,
+       "misses": 1014,
+       "pod": 0.431,
+       "far": 0.624,
+       "csi": 0.251,
+       "freq_bias": 1.146
+      },
+      "ECMWF alone": {
+       "n": 73345,
+       "observed": 1782,
+       "hits": 1302,
+       "false_alarms": 4171,
+       "misses": 480,
+       "pod": 0.731,
+       "far": 0.762,
+       "csi": 0.219,
+       "freq_bias": 3.071
+      },
+      "plain blend = app": {
+       "n": 73345,
+       "observed": 1782,
+       "hits": 1159,
+       "false_alarms": 2264,
+       "misses": 623,
+       "pod": 0.65,
+       "far": 0.661,
+       "csi": 0.286,
+       "freq_bias": 1.921
+      }
+     },
+     "Lowlands, valleys and inland": {
+      "ICON alone": {
+       "n": 235306,
+       "observed": 8011,
+       "hits": 4413,
+       "false_alarms": 7047,
+       "misses": 3598,
+       "pod": 0.551,
+       "far": 0.615,
+       "csi": 0.293,
+       "freq_bias": 1.431
+      },
+      "ECMWF alone": {
+       "n": 235306,
+       "observed": 8011,
+       "hits": 5788,
+       "false_alarms": 14193,
+       "misses": 2223,
+       "pod": 0.723,
+       "far": 0.71,
+       "csi": 0.261,
+       "freq_bias": 2.494
+      },
+      "plain blend = app": {
+       "n": 235306,
+       "observed": 8011,
+       "hits": 5243,
+       "false_alarms": 8866,
+       "misses": 2768,
+       "pod": 0.654,
+       "far": 0.628,
+       "csi": 0.311,
+       "freq_bias": 1.761
+      }
+     },
+     "Mountains (Jerusalem, Samaria, Galilee)": {
+      "ICON alone": {
+       "n": 130279,
+       "observed": 4336,
+       "hits": 1771,
+       "false_alarms": 2362,
+       "misses": 2565,
+       "pod": 0.408,
+       "far": 0.571,
+       "csi": 0.264,
+       "freq_bias": 0.953
+      },
+      "ECMWF alone": {
+       "n": 130279,
+       "observed": 4336,
+       "hits": 3001,
+       "false_alarms": 6170,
+       "misses": 1335,
+       "pod": 0.692,
+       "far": 0.673,
+       "csi": 0.286,
+       "freq_bias": 2.115
+      },
+      "plain blend = app": {
+       "n": 130279,
+       "observed": 4336,
+       "hits": 2448,
+       "false_alarms": 3183,
+       "misses": 1888,
+       "pod": 0.565,
+       "far": 0.565,
+       "csi": 0.326,
+       "freq_bias": 1.299
+      }
+     },
+     "Negev": {
+      "ICON alone": {
+       "n": 99075,
+       "observed": 1220,
+       "hits": 451,
+       "false_alarms": 1006,
+       "misses": 769,
+       "pod": 0.37,
+       "far": 0.69,
+       "csi": 0.203,
+       "freq_bias": 1.194
+      },
+      "ECMWF alone": {
+       "n": 99075,
+       "observed": 1220,
+       "hits": 723,
+       "false_alarms": 1704,
+       "misses": 497,
+       "pod": 0.593,
+       "far": 0.702,
+       "csi": 0.247,
+       "freq_bias": 1.989
+      },
+      "plain blend = app": {
+       "n": 99075,
+       "observed": 1220,
+       "hits": 587,
+       "false_alarms": 1057,
+       "misses": 633,
+       "pod": 0.481,
+       "far": 0.643,
+       "csi": 0.258,
+       "freq_bias": 1.348
+      }
+     },
+     "Arava and Eilat": {
+      "ICON alone": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 46,
+       "false_alarms": 182,
+       "misses": 121,
+       "pod": 0.275,
+       "far": 0.798,
+       "csi": 0.132,
+       "freq_bias": 1.365
+      },
+      "ECMWF alone": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 90,
+       "false_alarms": 500,
+       "misses": 77,
+       "pod": 0.539,
+       "far": 0.847,
+       "csi": 0.135,
+       "freq_bias": 3.533
+      },
+      "plain blend = app": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 71,
+       "false_alarms": 327,
+       "misses": 96,
+       "pod": 0.425,
+       "far": 0.822,
+       "csi": 0.144,
+       "freq_bias": 2.383
+      }
+     },
+     "Coastal plain": {
+      "ICON alone": {
+       "n": 127385,
+       "observed": 3566,
+       "hits": 2135,
+       "false_alarms": 5073,
+       "misses": 1431,
+       "pod": 0.599,
+       "far": 0.704,
+       "csi": 0.247,
+       "freq_bias": 2.021
+      },
+      "ECMWF alone": {
+       "n": 127385,
+       "observed": 3566,
+       "hits": 2574,
+       "false_alarms": 7667,
+       "misses": 992,
+       "pod": 0.722,
+       "far": 0.749,
+       "csi": 0.229,
+       "freq_bias": 2.872
+      },
+      "plain blend = app": {
+       "n": 127385,
+       "observed": 3566,
+       "hits": 2423,
+       "false_alarms": 5531,
+       "misses": 1143,
+       "pod": 0.679,
+       "far": 0.695,
+       "csi": 0.266,
+       "freq_bias": 2.231
+      }
+     },
+     "Dead Sea and Judean Desert": {
+      "ICON alone": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 91,
+       "false_alarms": 241,
+       "misses": 236,
+       "pod": 0.278,
+       "far": 0.726,
+       "csi": 0.16,
+       "freq_bias": 1.015
+      },
+      "ECMWF alone": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 185,
+       "false_alarms": 754,
+       "misses": 142,
+       "pod": 0.566,
+       "far": 0.803,
+       "csi": 0.171,
+       "freq_bias": 2.872
+      },
+      "plain blend = app": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 135,
+       "false_alarms": 435,
+       "misses": 192,
+       "pod": 0.413,
+       "far": 0.763,
+       "csi": 0.177,
+       "freq_bias": 1.743
+      }
+     }
+    }
+   },
+   "l2": {
+    "all": {
+     "ICON alone": {
+      "n": 762389,
+      "observed": 20434,
+      "hits": 9528,
+      "false_alarms": 18035,
+      "misses": 10906,
+      "pod": 0.466,
+      "far": 0.654,
+      "csi": 0.248,
+      "freq_bias": 1.349
+     },
+     "ECMWF alone": {
+      "n": 762389,
+      "observed": 20434,
+      "hits": 13640,
+      "false_alarms": 36066,
+      "misses": 6794,
+      "pod": 0.668,
+      "far": 0.726,
+      "csi": 0.241,
+      "freq_bias": 2.433
+     },
+     "plain blend = app": {
+      "n": 762389,
+      "observed": 20434,
+      "hits": 12011,
+      "false_alarms": 22599,
+      "misses": 8423,
+      "pod": 0.588,
+      "far": 0.653,
+      "csi": 0.279,
+      "freq_bias": 1.694
+     }
+    },
+    "season": {
+     "autumn": {
+      "ICON alone": {
+       "n": 223667,
+       "observed": 3009,
+       "hits": 1112,
+       "false_alarms": 3537,
+       "misses": 1897,
+       "pod": 0.37,
+       "far": 0.761,
+       "csi": 0.17,
+       "freq_bias": 1.545
+      },
+      "ECMWF alone": {
+       "n": 223667,
+       "observed": 3009,
+       "hits": 1770,
+       "false_alarms": 8586,
+       "misses": 1239,
+       "pod": 0.588,
+       "far": 0.829,
+       "csi": 0.153,
+       "freq_bias": 3.442
+      },
+      "plain blend = app": {
+       "n": 223667,
+       "observed": 3009,
+       "hits": 1464,
+       "false_alarms": 4512,
+       "misses": 1545,
+       "pod": 0.487,
+       "far": 0.755,
+       "csi": 0.195,
+       "freq_bias": 1.986
+      }
+     },
+     "winter": {
+      "ICON alone": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 6102,
+       "false_alarms": 6882,
+       "misses": 6113,
+       "pod": 0.5,
+       "far": 0.53,
+       "csi": 0.32,
+       "freq_bias": 1.063
+      },
+      "ECMWF alone": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 8254,
+       "false_alarms": 12347,
+       "misses": 3961,
+       "pod": 0.676,
+       "far": 0.599,
+       "csi": 0.336,
+       "freq_bias": 1.687
+      },
+      "plain blend = app": {
+       "n": 177312,
+       "observed": 12215,
+       "hits": 7513,
+       "false_alarms": 8579,
+       "misses": 4702,
+       "pod": 0.615,
+       "far": 0.533,
+       "csi": 0.361,
+       "freq_bias": 1.317
+      }
+     },
+     "spring": {
+      "ICON alone": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 2312,
+       "false_alarms": 7576,
+       "misses": 2869,
+       "pod": 0.446,
+       "far": 0.766,
+       "csi": 0.181,
+       "freq_bias": 1.909
+      },
+      "ECMWF alone": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 3605,
+       "false_alarms": 13857,
+       "misses": 1576,
+       "pod": 0.696,
+       "far": 0.794,
+       "csi": 0.189,
+       "freq_bias": 3.37
+      },
+      "plain blend = app": {
+       "n": 180646,
+       "observed": 5181,
+       "hits": 3032,
+       "false_alarms": 9265,
+       "misses": 2149,
+       "pod": 0.585,
+       "far": 0.753,
+       "csi": 0.21,
+       "freq_bias": 2.373
+      }
+     },
+     "summer": {
+      "ICON alone": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 2,
+       "false_alarms": 40,
+       "misses": 27,
+       "pod": 0.069,
+       "far": 0.952,
+       "csi": 0.029,
+       "freq_bias": 1.448
+      },
+      "ECMWF alone": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 11,
+       "false_alarms": 1276,
+       "misses": 18,
+       "pod": 0.379,
+       "far": 0.991,
+       "csi": 0.008,
+       "freq_bias": 44.379
+      },
+      "plain blend = app": {
+       "n": 180764,
+       "observed": 29,
+       "hits": 2,
+       "false_alarms": 243,
+       "misses": 27,
+       "pod": 0.069,
+       "far": 0.992,
+       "csi": 0.007,
+       "freq_bias": 8.448
+      }
+     }
+    },
+    "region": {
+     "Golan and Hermon": {
+      "ICON alone": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 562,
+       "false_alarms": 863,
+       "misses": 463,
+       "pod": 0.548,
+       "far": 0.606,
+       "csi": 0.298,
+       "freq_bias": 1.39
+      },
+      "ECMWF alone": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 681,
+       "false_alarms": 1574,
+       "misses": 344,
+       "pod": 0.664,
+       "far": 0.698,
+       "csi": 0.262,
+       "freq_bias": 2.2
+      },
+      "plain blend = app": {
+       "n": 27506,
+       "observed": 1025,
+       "hits": 666,
+       "false_alarms": 1088,
+       "misses": 359,
+       "pod": 0.65,
+       "far": 0.62,
+       "csi": 0.315,
+       "freq_bias": 1.711
+      }
+     },
+     "Jordan Valley": {
+      "ICON alone": {
+       "n": 73441,
+       "observed": 1782,
+       "hits": 696,
+       "false_alarms": 1259,
+       "misses": 1086,
+       "pod": 0.391,
+       "far": 0.644,
+       "csi": 0.229,
+       "freq_bias": 1.097
+      },
+      "ECMWF alone": {
+       "n": 73441,
+       "observed": 1782,
+       "hits": 1260,
+       "false_alarms": 4090,
+       "misses": 522,
+       "pod": 0.707,
+       "far": 0.764,
+       "csi": 0.215,
+       "freq_bias": 3.002
+      },
+      "plain blend = app": {
+       "n": 73441,
+       "observed": 1782,
+       "hits": 1093,
+       "false_alarms": 2236,
+       "misses": 689,
+       "pod": 0.613,
+       "far": 0.672,
+       "csi": 0.272,
+       "freq_bias": 1.868
+      }
+     },
+     "Lowlands, valleys and inland": {
+      "ICON alone": {
+       "n": 235786,
+       "observed": 8011,
+       "hits": 4164,
+       "false_alarms": 6952,
+       "misses": 3847,
+       "pod": 0.52,
+       "far": 0.625,
+       "csi": 0.278,
+       "freq_bias": 1.388
+      },
+      "ECMWF alone": {
+       "n": 235786,
+       "observed": 8011,
+       "hits": 5505,
+       "false_alarms": 13725,
+       "misses": 2506,
+       "pod": 0.687,
+       "far": 0.714,
+       "csi": 0.253,
+       "freq_bias": 2.4
+      },
+      "plain blend = app": {
+       "n": 235786,
+       "observed": 8011,
+       "hits": 4996,
+       "false_alarms": 8542,
+       "misses": 3015,
+       "pod": 0.624,
+       "far": 0.631,
+       "csi": 0.302,
+       "freq_bias": 1.69
+      }
+     },
+     "Mountains (Jerusalem, Samaria, Galilee)": {
+      "ICON alone": {
+       "n": 130567,
+       "observed": 4336,
+       "hits": 1629,
+       "false_alarms": 2361,
+       "misses": 2707,
+       "pod": 0.376,
+       "far": 0.592,
+       "csi": 0.243,
+       "freq_bias": 0.92
+      },
+      "ECMWF alone": {
+       "n": 130567,
+       "observed": 4336,
+       "hits": 2869,
+       "false_alarms": 5922,
+       "misses": 1467,
+       "pod": 0.662,
+       "far": 0.674,
+       "csi": 0.28,
+       "freq_bias": 2.027
+      },
+      "plain blend = app": {
+       "n": 130567,
+       "observed": 4336,
+       "hits": 2255,
+       "false_alarms": 3286,
+       "misses": 2081,
+       "pod": 0.52,
+       "far": 0.593,
+       "csi": 0.296,
+       "freq_bias": 1.278
+      }
+     },
+     "Negev": {
+      "ICON alone": {
+       "n": 99171,
+       "observed": 1220,
+       "hits": 382,
+       "false_alarms": 1028,
+       "misses": 838,
+       "pod": 0.313,
+       "far": 0.729,
+       "csi": 0.17,
+       "freq_bias": 1.156
+      },
+      "ECMWF alone": {
+       "n": 99171,
+       "observed": 1220,
+       "hits": 710,
+       "false_alarms": 2038,
+       "misses": 510,
+       "pod": 0.582,
+       "far": 0.742,
+       "csi": 0.218,
+       "freq_bias": 2.252
+      },
+      "plain blend = app": {
+       "n": 99171,
+       "observed": 1220,
+       "hits": 554,
+       "false_alarms": 1212,
+       "misses": 666,
+       "pod": 0.454,
+       "far": 0.686,
+       "csi": 0.228,
+       "freq_bias": 1.448
+      }
+     },
+     "Arava and Eilat": {
+      "ICON alone": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 52,
+       "false_alarms": 240,
+       "misses": 115,
+       "pod": 0.311,
+       "far": 0.822,
+       "csi": 0.128,
+       "freq_bias": 1.749
+      },
+      "ECMWF alone": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 94,
+       "false_alarms": 543,
+       "misses": 73,
+       "pod": 0.563,
+       "far": 0.852,
+       "csi": 0.132,
+       "freq_bias": 3.814
+      },
+      "plain blend = app": {
+       "n": 36838,
+       "observed": 167,
+       "hits": 81,
+       "false_alarms": 379,
+       "misses": 86,
+       "pod": 0.485,
+       "far": 0.824,
+       "csi": 0.148,
+       "freq_bias": 2.754
+      }
+     },
+     "Coastal plain": {
+      "ICON alone": {
+       "n": 127577,
+       "observed": 3566,
+       "hits": 1972,
+       "false_alarms": 5114,
+       "misses": 1594,
+       "pod": 0.553,
+       "far": 0.722,
+       "csi": 0.227,
+       "freq_bias": 1.987
+      },
+      "ECMWF alone": {
+       "n": 127577,
+       "observed": 3566,
+       "hits": 2362,
+       "false_alarms": 7466,
+       "misses": 1204,
+       "pod": 0.662,
+       "far": 0.76,
+       "csi": 0.214,
+       "freq_bias": 2.756
+      },
+      "plain blend = app": {
+       "n": 127577,
+       "observed": 3566,
+       "hits": 2246,
+       "false_alarms": 5475,
+       "misses": 1320,
+       "pod": 0.63,
+       "far": 0.709,
+       "csi": 0.248,
+       "freq_bias": 2.165
+      }
+     },
+     "Dead Sea and Judean Desert": {
+      "ICON alone": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 71,
+       "false_alarms": 218,
+       "misses": 256,
+       "pod": 0.217,
+       "far": 0.754,
+       "csi": 0.13,
+       "freq_bias": 0.884
+      },
+      "ECMWF alone": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 159,
+       "false_alarms": 708,
+       "misses": 168,
+       "pod": 0.486,
+       "far": 0.817,
+       "csi": 0.154,
+       "freq_bias": 2.651
+      },
+      "plain blend = app": {
+       "n": 31503,
+       "observed": 327,
+       "hits": 120,
+       "false_alarms": 381,
+       "misses": 207,
+       "pod": 0.367,
+       "far": 0.76,
+       "csi": 0.169,
+       "freq_bias": 1.532
+      }
+     }
+    }
+   }
+  },
+  "day": {
+   "l0": {
+    "all": {
+     "ICON alone": {
+      "n": 31563,
+      "observed": 3491,
+      "hits": 2560,
+      "false_alarms": 737,
+      "misses": 931,
+      "pod": 0.733,
+      "far": 0.224,
+      "csi": 0.605,
+      "freq_bias": 0.944
+     },
+     "ECMWF alone": {
+      "n": 31563,
+      "observed": 3491,
+      "hits": 3077,
+      "false_alarms": 2190,
+      "misses": 414,
+      "pod": 0.881,
+      "far": 0.416,
+      "csi": 0.542,
+      "freq_bias": 1.509
+     },
+     "plain blend = app": {
+      "n": 31563,
+      "observed": 3491,
+      "hits": 2942,
+      "false_alarms": 1337,
+      "misses": 549,
+      "pod": 0.843,
+      "far": 0.312,
+      "csi": 0.609,
+      "freq_bias": 1.226
+     }
+    },
+    "season": {
+     "autumn": {
+      "ICON alone": {
+       "n": 9208,
+       "observed": 631,
+       "hits": 414,
+       "false_alarms": 177,
+       "misses": 217,
+       "pod": 0.656,
+       "far": 0.299,
+       "csi": 0.512,
+       "freq_bias": 0.937
+      },
+      "ECMWF alone": {
+       "n": 9208,
+       "observed": 631,
+       "hits": 552,
+       "false_alarms": 659,
+       "misses": 79,
+       "pod": 0.875,
+       "far": 0.544,
+       "csi": 0.428,
+       "freq_bias": 1.919
+      },
+      "plain blend = app": {
+       "n": 9208,
+       "observed": 631,
+       "hits": 503,
+       "false_alarms": 333,
+       "misses": 128,
+       "pod": 0.797,
+       "far": 0.398,
+       "csi": 0.522,
+       "freq_bias": 1.325
+      }
+     },
+     "winter": {
+      "ICON alone": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1282,
+       "false_alarms": 215,
+       "misses": 518,
+       "pod": 0.712,
+       "far": 0.144,
+       "csi": 0.636,
+       "freq_bias": 0.832
+      },
+      "ECMWF alone": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1550,
+       "false_alarms": 521,
+       "misses": 250,
+       "pod": 0.861,
+       "far": 0.252,
+       "csi": 0.668,
+       "freq_bias": 1.151
+      },
+      "plain blend = app": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1487,
+       "false_alarms": 346,
+       "misses": 313,
+       "pod": 0.826,
+       "far": 0.189,
+       "csi": 0.693,
+       "freq_bias": 1.018
+      }
+     },
+     "spring": {
+      "ICON alone": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 864,
+       "false_alarms": 343,
+       "misses": 185,
+       "pod": 0.824,
+       "far": 0.284,
+       "csi": 0.621,
+       "freq_bias": 1.151
+      },
+      "ECMWF alone": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 975,
+       "false_alarms": 872,
+       "misses": 74,
+       "pod": 0.929,
+       "far": 0.472,
+       "csi": 0.508,
+       "freq_bias": 1.761
+      },
+      "plain blend = app": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 952,
+       "false_alarms": 617,
+       "misses": 97,
+       "pod": 0.908,
+       "far": 0.393,
+       "csi": 0.571,
+       "freq_bias": 1.496
+      }
+     },
+     "summer": {
+      "ICON alone": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 0,
+       "false_alarms": 2,
+       "misses": 11,
+       "pod": 0.0,
+       "far": 1.0,
+       "csi": 0.0,
+       "freq_bias": 0.182
+      },
+      "ECMWF alone": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 0,
+       "false_alarms": 138,
+       "misses": 11,
+       "pod": 0.0,
+       "far": 1.0,
+       "csi": 0.0,
+       "freq_bias": 12.545
+      },
+      "plain blend = app": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 0,
+       "false_alarms": 41,
+       "misses": 11,
+       "pod": 0.0,
+       "far": 1.0,
+       "csi": 0.0,
+       "freq_bias": 3.727
+      }
+     }
+    },
+    "region": {
+     "Golan and Hermon": {
+      "ICON alone": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 120,
+       "false_alarms": 25,
+       "misses": 35,
+       "pod": 0.774,
+       "far": 0.172,
+       "csi": 0.667,
+       "freq_bias": 0.935
+      },
+      "ECMWF alone": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 139,
+       "false_alarms": 85,
+       "misses": 16,
+       "pod": 0.897,
+       "far": 0.379,
+       "csi": 0.579,
+       "freq_bias": 1.445
+      },
+      "plain blend = app": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 136,
+       "false_alarms": 52,
+       "misses": 19,
+       "pod": 0.877,
+       "far": 0.277,
+       "csi": 0.657,
+       "freq_bias": 1.213
+      }
+     },
+     "Jordan Valley": {
+      "ICON alone": {
+       "n": 3041,
+       "observed": 323,
+       "hits": 230,
+       "false_alarms": 53,
+       "misses": 93,
+       "pod": 0.712,
+       "far": 0.187,
+       "csi": 0.612,
+       "freq_bias": 0.876
+      },
+      "ECMWF alone": {
+       "n": 3041,
+       "observed": 323,
+       "hits": 295,
+       "false_alarms": 273,
+       "misses": 28,
+       "pod": 0.913,
+       "far": 0.481,
+       "csi": 0.495,
+       "freq_bias": 1.759
+      },
+      "plain blend = app": {
+       "n": 3041,
+       "observed": 323,
+       "hits": 280,
+       "false_alarms": 129,
+       "misses": 43,
+       "pod": 0.867,
+       "far": 0.315,
+       "csi": 0.619,
+       "freq_bias": 1.266
+      }
+     },
+     "Lowlands, valleys and inland": {
+      "ICON alone": {
+       "n": 9755,
+       "observed": 1325,
+       "hits": 1006,
+       "false_alarms": 279,
+       "misses": 319,
+       "pod": 0.759,
+       "far": 0.217,
+       "csi": 0.627,
+       "freq_bias": 0.97
+      },
+      "ECMWF alone": {
+       "n": 9755,
+       "observed": 1325,
+       "hits": 1171,
+       "false_alarms": 850,
+       "misses": 154,
+       "pod": 0.884,
+       "far": 0.421,
+       "csi": 0.538,
+       "freq_bias": 1.525
+      },
+      "plain blend = app": {
+       "n": 9755,
+       "observed": 1325,
+       "hits": 1118,
+       "false_alarms": 515,
+       "misses": 207,
+       "pod": 0.844,
+       "far": 0.315,
+       "csi": 0.608,
+       "freq_bias": 1.232
+      }
+     },
+     "Mountains (Jerusalem, Samaria, Galilee)": {
+      "ICON alone": {
+       "n": 5398,
+       "observed": 681,
+       "hits": 458,
+       "false_alarms": 99,
+       "misses": 223,
+       "pod": 0.673,
+       "far": 0.178,
+       "csi": 0.587,
+       "freq_bias": 0.818
+      },
+      "ECMWF alone": {
+       "n": 5398,
+       "observed": 681,
+       "hits": 604,
+       "false_alarms": 346,
+       "misses": 77,
+       "pod": 0.887,
+       "far": 0.364,
+       "csi": 0.588,
+       "freq_bias": 1.395
+      },
+      "plain blend = app": {
+       "n": 5398,
+       "observed": 681,
+       "hits": 562,
+       "false_alarms": 200,
+       "misses": 119,
+       "pod": 0.825,
+       "far": 0.262,
+       "csi": 0.638,
+       "freq_bias": 1.119
+      }
+     },
+     "Negev": {
+      "ICON alone": {
+       "n": 4113,
+       "observed": 240,
+       "hits": 170,
+       "false_alarms": 62,
+       "misses": 70,
+       "pod": 0.708,
+       "far": 0.267,
+       "csi": 0.563,
+       "freq_bias": 0.967
+      },
+      "ECMWF alone": {
+       "n": 4113,
+       "observed": 240,
+       "hits": 201,
+       "false_alarms": 124,
+       "misses": 39,
+       "pod": 0.838,
+       "far": 0.382,
+       "csi": 0.552,
+       "freq_bias": 1.354
+      },
+      "plain blend = app": {
+       "n": 4113,
+       "observed": 240,
+       "hits": 197,
+       "false_alarms": 98,
+       "misses": 43,
+       "pod": 0.821,
+       "far": 0.332,
+       "csi": 0.583,
+       "freq_bias": 1.229
+      }
+     },
+     "Arava and Eilat": {
+      "ICON alone": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 26,
+       "false_alarms": 19,
+       "misses": 13,
+       "pod": 0.667,
+       "far": 0.422,
+       "csi": 0.448,
+       "freq_bias": 1.154
+      },
+      "ECMWF alone": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 34,
+       "false_alarms": 62,
+       "misses": 5,
+       "pod": 0.872,
+       "far": 0.646,
+       "csi": 0.337,
+       "freq_bias": 2.462
+      },
+      "plain blend = app": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 34,
+       "false_alarms": 44,
+       "misses": 5,
+       "pod": 0.872,
+       "far": 0.564,
+       "csi": 0.41,
+       "freq_bias": 2.0
+      }
+     },
+     "Coastal plain": {
+      "ICON alone": {
+       "n": 5291,
+       "observed": 644,
+       "hits": 501,
+       "false_alarms": 183,
+       "misses": 143,
+       "pod": 0.778,
+       "far": 0.268,
+       "csi": 0.606,
+       "freq_bias": 1.062
+      },
+      "ECMWF alone": {
+       "n": 5291,
+       "observed": 644,
+       "hits": 559,
+       "false_alarms": 409,
+       "misses": 85,
+       "pod": 0.868,
+       "far": 0.423,
+       "csi": 0.531,
+       "freq_bias": 1.503
+      },
+      "plain blend = app": {
+       "n": 5291,
+       "observed": 644,
+       "hits": 544,
+       "false_alarms": 265,
+       "misses": 100,
+       "pod": 0.845,
+       "far": 0.328,
+       "csi": 0.598,
+       "freq_bias": 1.256
+      }
+     },
+     "Dead Sea and Judean Desert": {
+      "ICON alone": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 49,
+       "false_alarms": 17,
+       "misses": 35,
+       "pod": 0.583,
+       "far": 0.258,
+       "csi": 0.485,
+       "freq_bias": 0.786
+      },
+      "ECMWF alone": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 74,
+       "false_alarms": 41,
+       "misses": 10,
+       "pod": 0.881,
+       "far": 0.357,
+       "csi": 0.592,
+       "freq_bias": 1.369
+      },
+      "plain blend = app": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 71,
+       "false_alarms": 34,
+       "misses": 13,
+       "pod": 0.845,
+       "far": 0.324,
+       "csi": 0.602,
+       "freq_bias": 1.25
+      }
+     }
+    }
+   },
+   "l1": {
+    "all": {
+     "ICON alone": {
+      "n": 31515,
+      "observed": 3491,
+      "hits": 2450,
+      "false_alarms": 747,
+      "misses": 1041,
+      "pod": 0.702,
+      "far": 0.234,
+      "csi": 0.578,
+      "freq_bias": 0.916
+     },
+     "ECMWF alone": {
+      "n": 31515,
+      "observed": 3491,
+      "hits": 3069,
+      "false_alarms": 2345,
+      "misses": 422,
+      "pod": 0.879,
+      "far": 0.433,
+      "csi": 0.526,
+      "freq_bias": 1.551
+     },
+     "plain blend = app": {
+      "n": 31515,
+      "observed": 3491,
+      "hits": 2925,
+      "false_alarms": 1419,
+      "misses": 566,
+      "pod": 0.838,
+      "far": 0.327,
+      "csi": 0.596,
+      "freq_bias": 1.244
+     }
+    },
+    "season": {
+     "autumn": {
+      "ICON alone": {
+       "n": 9160,
+       "observed": 631,
+       "hits": 403,
+       "false_alarms": 167,
+       "misses": 228,
+       "pod": 0.639,
+       "far": 0.293,
+       "csi": 0.505,
+       "freq_bias": 0.903
+      },
+      "ECMWF alone": {
+       "n": 9160,
+       "observed": 631,
+       "hits": 541,
+       "false_alarms": 720,
+       "misses": 90,
+       "pod": 0.857,
+       "far": 0.571,
+       "csi": 0.4,
+       "freq_bias": 1.998
+      },
+      "plain blend = app": {
+       "n": 9160,
+       "observed": 631,
+       "hits": 507,
+       "false_alarms": 405,
+       "misses": 124,
+       "pod": 0.803,
+       "far": 0.444,
+       "csi": 0.489,
+       "freq_bias": 1.445
+      }
+     },
+     "winter": {
+      "ICON alone": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1216,
+       "false_alarms": 191,
+       "misses": 584,
+       "pod": 0.676,
+       "far": 0.136,
+       "csi": 0.611,
+       "freq_bias": 0.782
+      },
+      "ECMWF alone": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1557,
+       "false_alarms": 562,
+       "misses": 243,
+       "pod": 0.865,
+       "far": 0.265,
+       "csi": 0.659,
+       "freq_bias": 1.177
+      },
+      "plain blend = app": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1455,
+       "false_alarms": 347,
+       "misses": 345,
+       "pod": 0.808,
+       "far": 0.193,
+       "csi": 0.678,
+       "freq_bias": 1.001
+      }
+     },
+     "spring": {
+      "ICON alone": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 831,
+       "false_alarms": 389,
+       "misses": 218,
+       "pod": 0.792,
+       "far": 0.319,
+       "csi": 0.578,
+       "freq_bias": 1.163
+      },
+      "ECMWF alone": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 968,
+       "false_alarms": 883,
+       "misses": 81,
+       "pod": 0.923,
+       "far": 0.477,
+       "csi": 0.501,
+       "freq_bias": 1.765
+      },
+      "plain blend = app": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 961,
+       "false_alarms": 618,
+       "misses": 88,
+       "pod": 0.916,
+       "far": 0.391,
+       "csi": 0.576,
+       "freq_bias": 1.505
+      }
+     },
+     "summer": {
+      "ICON alone": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 0,
+       "false_alarms": 0,
+       "misses": 11,
+       "pod": 0.0,
+       "far": null,
+       "csi": 0.0,
+       "freq_bias": 0.0
+      },
+      "ECMWF alone": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 3,
+       "false_alarms": 180,
+       "misses": 8,
+       "pod": 0.273,
+       "far": 0.984,
+       "csi": 0.016,
+       "freq_bias": 16.636
+      },
+      "plain blend = app": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 2,
+       "false_alarms": 49,
+       "misses": 9,
+       "pod": 0.182,
+       "far": 0.961,
+       "csi": 0.033,
+       "freq_bias": 4.636
+      }
+     }
+    },
+    "region": {
+     "Golan and Hermon": {
+      "ICON alone": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 124,
+       "false_alarms": 32,
+       "misses": 31,
+       "pod": 0.8,
+       "far": 0.205,
+       "csi": 0.663,
+       "freq_bias": 1.006
+      },
+      "ECMWF alone": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 139,
+       "false_alarms": 94,
+       "misses": 16,
+       "pod": 0.897,
+       "far": 0.403,
+       "csi": 0.558,
+       "freq_bias": 1.503
+      },
+      "plain blend = app": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 141,
+       "false_alarms": 58,
+       "misses": 14,
+       "pod": 0.91,
+       "far": 0.291,
+       "csi": 0.662,
+       "freq_bias": 1.284
+      }
+     },
+     "Jordan Valley": {
+      "ICON alone": {
+       "n": 3037,
+       "observed": 323,
+       "hits": 206,
+       "false_alarms": 33,
+       "misses": 117,
+       "pod": 0.638,
+       "far": 0.138,
+       "csi": 0.579,
+       "freq_bias": 0.74
+      },
+      "ECMWF alone": {
+       "n": 3037,
+       "observed": 323,
+       "hits": 291,
+       "false_alarms": 283,
+       "misses": 32,
+       "pod": 0.901,
+       "far": 0.493,
+       "csi": 0.48,
+       "freq_bias": 1.777
+      },
+      "plain blend = app": {
+       "n": 3037,
+       "observed": 323,
+       "hits": 276,
+       "false_alarms": 141,
+       "misses": 47,
+       "pod": 0.854,
+       "far": 0.338,
+       "csi": 0.595,
+       "freq_bias": 1.291
+      }
+     },
+     "Lowlands, valleys and inland": {
+      "ICON alone": {
+       "n": 9735,
+       "observed": 1325,
+       "hits": 997,
+       "false_alarms": 284,
+       "misses": 328,
+       "pod": 0.752,
+       "far": 0.222,
+       "csi": 0.62,
+       "freq_bias": 0.967
+      },
+      "ECMWF alone": {
+       "n": 9735,
+       "observed": 1325,
+       "hits": 1171,
+       "false_alarms": 903,
+       "misses": 154,
+       "pod": 0.884,
+       "far": 0.435,
+       "csi": 0.526,
+       "freq_bias": 1.565
+      },
+      "plain blend = app": {
+       "n": 9735,
+       "observed": 1325,
+       "hits": 1122,
+       "false_alarms": 535,
+       "misses": 203,
+       "pod": 0.847,
+       "far": 0.323,
+       "csi": 0.603,
+       "freq_bias": 1.251
+      }
+     },
+     "Mountains (Jerusalem, Samaria, Galilee)": {
+      "ICON alone": {
+       "n": 5386,
+       "observed": 681,
+       "hits": 417,
+       "false_alarms": 112,
+       "misses": 264,
+       "pod": 0.612,
+       "far": 0.212,
+       "csi": 0.526,
+       "freq_bias": 0.777
+      },
+      "ECMWF alone": {
+       "n": 5386,
+       "observed": 681,
+       "hits": 595,
+       "false_alarms": 378,
+       "misses": 86,
+       "pod": 0.874,
+       "far": 0.388,
+       "csi": 0.562,
+       "freq_bias": 1.429
+      },
+      "plain blend = app": {
+       "n": 5386,
+       "observed": 681,
+       "hits": 556,
+       "false_alarms": 213,
+       "misses": 125,
+       "pod": 0.816,
+       "far": 0.277,
+       "csi": 0.622,
+       "freq_bias": 1.129
+      }
+     },
+     "Negev": {
+      "ICON alone": {
+       "n": 4109,
+       "observed": 240,
+       "hits": 152,
+       "false_alarms": 55,
+       "misses": 88,
+       "pod": 0.633,
+       "far": 0.266,
+       "csi": 0.515,
+       "freq_bias": 0.863
+      },
+      "ECMWF alone": {
+       "n": 4109,
+       "observed": 240,
+       "hits": 194,
+       "false_alarms": 127,
+       "misses": 46,
+       "pod": 0.808,
+       "far": 0.396,
+       "csi": 0.529,
+       "freq_bias": 1.337
+      },
+      "plain blend = app": {
+       "n": 4109,
+       "observed": 240,
+       "hits": 189,
+       "false_alarms": 82,
+       "misses": 51,
+       "pod": 0.787,
+       "far": 0.303,
+       "csi": 0.587,
+       "freq_bias": 1.129
+      }
+     },
+     "Arava and Eilat": {
+      "ICON alone": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 18,
+       "false_alarms": 17,
+       "misses": 21,
+       "pod": 0.462,
+       "far": 0.486,
+       "csi": 0.321,
+       "freq_bias": 0.897
+      },
+      "ECMWF alone": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 30,
+       "false_alarms": 49,
+       "misses": 9,
+       "pod": 0.769,
+       "far": 0.62,
+       "csi": 0.341,
+       "freq_bias": 2.026
+      },
+      "plain blend = app": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 29,
+       "false_alarms": 36,
+       "misses": 10,
+       "pod": 0.744,
+       "far": 0.554,
+       "csi": 0.387,
+       "freq_bias": 1.667
+      }
+     },
+     "Coastal plain": {
+      "ICON alone": {
+       "n": 5283,
+       "observed": 644,
+       "hits": 496,
+       "false_alarms": 203,
+       "misses": 148,
+       "pod": 0.77,
+       "far": 0.29,
+       "csi": 0.586,
+       "freq_bias": 1.085
+      },
+      "ECMWF alone": {
+       "n": 5283,
+       "observed": 644,
+       "hits": 581,
+       "false_alarms": 469,
+       "misses": 63,
+       "pod": 0.902,
+       "far": 0.447,
+       "csi": 0.522,
+       "freq_bias": 1.63
+      },
+      "plain blend = app": {
+       "n": 5283,
+       "observed": 644,
+       "hits": 548,
+       "false_alarms": 320,
+       "misses": 96,
+       "pod": 0.851,
+       "far": 0.369,
+       "csi": 0.568,
+       "freq_bias": 1.348
+      }
+     },
+     "Dead Sea and Judean Desert": {
+      "ICON alone": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 40,
+       "false_alarms": 11,
+       "misses": 44,
+       "pod": 0.476,
+       "far": 0.216,
+       "csi": 0.421,
+       "freq_bias": 0.607
+      },
+      "ECMWF alone": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 68,
+       "false_alarms": 42,
+       "misses": 16,
+       "pod": 0.81,
+       "far": 0.382,
+       "csi": 0.54,
+       "freq_bias": 1.31
+      },
+      "plain blend = app": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 64,
+       "false_alarms": 34,
+       "misses": 20,
+       "pod": 0.762,
+       "far": 0.347,
+       "csi": 0.542,
+       "freq_bias": 1.167
+      }
+     }
+    }
+   },
+   "l2": {
+    "all": {
+     "ICON alone": {
+      "n": 31563,
+      "observed": 3491,
+      "hits": 2368,
+      "false_alarms": 781,
+      "misses": 1123,
+      "pod": 0.678,
+      "far": 0.248,
+      "csi": 0.554,
+      "freq_bias": 0.902
+     },
+     "ECMWF alone": {
+      "n": 31563,
+      "observed": 3491,
+      "hits": 3016,
+      "false_alarms": 2241,
+      "misses": 475,
+      "pod": 0.864,
+      "far": 0.426,
+      "csi": 0.526,
+      "freq_bias": 1.506
+     },
+     "plain blend = app": {
+      "n": 31563,
+      "observed": 3491,
+      "hits": 2833,
+      "false_alarms": 1344,
+      "misses": 658,
+      "pod": 0.812,
+      "far": 0.322,
+      "csi": 0.586,
+      "freq_bias": 1.197
+     }
+    },
+    "season": {
+     "autumn": {
+      "ICON alone": {
+       "n": 9208,
+       "observed": 631,
+       "hits": 354,
+       "false_alarms": 150,
+       "misses": 277,
+       "pod": 0.561,
+       "far": 0.298,
+       "csi": 0.453,
+       "freq_bias": 0.799
+      },
+      "ECMWF alone": {
+       "n": 9208,
+       "observed": 631,
+       "hits": 502,
+       "false_alarms": 637,
+       "misses": 129,
+       "pod": 0.796,
+       "far": 0.559,
+       "csi": 0.396,
+       "freq_bias": 1.805
+      },
+      "plain blend = app": {
+       "n": 9208,
+       "observed": 631,
+       "hits": 457,
+       "false_alarms": 346,
+       "misses": 174,
+       "pod": 0.724,
+       "far": 0.431,
+       "csi": 0.468,
+       "freq_bias": 1.273
+      }
+     },
+     "winter": {
+      "ICON alone": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1216,
+       "false_alarms": 240,
+       "misses": 584,
+       "pod": 0.676,
+       "far": 0.165,
+       "csi": 0.596,
+       "freq_bias": 0.809
+      },
+      "ECMWF alone": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1530,
+       "false_alarms": 546,
+       "misses": 270,
+       "pod": 0.85,
+       "far": 0.263,
+       "csi": 0.652,
+       "freq_bias": 1.153
+      },
+      "plain blend = app": {
+       "n": 7342,
+       "observed": 1800,
+       "hits": 1426,
+       "false_alarms": 339,
+       "misses": 374,
+       "pod": 0.792,
+       "far": 0.192,
+       "csi": 0.667,
+       "freq_bias": 0.981
+      }
+     },
+     "spring": {
+      "ICON alone": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 798,
+       "false_alarms": 391,
+       "misses": 251,
+       "pod": 0.761,
+       "far": 0.329,
+       "csi": 0.554,
+       "freq_bias": 1.133
+      },
+      "ECMWF alone": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 978,
+       "false_alarms": 863,
+       "misses": 71,
+       "pod": 0.932,
+       "far": 0.469,
+       "csi": 0.512,
+       "freq_bias": 1.755
+      },
+      "plain blend = app": {
+       "n": 7509,
+       "observed": 1049,
+       "hits": 949,
+       "false_alarms": 606,
+       "misses": 100,
+       "pod": 0.905,
+       "far": 0.39,
+       "csi": 0.573,
+       "freq_bias": 1.482
+      }
+     },
+     "summer": {
+      "ICON alone": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 0,
+       "false_alarms": 0,
+       "misses": 11,
+       "pod": 0.0,
+       "far": null,
+       "csi": 0.0,
+       "freq_bias": 0.0
+      },
+      "ECMWF alone": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 6,
+       "false_alarms": 195,
+       "misses": 5,
+       "pod": 0.545,
+       "far": 0.97,
+       "csi": 0.029,
+       "freq_bias": 18.273
+      },
+      "plain blend = app": {
+       "n": 7504,
+       "observed": 11,
+       "hits": 1,
+       "false_alarms": 53,
+       "misses": 10,
+       "pod": 0.091,
+       "far": 0.981,
+       "csi": 0.016,
+       "freq_bias": 4.909
+      }
+     }
+    },
+    "region": {
+     "Golan and Hermon": {
+      "ICON alone": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 112,
+       "false_alarms": 38,
+       "misses": 43,
+       "pod": 0.723,
+       "far": 0.253,
+       "csi": 0.58,
+       "freq_bias": 0.968
+      },
+      "ECMWF alone": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 132,
+       "false_alarms": 84,
+       "misses": 23,
+       "pod": 0.852,
+       "far": 0.389,
+       "csi": 0.552,
+       "freq_bias": 1.394
+      },
+      "plain blend = app": {
+       "n": 1133,
+       "observed": 155,
+       "hits": 128,
+       "false_alarms": 57,
+       "misses": 27,
+       "pod": 0.826,
+       "far": 0.308,
+       "csi": 0.604,
+       "freq_bias": 1.194
+      }
+     },
+     "Jordan Valley": {
+      "ICON alone": {
+       "n": 3041,
+       "observed": 323,
+       "hits": 187,
+       "false_alarms": 40,
+       "misses": 136,
+       "pod": 0.579,
+       "far": 0.176,
+       "csi": 0.515,
+       "freq_bias": 0.703
+      },
+      "ECMWF alone": {
+       "n": 3041,
+       "observed": 323,
+       "hits": 281,
+       "false_alarms": 277,
+       "misses": 42,
+       "pod": 0.87,
+       "far": 0.496,
+       "csi": 0.468,
+       "freq_bias": 1.728
+      },
+      "plain blend = app": {
+       "n": 3041,
+       "observed": 323,
+       "hits": 262,
+       "false_alarms": 131,
+       "misses": 61,
+       "pod": 0.811,
+       "far": 0.333,
+       "csi": 0.577,
+       "freq_bias": 1.217
+      }
+     },
+     "Lowlands, valleys and inland": {
+      "ICON alone": {
+       "n": 9755,
+       "observed": 1325,
+       "hits": 961,
+       "false_alarms": 262,
+       "misses": 364,
+       "pod": 0.725,
+       "far": 0.214,
+       "csi": 0.606,
+       "freq_bias": 0.923
+      },
+      "ECMWF alone": {
+       "n": 9755,
+       "observed": 1325,
+       "hits": 1149,
+       "false_alarms": 823,
+       "misses": 176,
+       "pod": 0.867,
+       "far": 0.417,
+       "csi": 0.535,
+       "freq_bias": 1.488
+      },
+      "plain blend = app": {
+       "n": 9755,
+       "observed": 1325,
+       "hits": 1090,
+       "false_alarms": 495,
+       "misses": 235,
+       "pod": 0.823,
+       "far": 0.312,
+       "csi": 0.599,
+       "freq_bias": 1.196
+      }
+     },
+     "Mountains (Jerusalem, Samaria, Galilee)": {
+      "ICON alone": {
+       "n": 5398,
+       "observed": 681,
+       "hits": 390,
+       "false_alarms": 118,
+       "misses": 291,
+       "pod": 0.573,
+       "far": 0.232,
+       "csi": 0.488,
+       "freq_bias": 0.746
+      },
+      "ECMWF alone": {
+       "n": 5398,
+       "observed": 681,
+       "hits": 590,
+       "false_alarms": 362,
+       "misses": 91,
+       "pod": 0.866,
+       "far": 0.38,
+       "csi": 0.566,
+       "freq_bias": 1.398
+      },
+      "plain blend = app": {
+       "n": 5398,
+       "observed": 681,
+       "hits": 524,
+       "false_alarms": 185,
+       "misses": 157,
+       "pod": 0.769,
+       "far": 0.261,
+       "csi": 0.605,
+       "freq_bias": 1.041
+      }
+     },
+     "Negev": {
+      "ICON alone": {
+       "n": 4113,
+       "observed": 240,
+       "hits": 163,
+       "false_alarms": 74,
+       "misses": 77,
+       "pod": 0.679,
+       "far": 0.312,
+       "csi": 0.519,
+       "freq_bias": 0.988
+      },
+      "ECMWF alone": {
+       "n": 4113,
+       "observed": 240,
+       "hits": 204,
+       "false_alarms": 139,
+       "misses": 36,
+       "pod": 0.85,
+       "far": 0.405,
+       "csi": 0.538,
+       "freq_bias": 1.429
+      },
+      "plain blend = app": {
+       "n": 4113,
+       "observed": 240,
+       "hits": 194,
+       "false_alarms": 89,
+       "misses": 46,
+       "pod": 0.808,
+       "far": 0.314,
+       "csi": 0.59,
+       "freq_bias": 1.179
+      }
+     },
+     "Arava and Eilat": {
+      "ICON alone": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 20,
+       "false_alarms": 32,
+       "misses": 19,
+       "pod": 0.513,
+       "far": 0.615,
+       "csi": 0.282,
+       "freq_bias": 1.333
+      },
+      "ECMWF alone": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 29,
+       "false_alarms": 55,
+       "misses": 10,
+       "pod": 0.744,
+       "far": 0.655,
+       "csi": 0.309,
+       "freq_bias": 2.154
+      },
+      "plain blend = app": {
+       "n": 1525,
+       "observed": 39,
+       "hits": 30,
+       "false_alarms": 50,
+       "misses": 9,
+       "pod": 0.769,
+       "far": 0.625,
+       "csi": 0.337,
+       "freq_bias": 2.051
+      }
+     },
+     "Coastal plain": {
+      "ICON alone": {
+       "n": 5291,
+       "observed": 644,
+       "hits": 502,
+       "false_alarms": 202,
+       "misses": 142,
+       "pod": 0.78,
+       "far": 0.287,
+       "csi": 0.593,
+       "freq_bias": 1.093
+      },
+      "ECMWF alone": {
+       "n": 5291,
+       "observed": 644,
+       "hits": 567,
+       "false_alarms": 454,
+       "misses": 77,
+       "pod": 0.88,
+       "far": 0.445,
+       "csi": 0.516,
+       "freq_bias": 1.585
+      },
+      "plain blend = app": {
+       "n": 5291,
+       "observed": 644,
+       "hits": 546,
+       "false_alarms": 303,
+       "misses": 98,
+       "pod": 0.848,
+       "far": 0.357,
+       "csi": 0.577,
+       "freq_bias": 1.318
+      }
+     },
+     "Dead Sea and Judean Desert": {
+      "ICON alone": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 33,
+       "false_alarms": 15,
+       "misses": 51,
+       "pod": 0.393,
+       "far": 0.312,
+       "csi": 0.333,
+       "freq_bias": 0.571
+      },
+      "ECMWF alone": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 64,
+       "false_alarms": 47,
+       "misses": 20,
+       "pod": 0.762,
+       "far": 0.423,
+       "csi": 0.489,
+       "freq_bias": 1.321
+      },
+      "plain blend = app": {
+       "n": 1307,
+       "observed": 84,
+       "hits": 59,
+       "false_alarms": 34,
+       "misses": 25,
+       "pod": 0.702,
+       "far": 0.366,
+       "csi": 0.5,
+       "freq_bias": 1.107
+      }
+     }
+    }
+   }
+  }
+ },
+ "rain_probability": null
+}
